@@ -198,8 +198,22 @@ export const RegistryItem = z.discriminatedUnion('kind', [
 export type RegistryItem = z.infer<typeof RegistryItem>;
 export type RegistryDetails<K extends RegistryKind> = Extract<RegistryItem, { kind: K }>['details'];
 
-/** An item as the catalog lists it: what every kind has, without its details. */
-export const RegistrySummary = Base.extend({ kind: RegistryKind });
+/** What a catalog card shows beyond the basics, taken from the item's details. */
+export const RegistryCard = z.object({
+  /** A short state: Verified, Approval on writes, Active, Parquet, Foundation… */
+  badge: z.string(),
+  badgeTone: z.enum(['ok', 'warn', 'info', 'neutral']),
+  /** The line under the name: slug and version, or what stands in for them. */
+  meta: z.string(),
+  /** Up to three figures: "3 tools", "213k installs". */
+  stats: z.array(z.string()).max(3),
+  /** What the catalog can filter by (a model's task), if anything. */
+  facet: z.string().nullable(),
+});
+export type RegistryCard = z.infer<typeof RegistryCard>;
+
+/** An item as the catalog lists it: what every kind has and its card, without its details. */
+export const RegistrySummary = Base.extend({ kind: RegistryKind, card: RegistryCard });
 export type RegistrySummary = z.infer<typeof RegistrySummary>;
 
 /** Mine: what the person owns. Team: what teams own. All: everything they can see. */

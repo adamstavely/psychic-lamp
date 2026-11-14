@@ -9,6 +9,7 @@ import { Inject, Injectable, Logger, NotFoundException, type OnApplicationBootst
 import { and, asc, count, eq, inArray, isNotNull, or, sql, type SQL } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module.js';
 import { registryItems } from '../db/schema.js';
+import { cardFor, type CardInput } from './registry-card.js';
 import { REGISTRY_SEED } from './registry.fixture.js';
 import { RegistrySearch, registryDocId, type RegistryDoc } from './registry-search.js';
 
@@ -167,6 +168,14 @@ function toSummary(r: Row): RegistrySummary {
     owner: { team: r.ownerTeam, personId: r.ownerId, name: r.ownerName },
     status: r.status,
     updatedAt: r.updatedAt.toISOString(),
+    // A row's details belong to its kind (checked on the way in), which the table's types can't say.
+    card: cardFor({
+      kind: r.kind,
+      details: r.details,
+      slug: r.slug,
+      version: r.version,
+      status: r.status,
+    } as CardInput),
   };
 }
 
