@@ -1,0 +1,26 @@
+# Settings that aren't secret. Secrets (DATABASE_URL, ELASTICSEARCH_API_KEY, ELASTICSEARCH_CA_PEM) live in the
+# donovan-api-secrets Secret, created from your secret store; see docs/pilot-runbook.md.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: donovan-api
+  namespace: donovan
+data:
+  DONOVAN_ENV: production
+  MIGRATE_ON_START: 'false'
+  ELASTICSEARCH_URL: https://search.internal.example.com:9200
+  OIDC_ISSUER: https://sso.example.com/realms/donovan-pilot
+  OIDC_AUDIENCE: donovan-api
+  RATE_LIMIT_PER_MINUTE: '600'
+  MAX_STREAMS_PER_USER: '3'
+  SEARCH_RECONCILE_MINUTES: '15'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: donovan-web
+  namespace: donovan
+data:
+  API_UPSTREAM: http://donovan-api.donovan.svc.cluster.local:3870
+  OIDC_AUTHORITY: https://sso.example.com/realms/donovan-pilot
+  OIDC_CLIENT_ID: donovan-web
