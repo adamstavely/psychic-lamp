@@ -7,14 +7,9 @@ import { TokenVerifier } from '../../src/auth/token-verifier.js';
 import { runMigrations } from '../../src/db/migrate.js';
 import { setUp } from '../../src/setup.js';
 
-// The Docker Compose services (and CI's service containers) on their usual ports, unless the environment says otherwise.
-process.env['DATABASE_URL'] ??= 'postgres://donovan:donovan@localhost:5433/donovan';
-process.env['ELASTICSEARCH_URL'] ??= 'http://localhost:9201';
-process.env['OIDC_ISSUER'] ??= 'http://issuer.test/realms/donovan';
-process.env['OIDC_AUDIENCE'] ??= 'donovan-api';
-
-const ISSUER = process.env['OIDC_ISSUER'];
-const AUDIENCE = process.env['OIDC_AUDIENCE'];
+// From vitest.config.int.ts.
+const ISSUER = process.env['OIDC_ISSUER']!;
+const AUDIENCE = process.env['OIDC_AUDIENCE']!;
 
 export interface TestApp {
   app: INestApplication;
