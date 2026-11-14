@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ChatSummary, Claim, Sensitivity } from './chat.js';
-import { UPLOAD_LIMIT_BYTES } from './defaults.js';
+import { UPLOAD_LIMIT_BYTES, utf8Bytes } from './defaults.js';
 
 const Iso = z.iso.datetime({ offset: true });
 
@@ -123,7 +123,11 @@ export const NewSource = z.discriminatedUnion('from', [
     name: z.string().trim().min(1).max(200),
     size: z.number().int().nonnegative().max(UPLOAD_LIMIT_BYTES, 'Files can be up to 512 KB'),
     /** The file's text, when it has some (Markdown, CSV, JSON, plain text); empty for others. */
-    content: z.string().max(UPLOAD_LIMIT_BYTES).default(''),
+    content: z
+      .string()
+      .max(UPLOAD_LIMIT_BYTES, 'Files can be up to 512 KB')
+      .refine((s) => utf8Bytes(s) <= UPLOAD_LIMIT_BYTES, 'Files can be up to 512 KB')
+      .default(''),
   }),
   z.strictObject({
     from: z.literal('link'),

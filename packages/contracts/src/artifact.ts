@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Sensitivity } from './chat.js';
-import { UPLOAD_LIMIT_BYTES } from './defaults.js';
+import { UPLOAD_LIMIT_BYTES, utf8Bytes } from './defaults.js';
 
 const Iso = z.iso.datetime({ offset: true });
 
@@ -97,7 +97,12 @@ export const ArtifactUpload = z.strictObject({
     .min(1)
     .max(120)
     .regex(/\.(md|markdown|txt|csv|json)$/i, 'Upload a .md, .txt, .csv or .json file'),
-  content: z.string().min(1, 'That file is empty').max(UPLOAD_LIMIT_BYTES, 'Files can be up to 512 KB'),
+  content: z
+    .string()
+    .min(1, 'That file is empty')
+    // Characters first (never more than bytes, and cheap), then the bytes themselves.
+    .max(UPLOAD_LIMIT_BYTES, 'Files can be up to 512 KB')
+    .refine((s) => utf8Bytes(s) <= UPLOAD_LIMIT_BYTES, 'Files can be up to 512 KB'),
   sensitivity: Sensitivity.default('Internal'),
 });
 export type ArtifactUpload = z.infer<typeof ArtifactUpload>;
