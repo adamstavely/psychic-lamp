@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
@@ -17,7 +18,8 @@ import type { ProfileMenuItem } from '@adamstavely/trenchcoat/profile-menu';
 import type { SegmentOption } from '@adamstavely/trenchcoat/segmented-control';
 import type { SideNavCollapsedChange, SideNavItem, SideNavNavigate } from '@adamstavely/trenchcoat/side-nav';
 import { toast } from '@adamstavely/trenchcoat/toaster';
-import { filter, map } from 'rxjs';
+import type { SearchResults } from '@donovan/contracts';
+import { debounceTime, filter, map, of, Subject, switchMap, catchError } from 'rxjs';
 import { IconDirective } from '../core/icon.directive';
 import { ChatsStore } from '../core/chats-store';
 import { brandMark, icon } from '../core/icons';
@@ -58,6 +60,7 @@ export class Shell {
   protected readonly chats = inject(ChatsStore);
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => this.#searchSub.unsubscribe());
     this.#narrow?.addEventListener('change', (e) => this.narrow.set(e.matches));
   }
   readonly #router = inject(Router);
@@ -145,6 +148,75 @@ export class Shell {
   );
   protected readonly themeIconName = computed(() => (this.theme.resolved() === 'dark' ? 'sun' : 'moon'));
 
+  readonly #http = inject(HttpClient);
+  /** The search text, and what the API found for it. */
+  protected readonly query = signal('');
+  protected readonly found = signal<SearchResults | null>(null);
+  protected readonly searching = signal(false);
+  readonly #queries = new Subject<string>();
+
+  readonly #searchSub = this.#queries
+    .pipe(
+      debounceTime(200),
+      switchMap((q) => {
+        if (!q) return of(null);
+        this.searching.set(true);
+        return this.#http.get<SearchResults>('/api/search', { params: { q } }).pipe(catchError(() => of(null)));
+      }),
+    )
+    .subscribe((r) => {
+      this.found.set(r);
+      this.searching.set(false);
+    });
+
+  protected onQuery(event: CustomEvent<{ query: unknown }>): void {
+    const q = String(event.detail.query ?? '').trim();
+    this.query.set(q);
+    this.#queries.next(q);
+  }
+
+  /** The commands for what's typed: matching places and actions, then chats, artifacts and projects from the API. */
+  protected readonly searchGroups = computed<CommandMenuGroup[]>(() => {
+    const q = this.query().toLowerCase();
+    if (!q) return this.commands;
+    const matches = (c: { label: string; keywords?: string }) =>
+      `${c.label} ${c.keywords ?? ''}`.toLowerCase().includes(q);
+    const local = this.commands
+      .map((g) => ({ ...g, commands: g.commands.filter(matches) }))
+      .filter((g) => g.commands.length);
+    const r = this.found();
+    const remote: CommandMenuGroup[] = r
+      ? [
+          {
+            id: 'chats',
+            label: 'Chats',
+            commands: r.chats.map((c) => ({ id: `chat:${c.id}`, label: c.title, hint: c.detail, icon: icon('chat') })),
+          },
+          {
+            id: 'artifacts',
+            label: 'Artifacts',
+            commands: r.artifacts.map((a) => ({
+              id: `artifact:${a.id}`,
+              label: a.title,
+              hint: a.detail,
+              icon: icon('artifact'),
+            })),
+          },
+          {
+            id: 'projects',
+            label: 'Projects',
+            commands: r.projects.map((p) => ({
+              id: `project:${p.id}`,
+              label: p.title,
+              hint: p.detail,
+              icon: icon('folder'),
+            })),
+          },
+        ].filter((g) => g.commands.length)
+      : [];
+    return [...local, ...remote];
+  });
+
   protected readonly commands: CommandMenuGroup[] = [
     {
       id: 'go',
@@ -163,6 +235,9 @@ export class Shell {
 
   protected readonly runCommand: CommandMenuRun = async (id) => {
     if (id.startsWith('go:')) await this.#router.navigateByUrl(id.slice(3));
+    else if (id.startsWith('chat:')) await this.#router.navigate(['/chats', id.slice(5)]);
+    else if (id.startsWith('artifact:')) await this.#router.navigate(['/artifacts', id.slice(9)]);
+    else if (id.startsWith('project:')) await this.#router.navigate(['/projects', id.slice(8)]);
     else if (id === 'new-chat') await this.newChat();
     else if (id === 'theme') await this.toggleTheme();
   };

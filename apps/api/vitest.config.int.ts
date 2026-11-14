@@ -16,6 +16,7 @@ export default defineConfig({
       OIDC_ISSUER: process.env['OIDC_ISSUER'] ?? 'http://issuer.test/realms/donovan',
       OIDC_AUDIENCE: process.env['OIDC_AUDIENCE'] ?? 'donovan-api',
       STREAM_SPEED: '0',
+      SEARCH_BACKFILL: 'false',
     },
   },
 });

@@ -35,8 +35,27 @@ test.describe('the frame around every page', () => {
   test('⌘K finds an area and goes there', async ({ page }) => {
     await page.keyboard.press('ControlOrMeta+k');
     await page.keyboard.type('artifacts');
+    await expect(page.getByRole('option', { name: /^Artifacts/ }).first()).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(page).toHaveTitle('Artifacts · Donovan');
+  });
+
+  test('⌘K finds a chat by what was said in it, and an artifact by name', async ({ page }) => {
+    await page.keyboard.press('ControlOrMeta+k');
+    // The list updates as results arrive; wait for the answer to the whole query before choosing.
+    const answered = page.waitForResponse((r) => r.url().includes('/api/search?q=3DS%20rollout'));
+    await page.keyboard.type('3DS rollout');
+    await answered;
+    const result = page.getByRole('option', { name: /^Summarize support intents, Sept/ });
+    await expect(result).toBeVisible();
+    await result.click();
+    await expect(page).toHaveURL(/\/chats\/intents$/);
+    await page.keyboard.press('ControlOrMeta+k');
+    const cohort = page.waitForResponse((r) => r.url().includes('/api/search?q=cohort'));
+    await page.keyboard.type('cohort');
+    await cohort;
+    await page.getByRole('option', { name: /^cohort\.json/ }).click();
+    await expect(page).toHaveURL(/\/artifacts\/cohort-json$/);
   });
 
   test('Build mode is shown but cannot be picked yet', async ({ page }) => {
