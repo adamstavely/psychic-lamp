@@ -60,6 +60,7 @@ export class SeedService {
           ownerId: userId,
           id: c.id,
           title: c.title,
+          version: 0,
           text: chatText(
             c.messages.map((m, n) =>
               m.role === 'user'

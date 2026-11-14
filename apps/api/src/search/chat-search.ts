@@ -9,7 +9,17 @@ export interface ChatDoc {
   id: string;
   title: string;
   text: string;
+  /** The chat's searchVersion this document was built from; reconciliation re-indexes anything older. */
+  version: number;
 }
+
+const PROPERTIES = {
+  ownerId: { type: 'keyword' },
+  id: { type: 'keyword' },
+  title: { type: 'text' },
+  text: { type: 'text' },
+  version: { type: 'long' },
+} as const;
 
 /** Full-text search over a person's chats: titles and what was said in them. Postgres stays the record. */
 @Injectable()
@@ -21,32 +31,34 @@ export class ChatSearch implements OnModuleInit {
   async onModuleInit(): Promise<void> {
     try {
       if (!(await this.es.indices.exists({ index: CHAT_INDEX })))
-        await this.es.indices.create({
-          index: CHAT_INDEX,
-          mappings: {
-            properties: {
-              ownerId: { type: 'keyword' },
-              id: { type: 'keyword' },
-              title: { type: 'text' },
-              text: { type: 'text' },
-            },
-          },
-        });
+        await this.es.indices.create({ index: CHAT_INDEX, mappings: { properties: PROPERTIES } });
+      // An index from before versions were tracked gains the field; its documents read as version 0 until refreshed.
+      else await this.es.indices.putMapping({ index: CHAT_INDEX, properties: { version: PROPERTIES.version } });
     } catch (err) {
       this.#log.warn(`Couldn't prepare the ${CHAT_INDEX} index: ${String(err)}`);
     }
   }
 
-  /** Indexes chats, logging rather than failing: a chat that isn't searchable yet is still a chat. */
-  async index(docs: ChatDoc[]): Promise<void> {
-    if (docs.length === 0) return;
+  /**
+   * Indexes chats, logging rather than failing: a chat that isn't searchable yet is still a chat, and reconciliation
+   * picks up what didn't make it. Returns how many didn't (a whole failed request counts them all).
+   */
+  async index(docs: ChatDoc[]): Promise<number> {
+    if (docs.length === 0) return 0;
     try {
-      await this.es.bulk({
+      const res = await this.es.bulk({
         refresh: true,
         operations: docs.flatMap((d) => [{ index: { _index: CHAT_INDEX, _id: `${d.ownerId}:${d.id}` } }, d]),
       });
+      const failed = res.errors ? res.items.filter((i) => i.index?.error).length : 0;
+      if (failed)
+        this.#log.warn(`${failed} of ${docs.length} chats weren't indexed for search; reconciliation will retry`);
+      return failed;
     } catch (err) {
-      this.#log.warn(`Couldn't index chats for search: ${String(err)}`);
+      this.#log.warn(
+        `Couldn't index chats for search (${err instanceof Error ? err.name : 'error'}); reconciliation will retry`,
+      );
+      return docs.length;
     }
   }
 

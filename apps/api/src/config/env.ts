@@ -27,6 +27,8 @@ export const EnvShape = z.object({
   STREAM_SPEED: z.coerce.number().min(0).max(5).default(1),
   /** Index chats and artifacts search is missing, on start (off in integration tests, which make their own). */
   SEARCH_BACKFILL: flag('true'),
+  /** How often search is reconciled with Postgres after the pass on start, in minutes (0: only on start). */
+  SEARCH_RECONCILE_MINUTES: z.coerce.number().int().min(0).default(15),
   /** Apply database migrations when the API starts (the default here). Production runs them as a separate job. */
   MIGRATE_ON_START: flag('true'),
   /** Requests one person can make per minute before getting 429 (0 turns the limit off). */
