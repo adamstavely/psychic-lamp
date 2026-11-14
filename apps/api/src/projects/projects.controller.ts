@@ -20,6 +20,7 @@ import {
   NewSource,
   ProjectSource,
   SourceCatalog,
+  NotePatch,
 } from '@donovan/contracts';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put } from '@nestjs/common';
 import { z } from 'zod';
@@ -142,6 +143,17 @@ export class ProjectsController {
     @Body({ schema: NewNote }) body: NewNote,
   ): Promise<void> {
     await this.projects.addNote(await this.users.idFor(claims), id, body);
+  }
+
+  @Patch(':id/notes/:noteId')
+  @HttpCode(204)
+  async updateNote(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: ProjectId }) id: string,
+    @Param('noteId', { schema: z.uuid() }) noteId: string,
+    @Body({ schema: NotePatch }) body: NotePatch,
+  ): Promise<void> {
+    await this.projects.updateNote(await this.users.idFor(claims), id, noteId, body);
   }
 
   @Delete(':id/notes/:noteId')

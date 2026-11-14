@@ -52,6 +52,29 @@ import { calibrate } from './calibrated.js';
 import { sourceId, toCitedText } from './cited.js';
 
 type Row = typeof projects.$inferSelect;
+
+/** Each Studio tool's name, as its outputs are titled. */
+const TOOL_LABELS: Record<NewOutput['tool'], string> = {
+  brief: 'Brief',
+  report: 'Report',
+  deck: 'Slide deck',
+  table: 'Data table',
+  mindmap: 'Mind map',
+  faq: 'FAQ',
+  quiz: 'Quiz',
+  audio: 'Audio overview',
+  timeline: 'Timeline',
+};
+
+const KIND_LABELS: Record<ProjectSource['kind'], string> = {
+  pdf: 'Documents',
+  doc: 'Documents',
+  sheet: 'Data',
+  dataset: 'Data',
+  connector: 'Live systems',
+  slack: 'Conversations',
+  web: 'Web',
+};
 const DAY = 86_400_000;
 
 @Injectable()
@@ -337,7 +360,7 @@ export class ProjectsService {
     const project = await this.get(userId, id);
     const selected = project.sources.filter((s) => s.selected);
     if (selected.length === 0) throw new BadRequestException('Select at least one source first');
-    const label = { brief: 'Brief', table: 'Source table', faq: 'FAQ', timeline: 'Timeline' }[body.tool];
+    const label = TOOL_LABELS[body.tool];
     const guideText = project.guide
       .map((g) => g.text)
       .join('')
@@ -349,6 +372,11 @@ export class ProjectsService {
           .join('')
           .trim()
       : '';
+    /** The guide as statements, for outlines, quizzes and scripts. */
+    const points = guideText
+      .split(/(?<=[.!?])\s+/)
+      .map((p) => p.trim())
+      .filter((p) => /\p{L}/u.test(p));
     const bodyFor: Record<NewOutput['tool'], ArtifactBody> = {
       brief: {
         kind: 'Doc',
@@ -395,6 +423,106 @@ export class ProjectsService {
         blocks: [
           { type: 'heading', text: `${project.name}: what each source adds` },
           { type: 'list', items: selected.map((s) => `${s.title}: ${s.meta}`) },
+        ],
+      },
+      report: {
+        kind: 'Doc',
+        blocks: [
+          {
+            type: 'callout',
+            tone: 'info',
+            title: `A report from ${selected.length} sources`,
+            text: project.description || `What the selected sources in ${project.name} say.`,
+          },
+          { type: 'heading', text: 'Summary' },
+          { type: 'paragraph', text: guideText || `What the ${selected.length} selected sources cover.` },
+          { type: 'heading', text: 'What each source contributes' },
+          { type: 'list', items: selected.map((s) => `${s.title} (${s.meta})`) },
+          { type: 'heading', text: 'Open questions' },
+          { type: 'list', items: project.questions.length ? project.questions : ['What is still missing?'] },
+          ...verification(project, selected),
+        ],
+      },
+      deck: {
+        kind: 'Doc',
+        blocks: [
+          {
+            type: 'callout',
+            tone: 'info',
+            title: 'A slide outline',
+            text: 'One heading per slide. Copy it as Markdown into your slide tool.',
+          },
+          { type: 'heading', text: `Slide 1 · ${project.name}` },
+          { type: 'paragraph', text: project.description || `${selected.length} sources, summarised.` },
+          { type: 'heading', text: 'Slide 2 · What we know' },
+          { type: 'list', items: points.length ? points.slice(0, 4) : ['Select sources to fill this in.'] },
+          { type: 'heading', text: 'Slide 3 · Sources' },
+          { type: 'list', items: selected.map((s) => s.title) },
+          { type: 'heading', text: 'Slide 4 · Open questions' },
+          { type: 'list', items: project.questions.length ? project.questions : ['What is still missing?'] },
+        ],
+      },
+      mindmap: {
+        kind: 'Doc',
+        blocks: [
+          { type: 'heading', text: project.name },
+          ...[...byKind(selected)].flatMap(([kind, list]) => [
+            { type: 'heading' as const, text: kind },
+            { type: 'list' as const, items: list.map((s) => s.title) },
+          ]),
+          ...(project.questions.length
+            ? [
+                { type: 'heading' as const, text: 'Questions' },
+                { type: 'list' as const, items: project.questions },
+              ]
+            : []),
+        ],
+      },
+      quiz: {
+        kind: 'Doc',
+        blocks: [
+          {
+            type: 'callout',
+            tone: 'info',
+            title: 'True or false?',
+            text: 'Each statement comes from the selected sources; the answers are at the end.',
+          },
+          ...(points.length ? points.slice(0, 5) : [`${project.name} has ${selected.length} selected sources`]).flatMap(
+            (p, i) => [
+              { type: 'heading' as const, text: `Question ${i + 1}` },
+              { type: 'paragraph' as const, text: p },
+            ],
+          ),
+          { type: 'heading', text: 'Answers' },
+          {
+            type: 'list',
+            items: (points.length ? points.slice(0, 5) : ['x']).map(
+              (_, i) => `Question ${i + 1}: true, as the sources say`,
+            ),
+          },
+        ],
+      },
+      audio: {
+        kind: 'Doc',
+        blocks: [
+          {
+            type: 'callout',
+            tone: 'info',
+            title: 'An audio overview script',
+            text: "Two voices talk through the sources. Audio isn't made in this version: read it, or paste it into a text-to-speech tool.",
+          },
+          { type: 'heading', text: `${project.name}, in conversation` },
+          {
+            type: 'paragraph',
+            text: `Host A: Today it's ${project.name}, from ${selected.length} sources. Where do we start?`,
+          },
+          ...(points.length ? points.slice(0, 4) : [project.description || 'The sources are still being read.']).map(
+            (p, i) => ({ type: 'paragraph' as const, text: `${i % 2 ? 'Host A' : 'Host B'}: ${p}` }),
+          ),
+          {
+            type: 'paragraph',
+            text: `Host A: And what's still open? Host B: ${project.questions[0] ?? 'What the sources leave out.'}`,
+          },
         ],
       },
     };
@@ -535,6 +663,17 @@ export class ProjectsService {
     await this.touch(userId, id);
   }
 
+  async updateNote(userId: string, id: string, noteId: string, body: NewNote): Promise<void> {
+    await this.ensure(userId);
+    const rows = await this.db
+      .update(projectNotes)
+      .set({ text: body.text })
+      .where(and(eq(projectNotes.ownerId, userId), eq(projectNotes.projectId, id), eq(projectNotes.id, noteId)))
+      .returning({ id: projectNotes.id });
+    if (rows.length === 0) throw new NotFoundException('No note with that id');
+    await this.touch(userId, id);
+  }
+
   async deleteNote(userId: string, id: string, noteId: string): Promise<void> {
     await this.ensure(userId);
     const rows = await this.db
@@ -576,6 +715,13 @@ function verification(project: Project, selected: Project['sources']): DocBlock[
     { type: 'list', items: claims.map((c) => `${c.text} (${label[c.confidence]})`) },
     { type: 'callout', tone: 'warning', title: 'Check before acting', text: checkpoint },
   ];
+}
+
+/** Sources grouped under a plain label for their kind, in order of first appearance. */
+function byKind(sources: Project['sources']): Map<string, Project['sources']> {
+  const groups = new Map<string, Project['sources']>();
+  for (const s of sources) groups.set(KIND_LABELS[s.kind], [...(groups.get(KIND_LABELS[s.kind]) ?? []), s]);
+  return groups;
 }
 
 function toAnswer(r: typeof projectAnswers.$inferSelect): ProjectAnswer {
