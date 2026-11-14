@@ -161,6 +161,32 @@ describe('/api/projects', () => {
     expect(none.guide).toEqual([]);
   });
 
+  it('takes sources added at once each under its own id', async () => {
+    const token = await t.token();
+    const url = '/api/projects/sku-onboarding/sources/new';
+    const results = await Promise.all([
+      ...Array.from({ length: 6 }, (_, i) =>
+        http
+          .post(url)
+          .auth(token, bearer)
+          .send({ from: 'paste', title: `Pasted ${i}`, text: `Text ${i}` }),
+      ),
+      http
+        .post(url)
+        .auth(token, bearer)
+        .send({ from: 'upload', name: 'big.txt', size: 150_000, content: 'a'.repeat(150_000) }),
+      http
+        .post(url)
+        .auth(token, bearer)
+        .send({ from: 'upload', name: 'big.txt', size: 150_000, content: 'b'.repeat(150_000) }),
+    ]);
+    expect(results.map((r) => r.status)).toEqual(Array(8).fill(201));
+    const ids = results.map((r) => ProjectSource.parse(r.body).id);
+    expect(new Set(ids).size).toBe(8);
+    const p = Project.parse((await http.get('/api/projects/sku-onboarding').auth(token, bearer).expect(200)).body);
+    expect(new Set(p.sources.map((s) => s.id)).size).toBe(p.sources.length);
+  });
+
   it('adds sources by hand: an upload, a link, a connector, a dataset and pasted text', async () => {
     const token = await t.token();
     const catalog = SourceCatalog.parse(
@@ -397,6 +423,21 @@ describe('/api/projects', () => {
     expect(p.sources).toHaveLength(6);
     const output = p.outputs.find((o) => o.title.startsWith('Rollout note'))!;
     await http.get(`${url}/artifacts/${output.artifactId}`).auth(viewer, bearer).expect(200);
+
+    // Nothing private to the owner comes with it: not the chat an output came from, nor who else has the artifact.
+    const SENTINEL = `PRIVATE CHAT TITLE ${tag}`;
+    await http.patch('/api/chats/fraud').auth(owner, bearer).send({ title: SENTINEL }).expect(200);
+    const own = Artifact.parse(
+      (await http.get(`/api/artifacts/${output.artifactId}`).auth(owner, bearer).expect(200)).body,
+    );
+    expect(own.chat).toMatchObject({ id: 'fraud', title: SENTINEL }); // so the check below means something
+    const seen = await http.get(`${url}/artifacts/${output.artifactId}`).auth(viewer, bearer).expect(200);
+    expect(Artifact.parse(seen.body)).toMatchObject({ chat: null, sharedWith: [] });
+    const project = await http.get(url).auth(viewer, bearer).expect(200);
+    for (const res of [seen, project]) {
+      expect(res.text).not.toContain(SENTINEL);
+      for (const name of own.sharedWith) expect(res.text).not.toContain(name);
+    }
     // Only what's filed under the shared project, and only for the person it's shared with.
     await http.get(`${url}/artifacts/churn-compare-csv`).auth(viewer, bearer).expect(404);
     await http.get(url).auth(stranger, bearer).expect(404);

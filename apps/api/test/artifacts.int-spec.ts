@@ -1,4 +1,4 @@
-import { Artifact, ArtifactSummary, Chat } from '@donovan/contracts';
+import { Artifact, ArtifactSummary, Chat, UPLOAD_LIMIT_BYTES } from '@donovan/contracts';
 import request from 'supertest';
 import { z } from 'zod';
 import { createTestApp, type TestApp } from './support/test-app.js';
@@ -99,5 +99,21 @@ describe('/api/artifacts', () => {
       .expect(400);
     expect(bad.body.message).toBe("That JSON doesn't parse");
     await http.post('/api/artifacts').auth(token, bearer).send({ name: 'x.exe', content: 'MZ' }).expect(400);
+  });
+
+  it('takes a file right up to the limit, in bytes, however it escapes', async () => {
+    const token = await t.token();
+    const upload = (name: string, content: string) =>
+      http.post('/api/artifacts').auth(token, bearer).send({ name, content });
+    // Well past Express's default body limit (100 kB), which used to refuse it.
+    await upload('notes.txt', 'a'.repeat(150_000)).expect(201);
+    // At the limit, and every character escaped to six bytes in the JSON.
+    await upload('worst.txt', '\u0001'.repeat(UPLOAD_LIMIT_BYTES)).expect(201);
+    // One byte over: refused by the contract, saying why, not by the parser.
+    const over = await upload('over.txt', 'a'.repeat(UPLOAD_LIMIT_BYTES + 1)).expect(400);
+    expect(JSON.stringify(over.body)).toContain('Files can be up to 512 KB');
+    // Under the limit in characters, over it in bytes (€ is three bytes).
+    const wide = await upload('euro.txt', '€'.repeat(200_000)).expect(400);
+    expect(JSON.stringify(wide.body)).toContain('Files can be up to 512 KB');
   });
 });

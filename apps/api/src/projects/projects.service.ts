@@ -156,12 +156,16 @@ export class ProjectsService {
     };
   }
 
-  /** An output of a project shared with this person: an artifact filed under that project, and no other. */
+  /**
+   * An output of a project shared with this person: an artifact filed under that project, and no other. Like the
+   * project, it comes without what's private to the owner: the chat that made it (its id and title) and who else they
+   * shared the artifact with.
+   */
   async sharedArtifact(userId: string, ownerId: string, id: string, artifactId: string): Promise<Artifact> {
     const ownerName = await this.grantedBy(userId, ownerId, id);
     const a = await this.artifactsService.get(ownerId, artifactId, ownerName);
     if (a.projectId !== id) throw new NotFoundException('No project with that id');
-    return a;
+    return { ...a, chat: null, sharedWith: [] };
   }
 
   /** The owner's name, if they shared this project with the person; otherwise not found. */
@@ -321,18 +325,30 @@ export class ProjectsService {
       (s, i, all) => !have.has(s.title) && all.findIndex((x) => x.title === s.title) === i,
     );
     if (fresh.length === 0) return;
-    await this.db.insert(projectSources).values(
-      fresh.map((s, i) => ({
-        ownerId: userId,
-        projectId: id,
-        id: sourceId(project.sources.length + i + 1),
-        position: project.sources.length + i + 1,
-        kind: s.kind,
-        title: s.title,
-        meta: s.meta,
-      })),
-    );
-    await this.touch(userId, id);
+    const added = await this.db.transaction(async (tx) => {
+      const last = await lockSources(tx, userId, id);
+      // Again under the lock: a source added since the read above isn't added twice.
+      const now = await tx
+        .select({ title: projectSources.title })
+        .from(projectSources)
+        .where(and(eq(projectSources.ownerId, userId), eq(projectSources.projectId, id)));
+      const taken = new Set(now.map((s) => s.title));
+      const adding = fresh.filter((s) => !taken.has(s.title));
+      if (adding.length)
+        await tx.insert(projectSources).values(
+          adding.map((s, i) => ({
+            ownerId: userId,
+            projectId: id,
+            id: sourceId(last + i + 1),
+            position: last + i + 1,
+            kind: s.kind,
+            title: s.title,
+            meta: s.meta,
+          })),
+        );
+      return adding.length;
+    });
+    if (added) await this.touch(userId, id);
   }
 
   /** Connectors and datasets that can be added as sources. */
@@ -349,11 +365,7 @@ export class ProjectsService {
     await this.row(userId, id);
     const source = describe(body);
     return this.db.transaction(async (tx) => {
-      const [{ n }] = await tx
-        .select({ n: sql<number>`coalesce(max(${projectSources.position}), 0)::int` })
-        .from(projectSources)
-        .where(and(eq(projectSources.ownerId, userId), eq(projectSources.projectId, id)));
-      const position = n + 1;
+      const position = (await lockSources(tx, userId, id)) + 1;
       const [row] = await tx
         .insert(projectSources)
         .values({ ownerId: userId, projectId: id, id: sourceId(position), position, ...source })
@@ -924,4 +936,24 @@ function slug(name: string): string {
       .replace(/^-|-$/g, '')
       .slice(0, 40) || 'project'
   );
+}
+
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+
+/**
+ * Locks the project's row until the transaction ends, and returns the last source position in use. Every transaction
+ * that adds sources takes it first, so concurrent additions (uploads, pasted text, suggestions) take turns instead of
+ * claiming the same position, and with it the same source id.
+ */
+async function lockSources(tx: Tx, userId: string, id: string): Promise<number> {
+  await tx
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.ownerId, userId), eq(projects.id, id)))
+    .for('update');
+  const [r] = await tx
+    .select({ last: sql<number>`coalesce(max(${projectSources.position}), 0)::int` })
+    .from(projectSources)
+    .where(and(eq(projectSources.ownerId, userId), eq(projectSources.projectId, id)));
+  return r?.last ?? 0;
 }
