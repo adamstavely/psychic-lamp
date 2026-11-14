@@ -241,3 +241,17 @@ export const projectShares = pgTable(
     ),
   ],
 );
+
+/** Read and dismissed marks on notifications that aren't memos or updates (those share the Brief's marks). */
+export const notificationState = pgTable(
+  'notification_state',
+  {
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    key: text().notNull(),
+    readAt: timestamp({ withTimezone: true }),
+    dismissedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.key] })],
+);

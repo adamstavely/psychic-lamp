@@ -340,6 +340,45 @@ h3 {
   padding: var(--tc-space-8);
 }
 
+.apps ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tc-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app {
+  display: flex;
+  align-items: baseline;
+  gap: var(--tc-space-2);
+  padding: var(--tc-space-1) var(--tc-space-3);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-raised);
+  font-size: var(--tc-font-size-sm);
+}
+
+.app-name {
+  font-weight: 600;
+}
+
+.app-count {
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+}
+
+.memo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tc-space-3);
+}
+
+.memo-actions .action {
+  margin-left: 0;
+}
+
 /* Reflow (WCAG 1.4.4, 1.4.10): columns stack as the window narrows or the page is zoomed. */
 @media (max-width: 1200px) {
   .columns,

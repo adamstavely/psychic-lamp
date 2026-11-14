@@ -7,6 +7,7 @@ import { ChatsModule } from './chats/chats.module.js';
 import { Env } from './config/env.js';
 import { DbModule } from './db/db.module.js';
 import { HealthController } from './health/health.controller.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
 import { SearchApiModule } from './search-api/search-api.module.js';
 import { SearchModule } from './search/search.module.js';
@@ -25,6 +26,7 @@ import { UsersModule } from './users/users.module.js';
     ArtifactsModule,
     ProjectsModule,
     SearchApiModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
 })

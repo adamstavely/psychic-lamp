@@ -87,6 +87,11 @@ export default class BriefPage {
     void this.store.markRead(memos.filter((m) => !m.read));
   }
 
+  /** Replying in the person's own mail app: a new message with the subject filled in. */
+  protected mailto(memo: BriefMemo): string {
+    return `mailto:?subject=${encodeURIComponent(`Re: ${memo.subject}`)}`;
+  }
+
   protected replyPrompt(memo: BriefMemo): string {
     return `Draft a reply to ${memo.from} about "${memo.subject}".`;
   }

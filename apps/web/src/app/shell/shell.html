@@ -33,8 +33,18 @@
         <span slot="icon" [dnIcon]="themeIconName()"></span>
       </tc-button>
       <tc-header-nav [user]="user()" [accountItems]="accountItems" (tc-account-select)="onAccountSelect($event)">
-        <!-- Empty until there's a notifications feed. -->
-        <tc-notifications heading="Notifications" [items]="[]" />
+        <tc-notifications
+          heading="Notifications"
+          [items]="notificationItems()"
+          [categories]="notificationCategories"
+          [unreadCount]="notifications.unread()"
+          [loading]="notifications.feed.isLoading() && !notifications.feed.hasValue()"
+          (tc-open-change)="onNotificationsOpen($event)"
+          (tc-read-change)="onNotificationRead($event)"
+          (tc-mark-all-read)="onNotificationsAllRead($event)"
+          (tc-dismiss)="onNotificationDismiss($event)"
+          (tc-item-open)="onNotificationOpen($event)"
+        />
       </tc-header-nav>
     </div>
   </header>

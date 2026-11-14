@@ -59,7 +59,9 @@ test.describe('asking Donovan', () => {
       const actions = page.locator('tc-message-actions').first();
       await actions.getByRole('button', { name: 'Bad response' }).click();
       await actions.getByRole('button', { name: 'Not accurate' }).click();
+      const saved = page.waitForResponse((r) => r.url().includes('/vote') && r.request().method() === 'PUT');
       await actions.getByRole('button', { name: 'Send' }).click();
+      await saved;
       await page.reload();
       await expect(
         page.locator('tc-message-actions').first().getByRole('button', { name: 'Bad response' }),

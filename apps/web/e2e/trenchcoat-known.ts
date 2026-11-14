@@ -13,6 +13,10 @@ export const KNOWN_TRENCHCOAT_ISSUES: Record<string, { fixedIn: string | null; a
     approvalKbdContrast: { fixedIn: '0.28.1', axeRule: 'color-contrast', selector: 'tc-approval-card' },
     /** tc-command-menu's popover stayed open after Tab left it (WCAG 2.4.11); the shell sends Escape on focusout. */
     commandMenuFocusOut: { fixedIn: '0.28.1' },
+    /** tc-notifications' bell was named by an aria-label over its visible count (WCAG 2.5.3). */
+    notificationsBellName: { fixedIn: '0.28.2', axeRule: 'label-content-name-mismatch', selector: 'tc-notifications' },
+    /** tc-notifications' unread badge was 3.9:1 / 2.9:1 (WCAG 1.4.3). */
+    notificationsBadgeContrast: { fixedIn: '0.28.2', axeRule: 'color-contrast', selector: 'tc-notifications' },
     /** An icon-only tc-button's native button is 0×0, so Playwright can't press it; click the chip instead. Not fixed yet. */
     iconButtonZeroSize: { fixedIn: null },
   };

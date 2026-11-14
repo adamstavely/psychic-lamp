@@ -32,7 +32,12 @@ test.describe('the session panel', () => {
       await resetUser(page);
       const panel = page.getByRole('complementary', { name: 'Session panel' });
       const first = panel.getByRole('group', { name: 'Your verdict on: Processing concentration' });
+      // The verdict shows at once; wait for it to be saved before reloading.
+      const saved = page.waitForResponse(
+        (r) => r.url().includes('/claims/c1/review') && r.request().method() === 'PUT',
+      );
       await first.getByRole('button', { name: 'Confirm' }).click();
+      await saved;
       await expect(first.getByRole('button', { name: 'Confirm' })).toHaveAttribute('aria-pressed', 'true');
       await expect(panel.getByText(/1 confirmed · /)).toBeVisible();
       await page.reload();
