@@ -128,6 +128,12 @@ export class ProjectsController {
     return this.projects.ask(await this.users.idFor(claims), id, body);
   }
 
+  @Delete(':id/thread')
+  @HttpCode(204)
+  async clearThread(@Claims() claims: TokenClaims, @Param('id', { schema: ProjectId }) id: string): Promise<void> {
+    await this.projects.clearThread(await this.users.idFor(claims), id);
+  }
+
   @Post(':id/notes')
   @HttpCode(204)
   async addNote(

@@ -2,6 +2,7 @@ import type {
   AddSources,
   ArtifactBody,
   ArtifactSummary,
+  DocBlock,
   NewOutput,
   ProjectShares,
   Recipient,
@@ -28,7 +29,16 @@ import { randomBytes } from 'node:crypto';
 import { ArtifactsService } from '../artifacts/artifacts.service.js';
 import { ChatsService } from '../chats/chats.service.js';
 import { DB, type Db } from '../db/db.module.js';
-import { artifacts, chats, projectNotes, projects, projectShares, projectSources, users } from '../db/schema.js';
+import {
+  artifacts,
+  chats,
+  projectAnswers,
+  projectNotes,
+  projects,
+  projectShares,
+  projectSources,
+  users,
+} from '../db/schema.js';
 import {
   ORG_LIBRARIES,
   SEED_PROJECTS,
@@ -38,6 +48,7 @@ import {
   type SeedProject,
 } from '../seed/projects.fixture.js';
 import { SeedService } from '../seed/seed.service.js';
+import { calibrate } from './calibrated.js';
 import { sourceId, toCitedText } from './cited.js';
 
 type Row = typeof projects.$inferSelect;
@@ -79,7 +90,7 @@ export class ProjectsService {
   async get(userId: string, id: string): Promise<Project> {
     await this.ensure(userId);
     const row = await this.row(userId, id);
-    const [sources, notes, chatList, shares, outputs] = await Promise.all([
+    const [sources, notes, chatList, shares, outputs, thread] = await Promise.all([
       this.db
         .select()
         .from(projectSources)
@@ -96,6 +107,11 @@ export class ProjectsService {
         .from(projectShares)
         .where(and(eq(projectShares.ownerId, userId), eq(projectShares.projectId, id))),
       this.artifactsService.inProject(userId, row.name),
+      this.db
+        .select()
+        .from(projectAnswers)
+        .where(and(eq(projectAnswers.ownerId, userId), eq(projectAnswers.projectId, id)))
+        .orderBy(asc(projectAnswers.at)),
     ]);
     const canned = SEED_PROJECTS.find((p) => p.id === id);
     const selected = new Set(sources.filter((s) => s.selected).map((s) => s.id));
@@ -123,6 +139,7 @@ export class ProjectsService {
         .filter((s) => !added.has(s.title)),
       chats: chatList.filter((c) => c.project === row.name),
       workflows: canned?.workflows ?? [],
+      thread: thread.map(toAnswer),
     };
   }
 
@@ -349,6 +366,7 @@ export class ProjectsService {
           },
           { type: 'heading', text: 'Sources' },
           { type: 'list', items: selected.map((s) => `${s.title} (${s.meta})`) },
+          ...verification(project, selected),
         ],
       },
       table: {
@@ -465,6 +483,7 @@ export class ProjectsService {
       suggestions: [],
       chats: [],
       workflows: [],
+      thread: [],
     };
   }
 
@@ -483,7 +502,30 @@ export class ProjectsService {
           },
           { text: '.', cite: [] },
         ];
-    return { question: body.question, answer, sourcesRead: selected.length };
+    const calibrated = project.calibrated ? calibrate(answer, selected) : null;
+    const [row] = await this.db
+      .insert(projectAnswers)
+      .values({
+        ownerId: userId,
+        projectId: id,
+        question: body.question,
+        answer,
+        sourcesRead: selected.length,
+        claims: calibrated?.claims ?? null,
+        checkpoint: calibrated?.checkpoint ?? null,
+      })
+      .returning();
+    await this.touch(userId, id);
+    return toAnswer(row!);
+  }
+
+  /** Clears the project's chat. */
+  async clearThread(userId: string, id: string): Promise<void> {
+    await this.ensure(userId);
+    await this.row(userId, id);
+    await this.db
+      .delete(projectAnswers)
+      .where(and(eq(projectAnswers.ownerId, userId), eq(projectAnswers.projectId, id)));
   }
 
   async addNote(userId: string, id: string, body: NewNote): Promise<void> {
@@ -522,6 +564,30 @@ export class ProjectsService {
       .set({ updatedAt: new Date() })
       .where(and(eq(projects.ownerId, userId), eq(projects.id, id)));
   }
+}
+
+/** In a Calibrated project, an output ends with its claims labelled and what to check before acting. */
+function verification(project: Project, selected: Project['sources']): DocBlock[] {
+  if (!project.calibrated || project.guide.length === 0) return [];
+  const { claims, checkpoint } = calibrate(project.guide, selected);
+  const label = { high: 'two or more sources', medium: 'one source', low: 'no source' } as const;
+  return [
+    { type: 'heading', text: 'Claims and what backs them' },
+    { type: 'list', items: claims.map((c) => `${c.text} (${label[c.confidence]})`) },
+    { type: 'callout', tone: 'warning', title: 'Check before acting', text: checkpoint },
+  ];
+}
+
+function toAnswer(r: typeof projectAnswers.$inferSelect): ProjectAnswer {
+  return {
+    id: r.id,
+    question: r.question,
+    answer: r.answer,
+    sourcesRead: r.sourcesRead,
+    at: r.at.toISOString(),
+    claims: r.claims ?? null,
+    checkpoint: r.checkpoint ?? null,
+  };
 }
 
 function guideFor(canned: SeedProject | undefined, selected: ReadonlySet<string>): CitedText {

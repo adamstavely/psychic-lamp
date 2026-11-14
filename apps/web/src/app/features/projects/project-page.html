@@ -337,7 +337,13 @@
       <section class="col main" aria-labelledby="chat-h">
         <div class="col-head">
           <h2 id="chat-h">Chat</h2>
-          <span class="meta">Answers cite the {{ selectedCount() }} selected sources</span>
+          <span class="meta"
+            >{{ p.calibrated ? 'Calibrated: claims labelled · ' : '' }}Answers cite the {{ selectedCount() }} selected
+            sources</span
+          >
+          @if (!p.readOnly && p.thread.length) {
+            <button type="button" class="link" (click)="clearThread()">Clear</button>
+          }
         </div>
         <div class="col-body thread">
           <div class="flow">
@@ -401,24 +407,35 @@
                 </div>
               }
 
-              @for (a of thread(); track $index) {
+              @for (a of p.thread; track a.id) {
                 <p class="you">{{ a.question }}</p>
                 <section class="answer" [attr.aria-label]="a.question">
-                  <p class="prose">
-                    @for (seg of a.answer; track $index) {
-                      <span>{{ seg.text }}</span>
-                      @for (c of seg.cite; track c) {
-                        <button
-                          type="button"
-                          class="cite"
-                          [attr.aria-label]="'Source ' + number(c) + ': ' + sourceTitle(c)"
-                          (click)="goToSource(c)"
-                        >
-                          {{ number(c) }}
-                        </button>
-                      }
+                  @if (a.claims) {
+                    @let c = claimView(a);
+                    <tc-claim-answer [claims]="c.claims" [sources]="c.sources" />
+                    @if (a.checkpoint) {
+                      <aside class="checkpoint" aria-label="Check before acting">
+                        <strong>Check before acting</strong>
+                        <p>{{ a.checkpoint }}</p>
+                      </aside>
                     }
-                  </p>
+                  } @else {
+                    <p class="prose">
+                      @for (seg of a.answer; track $index) {
+                        <span>{{ seg.text }}</span>
+                        @for (c of seg.cite; track c) {
+                          <button
+                            type="button"
+                            class="cite"
+                            [attr.aria-label]="'Source ' + number(c) + ': ' + sourceTitle(c)"
+                            (click)="goToSource(c)"
+                          >
+                            {{ number(c) }}
+                          </button>
+                        }
+                      }
+                    </p>
+                  }
                   <div class="actions">
                     <button type="button" class="pill small" (click)="saveAnswer(a)">
                       <span dnIcon="note" [iconSize]="14"></span>Save to note
