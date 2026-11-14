@@ -1,0 +1,105 @@
+:host {
+  display: block;
+}
+
+.prose {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.list {
+  display: grid;
+  gap: var(--tc-space-1);
+  padding-left: var(--tc-space-5);
+}
+
+.waiting {
+  margin: var(--tc-space-2) 0 0;
+  padding: var(--tc-space-2) var(--tc-space-3);
+  border: 1px solid var(--tc-status-warning-border);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-status-warning-bg);
+  color: var(--tc-status-warning-fg);
+  font-size: var(--tc-font-size-sm);
+}
+
+.skill {
+  padding: var(--tc-space-2) var(--tc-space-3);
+  border: 1px solid var(--tc-status-info-border);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-status-info-bg);
+  font-size: var(--tc-font-size-sm);
+}
+
+.skill p {
+  margin: 0;
+}
+
+.skill-name span {
+  color: var(--tc-text-secondary);
+}
+
+.chart {
+  display: grid;
+  gap: var(--tc-space-1);
+  margin: 0;
+  padding: var(--tc-space-3);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+}
+
+.chart figcaption {
+  margin-bottom: var(--tc-space-1);
+  font-size: var(--tc-font-size-sm);
+  font-weight: 600;
+}
+
+.artifact {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-3);
+  padding: var(--tc-space-2) var(--tc-space-3);
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-raised);
+  color: inherit;
+  text-decoration: none;
+}
+
+.artifact:hover {
+  border-color: var(--tc-border-strong);
+}
+
+.artifact:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+.artifact-kind {
+  padding: 1px var(--tc-space-2);
+  border-radius: var(--tc-radius-sm);
+  background: var(--tc-surface-well);
+  font-size: var(--tc-font-size-xs);
+  font-weight: 600;
+}
+
+.artifact-text {
+  display: grid;
+  flex: 1;
+}
+
+.artifact-name {
+  font-size: var(--tc-font-size-sm);
+  font-weight: 600;
+}
+
+.artifact-meta {
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+}
+
+.artifact-open {
+  color: var(--tc-accent-text);
+  font-size: var(--tc-font-size-sm);
+  font-weight: 600;
+}

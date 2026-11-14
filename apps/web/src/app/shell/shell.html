@@ -35,16 +35,36 @@
     </div>
   </header>
 
-  <tc-side-nav
-    class="rail"
-    label="Assist"
-    collapsible
-    [collapsed]="railCollapsed()"
-    [items]="navItems"
-    [current]="currentArea()"
-    (tc-navigate)="onNavigate($event)"
-    (tc-collapsed-change)="onRailCollapsed($event)"
-  />
+  <div class="rail">
+    <tc-side-nav
+      label="Assist"
+      collapsible
+      [collapsed]="railCollapsed()"
+      [items]="navItems"
+      [current]="currentArea()"
+      (tc-navigate)="onNavigate($event)"
+      (tc-collapsed-change)="onRailCollapsed($event)"
+    />
+    <!-- The chat list shows with the rail open, as in the prototype; folded, the Chats area is one click away. -->
+    @if (!railCollapsed()) {
+      @defer (on idle) {
+        <nav class="rail-chats" aria-label="Chats">
+          <tc-chat-history
+            heading="Chats"
+            [conversations]="conversations()"
+            [value]="currentChat()"
+            (tc-value-change)="openChat($event)"
+            (tc-conversations-change)="keepConversations($event)"
+            (tc-pin)="onPin($event)"
+            (tc-rename)="onRename($event)"
+            (tc-delete)="onDelete($event)"
+            (tc-restore)="onRestore($event)"
+            (tc-new-chat)="newChat()"
+          />
+        </nav>
+      }
+    }
+  </div>
 
   <main id="main" class="content" tabindex="-1">
     <router-outlet />

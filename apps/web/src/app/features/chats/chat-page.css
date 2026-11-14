@@ -1,0 +1,127 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--dn-canvas);
+  border-bottom: 1px solid var(--tc-border-subtle);
+}
+
+.thread {
+  width: 100%;
+  max-width: 52rem;
+  margin-inline: auto;
+  padding: var(--tc-space-6) var(--tc-space-6) var(--tc-space-8);
+}
+
+.turns {
+  display: grid;
+  gap: var(--tc-space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.turn.user {
+  justify-self: end;
+  max-width: 80%;
+  padding: var(--tc-space-3) var(--tc-space-4);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-inverse);
+  color: var(--tc-text-on-inverse);
+}
+
+.turn.user p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.turn.assistant {
+  display: grid;
+  gap: var(--tc-space-3);
+}
+
+.worked {
+  margin: 0;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+}
+
+.blocks {
+  display: grid;
+  gap: var(--tc-space-3);
+}
+
+.routing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tc-space-2);
+  font-size: var(--tc-font-size-xs);
+}
+
+.routing-label {
+  color: var(--tc-text-secondary);
+}
+
+.routing ul {
+  display: contents;
+  list-style: none;
+}
+
+.chip {
+  padding: 1px var(--tc-space-2);
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-sm);
+  color: var(--tc-text-secondary);
+}
+
+.intent {
+  margin-bottom: var(--tc-space-6);
+  padding: var(--tc-space-3) var(--tc-space-4);
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+}
+
+.intent h2 {
+  margin: 0 0 var(--tc-space-2);
+  font-size: var(--tc-font-size-sm);
+}
+
+.intent dl {
+  display: grid;
+  gap: var(--tc-space-1);
+  margin: 0;
+  font-size: var(--tc-font-size-sm);
+}
+
+.intent div {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  gap: var(--tc-space-2);
+}
+
+.intent dt {
+  color: var(--tc-text-secondary);
+}
+
+.intent dd {
+  margin: 0;
+}
+
+.disclaimer {
+  margin: var(--tc-space-6) 0 0;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+  text-align: center;
+}
+
+.state {
+  padding: var(--tc-space-8);
+}
