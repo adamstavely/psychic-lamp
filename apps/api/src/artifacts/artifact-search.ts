@@ -51,7 +51,7 @@ export class ArtifactSearch implements OnModuleInit {
       }
     } catch (err) {
       // Search degrades to Postgres matching (see ArtifactsService); the API still starts.
-      this.#log.warn(`Couldn't prepare the ${ARTIFACT_INDEX} index: ${String(err)}`);
+      this.#log.warn(`Couldn't prepare the ${ARTIFACT_INDEX} index (${err instanceof Error ? err.name : 'error'})`);
     }
   }
 

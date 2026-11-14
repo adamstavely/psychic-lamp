@@ -13,7 +13,8 @@ spec:
     metadata:
       labels: { app: donovan-api }
     spec:
-      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      securityContext:
+        { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, seccompProfile: { type: RuntimeDefault } }
       # Answers stream for up to a few minutes: let them finish before a pod goes.
       terminationGracePeriodSeconds: 330
       containers:
