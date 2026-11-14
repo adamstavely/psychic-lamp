@@ -10,3 +10,4 @@ coverage/
 /blob-report/
 apps/web/test-results/
 apps/web/playwright-report/
+*.tsbuildinfo
