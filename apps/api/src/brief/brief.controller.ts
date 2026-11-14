@@ -1,10 +1,13 @@
-import { type Brief, BriefQuery, MemosRead, NeedDone, UpdatesSeen } from '@donovan/contracts';
+import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { Brief, BriefQuery, MemosRead, NeedDone, UpdatesSeen } from '@donovan/contracts';
 import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, Query } from '@nestjs/common';
 import { Claims } from '../auth/claims.decorator.js';
 import type { Claims as TokenClaims } from '../auth/claims.js';
 import { UsersService } from '../users/users.service.js';
 import { BriefService } from './brief.service.js';
 
+@ApiTags('Daily Brief')
+@ApiBearerAuth()
 @Controller('brief')
 export class BriefController {
   constructor(
@@ -13,6 +16,7 @@ export class BriefController {
   ) {}
 
   @Get()
+  @ApiOkResponse({ standardSchema: Brief })
   async get(@Claims() claims: TokenClaims, @Query({ schema: BriefQuery }) query: BriefQuery): Promise<Brief> {
     return this.briefs.brief(await this.users.idFor(claims), query.tz);
   }

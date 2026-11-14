@@ -1,10 +1,14 @@
-import { BriefQuery, type Notification, NotificationDismiss, NotificationsRead } from '@donovan/contracts';
+import { z } from 'zod';
+import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { BriefQuery, Notification, NotificationDismiss, NotificationsRead } from '@donovan/contracts';
 import { Body, Controller, Get, HttpCode, Post, Query } from '@nestjs/common';
 import { Claims } from '../auth/claims.decorator.js';
 import type { Claims as TokenClaims } from '../auth/claims.js';
 import { UsersService } from '../users/users.service.js';
 import { NotificationsService } from './notifications.service.js';
 
+@ApiTags('Notifications')
+@ApiBearerAuth()
 @Controller('notifications')
 export class NotificationsController {
   constructor(
@@ -13,6 +17,7 @@ export class NotificationsController {
   ) {}
 
   @Get()
+  @ApiOkResponse({ standardSchema: z.array(Notification) })
   async list(@Claims() claims: TokenClaims, @Query({ schema: BriefQuery }) query: BriefQuery): Promise<Notification[]> {
     return this.notifications.list(await this.users.idFor(claims), query.tz);
   }

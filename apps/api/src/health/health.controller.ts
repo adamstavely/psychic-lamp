@@ -1,10 +1,12 @@
-import type { DependencyStatus, Health } from '@donovan/contracts';
+import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { type DependencyStatus, Health } from '@donovan/contracts';
 import { Client } from '@elastic/elasticsearch';
 import { Controller, Get, Inject } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { Public } from '../auth/public.decorator.js';
 import { DB, type Db } from '../db/db.module.js';
 
+@ApiTags('Health')
 @Controller('health')
 export class HealthController {
   constructor(
@@ -14,6 +16,7 @@ export class HealthController {
 
   @Public()
   @Get()
+  @ApiOkResponse({ standardSchema: Health })
   async get(): Promise<Health> {
     const [postgres, elasticsearch] = await Promise.all([
       status(() => this.db.execute(sql`select 1`)),

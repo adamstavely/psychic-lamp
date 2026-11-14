@@ -1,20 +1,21 @@
+import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import {
   AddSources,
   AllSourcesSelection,
-  type ArtifactSummary,
+  ArtifactSummary,
   NewOutput,
   ProjectShares,
-  type Recipient,
+  Recipient,
   SourceSearch,
-  type SourceSearchResult,
+  SourceSearchResult,
   NewNote,
   NewProject,
-  type Project,
-  type ProjectAnswer,
+  Project,
+  ProjectAnswer,
   ProjectPatch,
   ProjectQuestion,
-  type ProjectsOverview,
-  type ProjectSummary,
+  ProjectsOverview,
+  ProjectSummary,
   SourceSelection,
 } from '@donovan/contracts';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put } from '@nestjs/common';
@@ -27,6 +28,8 @@ import { ProjectsService } from './projects.service.js';
 const ProjectId = z.string().regex(/^[a-z0-9-]{1,64}$/, 'Not a project id');
 const SourceId = z.string().regex(/^s\d{1,3}$/, 'Not a source id');
 
+@ApiTags('Projects')
+@ApiBearerAuth()
 @Controller('projects')
 export class ProjectsController {
   constructor(
@@ -35,31 +38,37 @@ export class ProjectsController {
   ) {}
 
   @Get()
+  @ApiOkResponse({ standardSchema: ProjectsOverview })
   async overview(@Claims() claims: TokenClaims): Promise<ProjectsOverview> {
     return this.projects.overview(await this.users.idFor(claims));
   }
 
   @Post()
+  @ApiOkResponse({ standardSchema: ProjectSummary })
   async create(@Claims() claims: TokenClaims, @Body({ schema: NewProject }) body: NewProject): Promise<ProjectSummary> {
     return this.projects.create(await this.users.idFor(claims), body);
   }
 
   @Get('directory')
+  @ApiOkResponse({ standardSchema: z.array(Recipient) })
   async directory(@Claims() claims: TokenClaims): Promise<Recipient[]> {
     return this.projects.directory(await this.users.idFor(claims));
   }
 
   @Get('libraries/:libraryId')
+  @ApiOkResponse({ standardSchema: Project })
   library(@Param('libraryId', { schema: ProjectId }) libraryId: string): Project {
     return this.projects.library(libraryId);
   }
 
   @Get(':id')
+  @ApiOkResponse({ standardSchema: Project })
   async get(@Claims() claims: TokenClaims, @Param('id', { schema: ProjectId }) id: string): Promise<Project> {
     return this.projects.get(await this.users.idFor(claims), id);
   }
 
   @Patch(':id')
+  @ApiOkResponse({ standardSchema: ProjectSummary })
   async update(
     @Claims() claims: TokenClaims,
     @Param('id', { schema: ProjectId }) id: string,
@@ -91,6 +100,7 @@ export class ProjectsController {
 
   @Post(':id/ask')
   @HttpCode(200)
+  @ApiOkResponse({ standardSchema: ProjectAnswer })
   async ask(
     @Claims() claims: TokenClaims,
     @Param('id', { schema: ProjectId }) id: string,
@@ -131,6 +141,7 @@ export class ProjectsController {
 
   @Post(':id/source-search')
   @HttpCode(200)
+  @ApiOkResponse({ standardSchema: SourceSearchResult })
   async searchSources(
     @Claims() claims: TokenClaims,
     @Param('id', { schema: ProjectId }) id: string,
@@ -140,6 +151,7 @@ export class ProjectsController {
   }
 
   @Post(':id/outputs')
+  @ApiOkResponse({ standardSchema: ArtifactSummary })
   async createOutput(
     @Claims() claims: TokenClaims,
     @Param('id', { schema: ProjectId }) id: string,
