@@ -31,13 +31,27 @@ test.describe('Artifacts', () => {
     await expect(page.getByRole('link', { name: 'Continue in chat' })).toHaveAttribute('href', '/chats/fraud');
   });
 
-  test('a chat links to the artifacts it made', async ({ page }) => {
+  test('an artifact opens beside the chat that made it, and closes back to the chat', async ({ page }) => {
     await signIn(page, 'alex', '/chats/rfc');
+    await matchTheme(page);
     await page
       .getByRole('link', { name: /Open approval_tiers_rfc\.md/ })
       .first()
       .click();
+    await expect(page).toHaveURL(/\/chats\/rfc\?artifact=approval-tiers-rfc-md$/);
+    const pane = page.getByRole('complementary', { name: 'approval_tiers_rfc.md' });
+    await expect(pane.getByRole('heading', { name: 'Break-glass' })).toBeVisible();
+    await expect(pane).toBeFocused();
+    await expectNoAxeViolations(page);
+    await pane.getByRole('link', { name: 'Open full page' }).click();
     await expect(page).toHaveURL(/\/artifacts\/approval-tiers-rfc-md$/);
+    await page.goBack();
+    await page
+      .getByRole('complementary', { name: 'approval_tiers_rfc.md' })
+      .getByRole('button', { name: 'Close' })
+      .click();
+    await expect(page).toHaveURL(/\/chats\/rfc$/);
+    await expect(page.getByRole('heading', { level: 1, name: /Draft RFC/ })).toBeVisible();
   });
 
   test.describe('changing state', () => {

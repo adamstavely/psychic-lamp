@@ -34,6 +34,9 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.4
     command: ['start-dev', '--import-realm', '--health-enabled=true']
+    # Its JVM sizes the heap from the memory it can see; capped, it stays small instead of growing until it's killed
+    # on a Docker VM shared with other stacks.
+    mem_limit: 768m
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin

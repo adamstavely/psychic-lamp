@@ -1,0 +1,77 @@
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--tc-space-3);
+  line-height: 1.6;
+}
+
+h2 {
+  margin: var(--tc-space-3) 0 0;
+  font-size: var(--tc-font-size-lg);
+}
+
+p,
+ul {
+  margin: 0;
+}
+
+.block.new {
+  padding-left: var(--tc-space-3);
+  border-left: 3px solid var(--tc-status-info-solid);
+}
+
+.new-tag {
+  color: var(--tc-status-info-fg);
+  font-size: var(--tc-font-size-xs);
+  font-weight: 600;
+}
+
+.flag {
+  color: var(--tc-status-warning-fg);
+  font-size: var(--tc-font-size-sm);
+}
+
+.bars {
+  display: grid;
+  gap: var(--tc-space-1);
+  margin: 0;
+}
+
+.facts {
+  display: grid;
+  gap: var(--tc-space-2);
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+}
+
+.facts dd {
+  margin: 0;
+}
+
+.callout {
+  padding: var(--tc-space-3);
+  border: 1px solid var(--tc-status-info-border);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-status-info-bg);
+  color: var(--tc-status-info-fg);
+}
+
+.callout[data-tone='warning'] {
+  border-color: var(--tc-status-warning-border);
+  background: var(--tc-status-warning-bg);
+  color: var(--tc-status-warning-fg);
+}
+
+.output {
+  margin: 0;
+  padding: var(--tc-space-3);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-well);
+  font-family: var(--tc-font-mono);
+  font-size: var(--tc-font-size-sm);
+  overflow-x: auto;
+}
