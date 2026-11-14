@@ -97,3 +97,23 @@
     display: none;
   }
 }
+
+/* 320px wide (400% zoom, WCAG 1.4.10): the header takes two rows, the brand and actions above and search below. */
+@media (max-width: 600px) {
+  .shell {
+    grid-template-rows: auto 1fr;
+  }
+  .topbar {
+    flex-wrap: wrap;
+    row-gap: var(--tc-space-2);
+    padding-block: var(--tc-space-2);
+  }
+  .actions {
+    margin-inline-start: auto;
+  }
+  .search {
+    order: 1;
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+}

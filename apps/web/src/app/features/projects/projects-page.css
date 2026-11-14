@@ -10,9 +10,16 @@
 .head,
 .head-tools {
   display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: var(--tc-space-3);
+}
+
+.head-tools input {
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 
 h1 {
@@ -58,7 +65,7 @@ select:focus-visible,
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr));
   gap: var(--tc-space-4);
   margin: 0;
   padding: 0;

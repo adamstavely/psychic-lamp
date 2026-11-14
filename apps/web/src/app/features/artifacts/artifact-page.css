@@ -39,6 +39,7 @@ h1 {
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--tc-space-2);
   margin-left: auto;

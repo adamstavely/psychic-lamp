@@ -6,15 +6,15 @@ It records what is checked automatically, what was fixed, what is still open, an
 
 ## How it's checked
 
-| Check                                                                                                                              | Where                                                         | Runs                                        |
-| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------- |
-| axe-core, WCAG 2.0/2.1/2.2 A and AA rules, light and dark                                                                          | `apps/web/e2e/a11y.ts`, called on every page in the e2e specs | CI, every PR; any violation fails the build |
-| Keyboard: each of the first 30 Tab stops on every main page shows a focus indicator and isn't covered by sticky UI (2.4.7, 2.4.11) | `apps/web/e2e/keyboard.spec.ts`                               | CI                                          |
-| Reflow at 640px (200% zoom on a 1280px screen): nothing on the main pages needs sideways scrolling (1.4.4, 1.4.10)                 | `apps/web/e2e/reflow.spec.ts`                                 | CI                                          |
-| Keyboard flows: skip link, ⌘K, rail, composer (Enter), approvals, verdicts, the checkpoint, new project dialog                     | the feature specs in `apps/web/e2e`                           | CI                                          |
-| Template rules (alt text, labels, roles, valid ARIA, interactive elements)                                                         | `angular-eslint` template accessibility rules                 | CI (`npm run lint`)                         |
-| Trench Coat usage: unknown properties, attribute vs property, tokens                                                               | `trenchcoat lint`                                             | CI                                          |
-| Contrast of Trench Coat's own tokens, in every look and theme                                                                      | Trench Coat's `check:contrast`                                | Trench Coat CI                              |
+| Check                                                                                                                                 | Where                                                         | Runs                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------- |
+| axe-core, WCAG 2.0/2.1/2.2 A and AA rules, light and dark                                                                             | `apps/web/e2e/a11y.ts`, called on every page in the e2e specs | CI, every PR; any violation fails the build |
+| Keyboard: each of the first 30 Tab stops on every main page shows a focus indicator and isn't covered by sticky UI (2.4.7, 2.4.11)    | `apps/web/e2e/keyboard.spec.ts`                               | CI                                          |
+| Reflow at 640px and 320px (200% and 400% zoom on a 1280px screen): nothing on the main pages needs sideways scrolling (1.4.4, 1.4.10) | `apps/web/e2e/reflow.spec.ts`                                 | CI                                          |
+| Keyboard flows: skip link, ⌘K, rail, composer (Enter), approvals, verdicts, the checkpoint, new project dialog                        | the feature specs in `apps/web/e2e`                           | CI                                          |
+| Template rules (alt text, labels, roles, valid ARIA, interactive elements)                                                            | `angular-eslint` template accessibility rules                 | CI (`npm run lint`)                         |
+| Trench Coat usage: unknown properties, attribute vs property, tokens                                                                  | `trenchcoat lint`                                             | CI                                          |
+| Contrast of Trench Coat's own tokens, in every look and theme                                                                         | Trench Coat's `check:contrast`                                | Trench Coat CI                              |
 
 The e2e runs use reduced motion, so axe measures colours after entrance fades, not halfway through them.
 
@@ -42,17 +42,18 @@ The e2e runs use reduced motion, so axe measures colours after entrance fades, n
 
 ## Fixed while building
 
-| Issue                                                                                                | Criterion     | Fix                                                                             |
-| ---------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------- |
-| The skip link navigated to `/#main` because of `<base href>`                                         | 2.4.1         | Moves focus to `main` in script                                                 |
-| A sticky composer and ask bar could cover the focused control                                        | 2.4.11        | `scroll-padding` on the scrolling containers                                    |
-| The ⌘K results stayed open over the next focused control                                             | 2.4.11        | Trench Coat fix (below); until then the shell closes them on focus-out          |
-| The Brief, artifact viewer, project workspace and chat with its panel scrolled sideways at 200% zoom | 1.4.4, 1.4.10 | Grids reflow, the rail folds below 1024px, and the panel moves under the thread |
-| Two "Session intent" regions on the same page                                                        | 1.3.1         | Panel sections are plain groups                                                 |
-| Prompt starters' `h3` directly under the page's `h1`                                                 | 1.3.1         | A section `h2` above them                                                       |
-| The thread scrolled sideways (no `box-sizing: border-box`)                                           | 1.4.10        | Global `border-box`                                                             |
-| Read-only tables offered selection checkboxes                                                        | 4.1.2         | `selectable` off                                                                |
-| The composer's mic played a sample transcript into real messages                                     | 3.3.x (trust) | Browser speech recognition, which says when none is available                   |
+| Issue                                                                                                | Criterion     | Fix                                                                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The skip link navigated to `/#main` because of `<base href>`                                         | 2.4.1         | Moves focus to `main` in script                                                                                                                                               |
+| A sticky composer and ask bar could cover the focused control                                        | 2.4.11        | `scroll-padding` on the scrolling containers                                                                                                                                  |
+| The ⌘K results stayed open over the next focused control                                             | 2.4.11        | Trench Coat fix (below); until then the shell closes them on focus-out                                                                                                        |
+| The Brief, artifact viewer, project workspace and chat with its panel scrolled sideways at 200% zoom | 1.4.4, 1.4.10 | Grids reflow, the rail folds below 1024px, and the panel moves under the thread                                                                                               |
+| Two "Session intent" regions on the same page                                                        | 1.3.1         | Panel sections are plain groups                                                                                                                                               |
+| Prompt starters' `h3` directly under the page's `h1`                                                 | 1.3.1         | A section `h2` above them                                                                                                                                                     |
+| The thread scrolled sideways (no `box-sizing: border-box`)                                           | 1.4.10        | Global `border-box`                                                                                                                                                           |
+| Read-only tables offered selection checkboxes                                                        | 4.1.2         | `selectable` off                                                                                                                                                              |
+| The composer's mic played a sample transcript into real messages                                     | 3.3.x (trust) | Browser speech recognition, which says when none is available                                                                                                                 |
+| At 320px (400% zoom) the header needed 620px, and a chat's thread shrank to a strip above its panel  | 1.4.10        | Below 600px the header takes two rows (search below) with New chat as an icon; the thread takes the whole view and its panel follows it; grids, toolbars and ask boxes shrink |
 
 ## Fixed in Trench Coat
 
@@ -73,7 +74,6 @@ still worked around, with the release that fixes it, and a test fails once that 
 
 ## Open
 
-- **Reflow at 320 CSS px (400% zoom), 1.4.10.** Slice 1 is desktop-only, and the pages reflow down to 640px. Below that, the header and the multi-column workspaces aren't designed yet. This is a known gap for AA, to close when the app gets a narrow layout.
 - **Icon-only Trench Coat buttons have a 0×0 native button.** Clicks work through the chip, but voice control and screen magnifiers may not see a target there. The fix exposes target-size problems in Trench Coat's canvas app, so it's a separate Trench Coat change. Donovan's tests click the chip meanwhile.
 - **Keycloak's sign-in page** belongs to the identity provider, not this app. Production sign-in should be checked against the provider actually used.
 

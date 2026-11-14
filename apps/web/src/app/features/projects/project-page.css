@@ -119,6 +119,7 @@ h3 {
 
 .ask input {
   flex: 1;
+  min-width: 0;
   min-height: 32px;
   padding: 0 var(--tc-space-2);
   border: 1px solid var(--tc-border-control);
@@ -197,6 +198,7 @@ h3 {
 
 .search {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--tc-space-2);
   margin-bottom: var(--tc-space-2);
 }
