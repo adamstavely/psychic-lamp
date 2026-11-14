@@ -8,6 +8,7 @@ import { Env } from './config/env.js';
 import { DbModule } from './db/db.module.js';
 import { HealthController } from './health/health.controller.js';
 import { ProjectsModule } from './projects/projects.module.js';
+import { SearchApiModule } from './search-api/search-api.module.js';
 import { SearchModule } from './search/search.module.js';
 import { TestResetController } from './testing/test-reset.controller.js';
 import { UsersModule } from './users/users.module.js';
@@ -23,6 +24,7 @@ import { UsersModule } from './users/users.module.js';
     ChatsModule,
     ArtifactsModule,
     ProjectsModule,
+    SearchApiModule,
   ],
   controllers: [HealthController],
 })

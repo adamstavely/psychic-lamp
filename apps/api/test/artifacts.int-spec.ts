@@ -42,6 +42,8 @@ describe('/api/artifacts', () => {
     expect(data.map((a) => a.name).sort()).toEqual(['churn_compare.csv', 'cohort.json']);
     const found = List.parse((await http.get('/api/artifacts?q=break-glass').auth(token, bearer)).body);
     expect(found.map((a) => a.name)).toEqual(['approval_tiers_rfc.md']);
+    const byPart = List.parse((await http.get('/api/artifacts?q=cohort').auth(token, bearer)).body);
+    expect(byPart.map((a) => a.name)).toContain('cohort.json');
     const fuzzy = List.parse((await http.get('/api/artifacts?q=rollbak').auth(token, bearer)).body);
     expect(fuzzy[0]!.name).toBe('Rollout note — Fraud Sentinel v3.2');
   });

@@ -4,6 +4,7 @@ import { Claims } from '../auth/claims.decorator.js';
 import type { Claims as TokenClaims } from '../auth/claims.js';
 import { ArtifactSearch } from '../artifacts/artifact-search.js';
 import { DB, type Db } from '../db/db.module.js';
+import { ChatSearch } from '../search/chat-search.js';
 import { users } from '../db/schema.js';
 
 /** Only registered when ALLOW_TEST_RESET is true (see app.module.ts): never in a deployment. */
@@ -12,6 +13,7 @@ export class TestResetController {
   constructor(
     @Inject(DB) private readonly db: Db,
     private readonly search: ArtifactSearch,
+    private readonly chatSearch: ChatSearch,
   ) {}
 
   /** Deletes the caller and everything of theirs; their next request starts from the canned content again. */
@@ -19,6 +21,6 @@ export class TestResetController {
   @HttpCode(204)
   async resetMe(@Claims() claims: TokenClaims): Promise<void> {
     const [gone] = await this.db.delete(users).where(eq(users.subject, claims.sub)).returning({ id: users.id });
-    if (gone) await this.search.removeOwner(gone.id);
+    if (gone) await Promise.all([this.search.removeOwner(gone.id), this.chatSearch.removeOwner(gone.id)]);
   }
 }

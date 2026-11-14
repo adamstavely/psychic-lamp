@@ -21,6 +21,7 @@ import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module.js';
 import { chats, checkpoints, claimReviews, messages } from '../db/schema.js';
 import { SeedService } from '../seed/seed.service.js';
+import { ChatSearch, chatText } from '../search/chat-search.js';
 import { contextFor } from './context.js';
 import { decisionReply, pickReply, type Reply } from './replies.js';
 
@@ -32,7 +33,14 @@ export class ChatsService {
   constructor(
     @Inject(DB) private readonly db: Db,
     private readonly seeds: SeedService,
+    private readonly chatSearch: ChatSearch,
   ) {}
+
+  /** Keeps the chat's search entry in step with its title and turns. */
+  private async reindex(userId: string, id: string): Promise<void> {
+    const chat = await this.get(userId, id);
+    await this.chatSearch.index([{ ownerId: userId, id, title: chat.title, text: chatText(chat.messages) }]);
+  }
 
   /** The person's chats, pinned first, then most recently active. */
   async list(userId: string): Promise<ChatSummary[]> {
@@ -161,6 +169,7 @@ export class ChatsService {
       .where(and(eq(chats.ownerId, userId), eq(chats.id, id)))
       .returning();
     if (!row) throw new NotFoundException('No chat with that id');
+    if (patch.title) await this.reindex(userId, id);
     return toSummary(row);
   }
 
@@ -171,6 +180,7 @@ export class ChatsService {
       .insert(chats)
       .values({ ownerId: userId, id: newChatId(), title: titleFrom(body.text), sensitivity: body.sensitivity })
       .returning();
+    await this.reindex(userId, row!.id);
     return toSummary(row!);
   }
 
@@ -182,7 +192,7 @@ export class ChatsService {
   ): Promise<{ user: UserMessage; answer: AssistantMessage }> {
     await this.get(userId, chatId);
     const reply = pickReply(body.text, body.model);
-    return this.db.transaction(async (tx) => {
+    const sent = await this.db.transaction(async (tx) => {
       const seq = await nextSeq(tx, userId, chatId);
       const [u] = await tx
         .insert(messages)
@@ -198,6 +208,8 @@ export class ChatsService {
         .where(and(eq(chats.ownerId, userId), eq(chats.id, chatId)));
       return { user: toMessage(u!) as UserMessage, answer: toMessage(a!) as AssistantMessage };
     });
+    await this.reindex(userId, chatId);
+    return sent;
   }
 
   /** Approves or denies a write tool that's waiting, and adds Donovan's reply to the decision. */
@@ -275,10 +287,12 @@ export class ChatsService {
   /** Takes the chat off the list; `restore` brings it back. */
   async archive(userId: string, id: string): Promise<void> {
     await this.setArchived(userId, id, new Date());
+    await this.chatSearch.remove(userId, id);
   }
 
   async restore(userId: string, id: string): Promise<void> {
     await this.setArchived(userId, id, null);
+    await this.reindex(userId, id);
   }
 
   private async setArchived(userId: string, id: string, at: Date | null): Promise<void> {

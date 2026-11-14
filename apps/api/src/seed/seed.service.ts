@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DB, type Db } from '../db/db.module.js';
 import { artifacts, chats, messages, projects, projectSources, userSeeds } from '../db/schema.js';
 import { SEED_PROJECTS } from './projects.fixture.js';
+import { ChatSearch, chatText } from '../search/chat-search.js';
 import { SEED_ARTIFACTS } from './artifacts.fixture.js';
 import { SEED_CHATS } from './chats.fixture.js';
 
@@ -12,7 +13,10 @@ const MINUTE = 60_000;
 /** Copies the canned content to a person the first time they need it, once per set, safely under concurrency. */
 @Injectable()
 export class SeedService {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    private readonly chatSearch: ChatSearch,
+  ) {}
 
   ensureChats(userId: string, now = new Date()): Promise<boolean> {
     return this.once(userId, 'chats', async (tx) => {
@@ -43,6 +47,29 @@ export class SeedService {
           })),
         );
       }
+      // Inside the transaction, so a request that arrives meanwhile waits until the chats are searchable too.
+      await this.chatSearch.index(
+        SEED_CHATS.map((c) => ({
+          ownerId: userId,
+          id: c.id,
+          title: c.title,
+          text: chatText(
+            c.messages.map((m, n) =>
+              m.role === 'user'
+                ? { id: String(n), role: 'user' as const, text: m.text, at: '' }
+                : {
+                    id: String(n),
+                    role: 'assistant' as const,
+                    routing: m.routing,
+                    blocks: m.blocks,
+                    durationMs: m.durationMs,
+                    vote: null,
+                    at: '',
+                  },
+            ),
+          ),
+        })),
+      );
     });
   }
 
