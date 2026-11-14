@@ -47,13 +47,11 @@ test.describe('Artifacts', () => {
     test('uploading a CSV opens it as data', async ({ page }) => {
       await signIn(page, 'sam', '/artifacts');
       await resetUser(page);
-      await page
-        .locator('input[type=file]')
-        .setInputFiles({
-          name: 'regions.csv',
-          mimeType: 'text/csv',
-          buffer: Buffer.from('region,revenue\nEU,10\nUS,12'),
-        });
+      await page.locator('input[type=file]').setInputFiles({
+        name: 'regions.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from('region,revenue\nEU,10\nUS,12'),
+      });
       await expect(page).toHaveURL(/\/artifacts\/regions-csv-[0-9a-f]{6}$/);
       await expect(page.getByRole('heading', { level: 1, name: 'regions.csv' })).toBeVisible();
       await expect(page.getByRole('gridcell', { name: 'EU' }).or(page.getByRole('cell', { name: 'EU' }))).toBeVisible();
