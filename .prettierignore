@@ -1,0 +1,5 @@
+dist
+coverage
+.angular
+vendor
+package-lock.json

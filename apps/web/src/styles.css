@@ -1,0 +1,15 @@
+@import '@adamstavely/trenchcoat/tokens.css';
+@import '@fontsource-variable/inter';
+@import './theme/donovan.css';
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--dn-canvas);
+  color: var(--tc-text-primary);
+  font-family: var(--tc-font-sans);
+}

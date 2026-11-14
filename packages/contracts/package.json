@@ -1,0 +1,23 @@
+{
+  "name": "@donovan/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Zod schemas and types shared by the Donovan API and web app.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.0"
+  }
+}
