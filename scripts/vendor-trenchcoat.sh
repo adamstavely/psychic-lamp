@@ -13,5 +13,5 @@ npm pack "@adamstavely/trenchcoat@${version}" --pack-destination vendor --regist
 
 # One release in the repo at a time.
 find vendor -name 'adamstavely-trenchcoat-*.tgz' ! -path "$tgz" -delete
-npm install -w web --save-exact "@adamstavely/trenchcoat@file:../../${tgz}"
+npm install -w web --save-exact "@adamstavely/trenchcoat@file:${tgz}"
 echo "Vendored ${tgz}"

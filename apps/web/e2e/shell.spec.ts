@@ -34,7 +34,10 @@ test.describe('the frame around every page', () => {
 
   test('⌘K finds an area and goes there', async ({ page }) => {
     await page.keyboard.press('ControlOrMeta+k');
+    // Search results redraw the list when they land; wait for them so Enter picks the option seen.
+    const answered = page.waitForResponse((r) => r.url().includes('/api/search?q=artifacts'));
     await page.keyboard.type('artifacts');
+    await answered;
     await expect(page.getByRole('option', { name: /^Artifacts/ }).first()).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(page).toHaveTitle('Artifacts · Donovan');
