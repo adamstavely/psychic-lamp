@@ -2,6 +2,7 @@ import {
   Artifact,
   ArtifactSummary,
   Chat,
+  OUTPUT_TOOLS,
   Project,
   ProjectAnswer,
   ProjectsOverview,
@@ -269,6 +270,44 @@ describe('/api/projects', () => {
     );
     const a = Artifact.parse((await http.get(`/api/artifacts/${made.id}`).auth(token, bearer)).body);
     expect(a.sources).toHaveLength(5);
+  });
+
+  it('makes every Studio tool, each a document with something in it', async () => {
+    const token = await t.token();
+    for (const tool of OUTPUT_TOOLS) {
+      const made = ArtifactSummary.parse(
+        (await http.post('/api/projects/fraud-rollout/outputs').auth(token, bearer).send({ tool }).expect(201)).body,
+      );
+      const a = Artifact.parse((await http.get(`/api/artifacts/${made.id}`).auth(token, bearer)).body);
+      expect(a.body.kind === 'Doc' && a.body.blocks.length).toBeGreaterThan(1);
+    }
+    const p = Project.parse((await http.get('/api/projects/fraud-rollout').auth(token, bearer)).body);
+    expect(p.outputs.map((o) => o.title)).toEqual(
+      expect.arrayContaining([
+        'Slide deck — Fraud rollout',
+        'Mind map — Fraud rollout',
+        'Audio overview — Fraud rollout',
+      ]),
+    );
+  });
+
+  it('edits a note', async () => {
+    const token = await t.token();
+    await http.post('/api/projects/sku-onboarding/notes').auth(token, bearer).send({ text: 'Draft' }).expect(204);
+    let p = Project.parse((await http.get('/api/projects/sku-onboarding').auth(token, bearer)).body);
+    const note = p.notes.find((n) => n.text === 'Draft')!;
+    await http
+      .patch(`/api/projects/sku-onboarding/notes/${note.id}`)
+      .auth(token, bearer)
+      .send({ text: 'Pack size goes in net content' })
+      .expect(204);
+    await http
+      .patch(`/api/projects/sku-onboarding/notes/${note.id}`)
+      .auth(token, bearer)
+      .send({ text: ' ' })
+      .expect(400);
+    p = Project.parse((await http.get('/api/projects/sku-onboarding').auth(token, bearer)).body);
+    expect(p.notes.find((n) => n.id === note.id)!.text).toBe('Pack size goes in net content');
   });
 
   it('files an artifact under another project from the artifact', async () => {

@@ -113,7 +113,17 @@ export const NewSource = z.discriminatedUnion('from', [
 ]);
 export type NewSource = z.infer<typeof NewSource>;
 
-export const OUTPUT_TOOLS = ['brief', 'table', 'faq', 'timeline'] as const;
+export const OUTPUT_TOOLS = [
+  'brief',
+  'report',
+  'deck',
+  'table',
+  'mindmap',
+  'faq',
+  'quiz',
+  'audio',
+  'timeline',
+] as const;
 export const NewOutput = z.strictObject({ tool: z.enum(OUTPUT_TOOLS) });
 export type NewOutput = z.infer<typeof NewOutput>;
 
@@ -181,5 +191,7 @@ export type AddSources = z.infer<typeof AddSources>;
 export const ProjectQuestion = z.strictObject({ question: z.string().trim().min(1).max(2000) });
 export type ProjectQuestion = z.infer<typeof ProjectQuestion>;
 
-export const NewNote = z.strictObject({ text: z.string().trim().min(1).max(4000) });
+export const NewNote = z.strictObject({ text: z.string().trim().min(1, 'Write something first').max(4000) });
 export type NewNote = z.infer<typeof NewNote>;
+export const NotePatch = NewNote;
+export type NotePatch = NewNote;

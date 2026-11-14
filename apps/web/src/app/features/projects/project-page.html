@@ -539,9 +539,18 @@
 
               <div>
                 <h3 class="label">
-                  Outputs <span class="count">{{ p.outputs.length }}</span>
+                  Outputs <span class="count">{{ p.outputs.length + (making() ? 1 : 0) }}</span>
                 </h3>
                 <ul class="outputs">
+                  @if (making()) {
+                    <li class="note generating" aria-busy="true">
+                      <span class="tile" dnIcon="sparkle"></span
+                      ><span class="text"
+                        ><span class="title">{{ makingLabel() }} — {{ p.name }}</span
+                        ><span class="meta">Generating from {{ selectedCount() }} sources…</span></span
+                      >
+                    </li>
+                  }
                   @for (o of p.outputs; track o.artifactId) {
                     <li>
                       <a [routerLink]="['/artifacts', o.artifactId]"
@@ -553,7 +562,9 @@
                       >
                     </li>
                   } @empty {
-                    <li class="none">Briefs, tables and other artifacts made from this project are saved here.</li>
+                    @if (!making()) {
+                      <li class="none">Briefs, tables and other artifacts made from this project are saved here.</li>
+                    }
                   }
                 </ul>
               </div>
@@ -563,22 +574,61 @@
                   Notes <span class="count">{{ p.notes.length }}</span>
                 </h3>
                 <ul class="outputs">
-                  @for (n of p.notes; track n.id) {
-                    <li class="note">
-                      <span class="tile" dnIcon="note"></span
-                      ><span class="text"
-                        ><span class="title">{{ n.text }}</span
-                        ><span class="meta">{{ date(n.at) }}</span></span
-                      >
-                      <button type="button" class="icon-btn" aria-label="Delete note" (click)="deleteNote(n.id)">
-                        <span aria-hidden="true">×</span>
-                      </button>
+                  @if (writing()) {
+                    <li>
+                      <form class="note-form" (ngSubmit)="saveNote()">
+                        <label for="note-new" class="sr-only">New note</label>
+                        <textarea id="note-new" name="note" rows="3" [(ngModel)]="draftNote"></textarea>
+                        <div class="note-actions">
+                          <button type="submit" class="mini">Save note</button>
+                          <button type="button" class="link" (click)="cancelNote()">Cancel</button>
+                        </div>
+                      </form>
                     </li>
+                  }
+                  @for (n of p.notes; track n.id) {
+                    @if (editing() === n.id) {
+                      <li>
+                        <form class="note-form" (ngSubmit)="saveNote()">
+                          <label [for]="'note-edit-' + n.id" class="sr-only">Edit note</label>
+                          <textarea [id]="'note-edit-' + n.id" name="note" rows="4" [(ngModel)]="draftNote"></textarea>
+                          <div class="note-actions">
+                            <button type="submit" class="mini">Save note</button>
+                            <button type="button" class="link" (click)="cancelNote()">Cancel</button>
+                          </div>
+                        </form>
+                      </li>
+                    } @else {
+                      <li class="note">
+                        <span class="tile" dnIcon="note"></span
+                        ><span class="text"
+                          ><span class="title clamp">{{ n.text }}</span
+                          ><span class="meta">{{ date(n.at) }}</span></span
+                        >
+                        <button
+                          type="button"
+                          class="icon-btn"
+                          aria-label="Edit note"
+                          title="Edit note"
+                          (click)="editNote(n.id, n.text)"
+                        >
+                          <span dnIcon="pencil" [iconSize]="14"></span>
+                        </button>
+                        <button type="button" class="icon-btn" aria-label="Delete note" (click)="deleteNote(n.id)">
+                          <span aria-hidden="true">×</span>
+                        </button>
+                      </li>
+                    }
                   } @empty {
-                    <li class="none">Save the guide or an answer to keep it here.</li>
+                    @if (!writing()) {
+                      <li class="none">Add a note, or save the guide or an answer, to keep it here.</li>
+                    }
                   }
                 </ul>
               </div>
+            </div>
+            <div class="studio-foot">
+              <button type="button" class="pill" (click)="startNote()"><span dnIcon="note"></span>Add note</button>
             </div>
           </section>
         } @else {
@@ -593,6 +643,9 @@
               (click)="showStudio.set(true)"
             >
               <span dnIcon="panelRight"></span>
+            </button>
+            <button type="button" class="icon-btn" aria-label="Add note" title="Add note" (click)="startNote()">
+              <span dnIcon="note"></span>
             </button>
           </section>
         }

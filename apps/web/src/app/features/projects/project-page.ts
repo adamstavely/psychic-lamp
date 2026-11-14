@@ -60,8 +60,13 @@ const KIND_ICON: Record<ProjectSource['kind'], IconName> = {
 
 const TOOLS: { tool: NewOutput['tool']; label: string; hint: string; icon: IconName }[] = [
   { tool: 'brief', label: 'Brief', hint: 'A one-page summary of the selected sources', icon: 'list' },
-  { tool: 'table', label: 'Source table', hint: 'Each source, its kind and detail', icon: 'table' },
+  { tool: 'report', label: 'Report', hint: 'Summary, what each source adds, open questions', icon: 'doc' },
+  { tool: 'deck', label: 'Slide deck', hint: 'A slide outline to paste into your deck tool', icon: 'presentation' },
+  { tool: 'table', label: 'Data table', hint: 'Each source, its kind and detail', icon: 'table' },
+  { tool: 'mindmap', label: 'Mind map', hint: 'The sources grouped by kind, with the questions', icon: 'network' },
   { tool: 'faq', label: 'FAQ', hint: "The project's questions, answered", icon: 'help' },
+  { tool: 'quiz', label: 'Quiz', hint: 'True-or-false questions from the sources', icon: 'check' },
+  { tool: 'audio', label: 'Audio overview', hint: 'A two-voice script about the sources', icon: 'headphones' },
   { tool: 'timeline', label: 'Timeline', hint: 'What each source adds, in order', icon: 'clock' },
 ];
 
@@ -171,6 +176,12 @@ export default class ProjectPage {
 
   // Studio
   protected readonly making = signal<NewOutput['tool'] | null>(null);
+  protected readonly makingLabel = computed(() => TOOLS.find((t) => t.tool === this.making())?.label ?? '');
+
+  // Notes: a new one being written, or one being edited (by id)
+  protected readonly writing = signal(false);
+  protected readonly editing = signal<string | null>(null);
+  protected draftNote = '';
 
   // Sharing
   private readonly shareDialog = viewChild<ElementRef<HTMLDialogElement>>('shareDialog');
@@ -411,6 +422,37 @@ export default class ProjectPage {
   protected async addNote(text: string): Promise<void> {
     await this.change(() => this.#http.post<void>(this.url('notes'), { text }));
     this.status.set('Saved to notes.');
+  }
+
+  protected startNote(): void {
+    this.showStudio.set(true);
+    this.editing.set(null);
+    this.draftNote = '';
+    this.writing.set(true);
+    requestAnimationFrame(() => document.getElementById('note-new')?.focus());
+  }
+
+  protected editNote(id: string, text: string): void {
+    this.writing.set(false);
+    this.draftNote = text;
+    this.editing.set(id);
+    requestAnimationFrame(() => document.getElementById(`note-edit-${id}`)?.focus());
+  }
+
+  protected cancelNote(): void {
+    this.writing.set(false);
+    this.editing.set(null);
+  }
+
+  protected async saveNote(): Promise<void> {
+    const text = this.draftNote.trim();
+    if (!text) return;
+    const id = this.editing();
+    if (id) {
+      await this.change(() => this.#http.patch<void>(this.url(`notes/${id}`), { text }));
+      this.status.set('Note saved.');
+    } else await this.addNote(text);
+    this.cancelNote();
   }
 
   protected async deleteNote(id: string): Promise<void> {

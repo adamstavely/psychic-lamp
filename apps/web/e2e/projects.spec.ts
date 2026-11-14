@@ -177,11 +177,30 @@ test.describe('Projects', () => {
       await signIn(page, 'kemi', '/projects/support-triage');
       await resetUser(page);
       const studio = page.getByRole('region', { name: 'Studio' });
-      await studio.getByRole('button', { name: 'Source table' }).click();
-      const made = studio.getByRole('link', { name: 'Source table — Support triage' });
+      await studio.getByRole('button', { name: 'Data table' }).click();
+      const made = studio.getByRole('link', { name: 'Data table — Support triage' });
       await expect(made).toBeVisible();
       await made.click();
-      await expect(page.getByRole('heading', { level: 1, name: 'Source table — Support triage' })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 1, name: 'Data table — Support triage' })).toBeVisible();
+    });
+
+    test('notes can be written and edited, and a slide deck is made', async ({ page }) => {
+      await signIn(page, 'kemi', '/projects/sku-onboarding');
+      await resetUser(page);
+      const studio = page.getByRole('region', { name: 'Studio' });
+      await studio.getByRole('button', { name: 'Add note' }).click();
+      await expect(studio.getByRole('textbox', { name: 'New note' })).toBeFocused();
+      await page.keyboard.type('Ask Merch about pack sizes');
+      await studio.getByRole('button', { name: 'Save note' }).click();
+      await expect(studio.getByText('Ask Merch about pack sizes')).toBeVisible();
+      await studio.getByRole('button', { name: 'Edit note' }).click();
+      await studio.getByRole('textbox', { name: 'Edit note' }).fill('Ask Merch about pack sizes by Friday');
+      await studio.getByRole('button', { name: 'Save note' }).click();
+      await expect(studio.getByText('Ask Merch about pack sizes by Friday')).toBeVisible();
+
+      await studio.getByRole('button', { name: 'Slide deck' }).click();
+      await expect(studio.getByRole('link', { name: /Slide deck — SKU onboarding/ })).toBeVisible();
+      await expectNoAxeViolations(page);
     });
 
     test('sharing with a team shows on the project', async ({ page }) => {
