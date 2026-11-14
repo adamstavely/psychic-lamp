@@ -11,6 +11,8 @@
 .layout > .page {
   min-height: 0;
   overflow: auto;
+  /* Room for the sticky header and composer, so a control that gets focus is scrolled clear of them (WCAG 2.4.11). */
+  scroll-padding-block: 4rem 11rem;
 }
 
 .checkpoint {
@@ -157,4 +159,26 @@
 
 .state {
   padding: var(--tc-space-8);
+}
+
+/* Reflow (WCAG 1.4.4, 1.4.10): without room for both, the session panel goes under the thread. */
+@media (max-width: 1100px) {
+  .layout.with-panel {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .layout.with-panel > dn-session-panel {
+    max-height: 45vh;
+    border-top: 1px solid var(--tc-border-subtle);
+  }
+}
+
+@media (max-width: 720px) {
+  .thread,
+  .composer {
+    padding-inline: var(--tc-space-3);
+  }
+  .intent div {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

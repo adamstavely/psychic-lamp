@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
@@ -56,6 +56,10 @@ export class Shell {
   protected readonly session = inject(Session);
   protected readonly theme = inject(ThemeService);
   protected readonly chats = inject(ChatsStore);
+
+  constructor() {
+    this.#narrow?.addEventListener('change', (e) => this.narrow.set(e.matches));
+  }
   readonly #router = inject(Router);
 
   protected readonly brandIcon = brandMark();
@@ -124,7 +128,10 @@ export class Shell {
     void this.chats.restore(String(event.detail.id));
   }
 
-  protected readonly railCollapsed = computed(() => !this.session.preferences().railExpanded);
+  /** Below 1024px (or zoomed in that far) the rail folds to icons, whatever the saved preference, so pages keep room. */
+  readonly #narrow = typeof matchMedia === 'function' ? matchMedia('(max-width: 1024px)') : undefined;
+  protected readonly narrow = signal(this.#narrow?.matches ?? false);
+  protected readonly railCollapsed = computed(() => this.narrow() || !this.session.preferences().railExpanded);
 
   protected readonly user = computed(() => {
     const me = this.session.me.hasValue() ? this.session.me.value() : undefined;
@@ -166,6 +173,17 @@ export class Shell {
     document.getElementById('main')?.focus();
   }
 
+  /**
+   * Trench Coat 0.28.0's popover search stays open when Tab leaves it, covering what gets focus next (WCAG 2.4.11).
+   * Escape is its own way to close the results, so send that. Remove with KNOWN_TRENCHCOAT_ISSUES.commandMenuFocusOut.
+   */
+  protected closeSearchOnLeave(event: FocusEvent): void {
+    const menu = event.currentTarget as HTMLElement;
+    if (event.relatedTarget instanceof Node && menu.contains(event.relatedTarget)) return;
+    const field = menu.querySelector('[role="combobox"]');
+    field?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  }
+
   protected async newChat(): Promise<void> {
     await this.#router.navigateByUrl('/chats/new');
   }
@@ -187,6 +205,12 @@ export class Shell {
   }
 
   protected onRailCollapsed(event: CustomEvent<SideNavCollapsedChange>): void {
+    // Folded for width, the button only changes it for now; the saved preference is for wide windows.
+    if (this.narrow()) {
+      event.preventDefault();
+      this.narrow.set(event.detail.collapsed);
+      return;
+    }
     void this.save(() => this.session.updatePreferences({ railExpanded: !event.detail.collapsed }));
   }
 

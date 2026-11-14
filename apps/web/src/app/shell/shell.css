@@ -60,6 +60,8 @@
   grid-area: main;
   min-width: 0;
   overflow: auto;
+  /* Pages may pin a bar to the bottom (the Brief's ask box); focus scrolls clear of it (WCAG 2.4.11). */
+  scroll-padding-block-end: 6rem;
   background: var(--dn-canvas);
 }
 
@@ -83,4 +85,15 @@
 
 .skip-link:focus {
   transform: none;
+}
+
+/* Narrow windows and high zoom: the header keeps its essentials; the search fills what's left. */
+@media (max-width: 900px) {
+  .topbar {
+    gap: var(--tc-space-2);
+    padding-inline: var(--tc-space-2);
+  }
+  .mode {
+    display: none;
+  }
 }

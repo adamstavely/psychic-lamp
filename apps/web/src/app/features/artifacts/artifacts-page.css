@@ -1,5 +1,6 @@
 .page {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--tc-space-4);
   max-width: 88rem;
   margin-inline: auto;
@@ -136,4 +137,13 @@ h1 {
 
 .meta {
   font-size: var(--tc-font-size-xs);
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding-inline: var(--tc-space-4);
+  }
+  .head {
+    flex-wrap: wrap;
+  }
 }

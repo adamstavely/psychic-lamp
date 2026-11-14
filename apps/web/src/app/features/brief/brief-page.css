@@ -1,5 +1,7 @@
 .page {
   display: grid;
+  /* minmax(0, 1fr): a wide child (the stories row, a table) scrolls in its own box instead of widening the page. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--tc-space-4);
   max-width: 88rem;
   margin-inline: auto;
@@ -336,4 +338,22 @@ h3 {
 
 .state {
   padding: var(--tc-space-8);
+}
+
+/* Reflow (WCAG 1.4.4, 1.4.10): columns stack as the window narrows or the page is zoomed. */
+@media (max-width: 1200px) {
+  .columns,
+  .searches {
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding-inline: var(--tc-space-4);
+  }
+  .columns,
+  .searches {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
