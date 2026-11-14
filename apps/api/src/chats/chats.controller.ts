@@ -25,6 +25,7 @@ import type { Claims as TokenClaims } from '../auth/claims.js';
 import { identityFrom } from '../users/identity.js';
 import { UsersService } from '../users/users.service.js';
 import type { Env } from '../config/env.js';
+import { StreamLimiter } from '../observability/limits.js';
 import { ChatsService } from './chats.service.js';
 import { sse, streamAnswer } from './stream.js';
 
@@ -39,6 +40,7 @@ export class ChatsController {
     private readonly chats: ChatsService,
     private readonly users: UsersService,
     private readonly config: ConfigService<Env, true>,
+    private readonly streams: StreamLimiter,
   ) {}
 
   @Post()
@@ -59,9 +61,16 @@ export class ChatsController {
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
-    // Saved before streaming starts, so leaving mid-answer still leaves a whole thread behind.
-    const { user, answer } = await this.chats.send(await this.users.idFor(claims), id, body);
-    await this.stream(answer, req, res, user);
+    const userId = await this.users.idFor(claims);
+    // Over the limit of answers being streamed to this person at once, nothing is saved: the client says so.
+    const release = this.streams.acquire(userId);
+    try {
+      // Saved before streaming starts, so leaving mid-answer still leaves a whole thread behind.
+      const { user, answer } = await this.chats.send(userId, id, body);
+      await this.stream(answer, req, res, user);
+    } finally {
+      release();
+    }
   }
 
   private async stream(answer: AssistantMessage, req: Request, res: Response, user?: UserMessage): Promise<void> {
@@ -121,8 +130,14 @@ export class ChatsController {
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
-    const answer = await this.chats.regenerate(await this.users.idFor(claims), id, messageId, body.model);
-    await this.stream(answer, req, res);
+    const userId = await this.users.idFor(claims);
+    const release = this.streams.acquire(userId);
+    try {
+      const answer = await this.chats.regenerate(userId, id, messageId, body.model);
+      await this.stream(answer, req, res);
+    } finally {
+      release();
+    }
   }
 
   @Put(':id/messages/:messageId/version')
