@@ -198,6 +198,7 @@ h3 {
 
 .search {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--tc-space-2);
   margin-bottom: var(--tc-space-2);
 }

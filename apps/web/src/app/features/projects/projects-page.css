@@ -11,9 +11,15 @@
 .head-tools {
   display: flex;
   flex-wrap: wrap;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: var(--tc-space-3);
+}
+
+.head-tools input {
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 
 h1 {

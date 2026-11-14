@@ -1,5 +1,9 @@
 import { expectNoAxeViolations } from './a11y';
+import type { Page } from '@playwright/test';
 import { expect, matchTheme, signIn, test } from './fixtures';
+
+/** ⌘K's menu loads once the page is idle; a shortcut pressed before that does nothing */
+const searchReady = (page: Page) => expect(page.getByRole('combobox', { name: 'Search Donovan' })).toBeVisible();
 
 test.describe('the frame around every page', () => {
   test.beforeEach(async ({ page }) => {
@@ -33,6 +37,7 @@ test.describe('the frame around every page', () => {
   });
 
   test('⌘K finds an area and goes there', async ({ page }) => {
+    await searchReady(page);
     await page.keyboard.press('ControlOrMeta+k');
     // Search results redraw the list when they land; wait for them so Enter picks the option seen.
     const answered = page.waitForResponse((r) => r.url().includes('/api/search?q=artifacts'));
@@ -44,6 +49,7 @@ test.describe('the frame around every page', () => {
   });
 
   test('⌘K finds a chat by what was said in it, and an artifact by name', async ({ page }) => {
+    await searchReady(page);
     await page.keyboard.press('ControlOrMeta+k');
     // The list updates as results arrive; wait for the answer to the whole query before choosing.
     const answered = page.waitForResponse((r) => r.url().includes('/api/search?q=3DS%20rollout'));
@@ -53,6 +59,7 @@ test.describe('the frame around every page', () => {
     await expect(result).toBeVisible();
     await result.click();
     await expect(page).toHaveURL(/\/chats\/intents$/);
+    await searchReady(page);
     await page.keyboard.press('ControlOrMeta+k');
     const cohort = page.waitForResponse((r) => r.url().includes('/api/search?q=cohort'));
     await page.keyboard.type('cohort');
