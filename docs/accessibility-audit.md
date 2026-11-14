@@ -69,12 +69,16 @@ The e2e runs use reduced motion, so axe measures colours after entrance fades, n
 - The bell's unread badge was below 4.5:1 (1.4.3).
 - Angular 22 is in its supported range, so Donovan no longer overrides Trench Coat's Angular peer.
 
-Donovan vendors 0.28.2, so the workarounds are gone. `apps/web/e2e/trenchcoat-known.ts` lists any Trench Coat issue
+0.28.3 ([legendary-chainsaw#141](https://github.com/adamstavely/legendary-chainsaw/pull/141)):
+
+- An icon-only button's native button was 0×0 (clicks reached it through the chip), so voice control and screen
+  magnifiers might not find a target. It now fills the chip.
+
+Donovan vendors 0.28.3, so the workarounds are gone. `apps/web/e2e/trenchcoat-known.ts` lists any Trench Coat issue
 still worked around, with the release that fixes it, and a test fails once that release is installed.
 
 ## Open
 
-- **Icon-only Trench Coat buttons have a 0×0 native button.** Clicks work through the chip, but voice control and screen magnifiers may not see a target there. The fix exposes target-size problems in Trench Coat's canvas app, so it's a separate Trench Coat change. Donovan's tests click the chip meanwhile.
 - **Keycloak's sign-in page** belongs to the identity provider, not this app. Production sign-in should be checked against the provider actually used.
 
 ## Still to do by a person

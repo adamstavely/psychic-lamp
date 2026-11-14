@@ -98,8 +98,7 @@ test.describe('Daily Brief', () => {
   test('asking about the brief starts a chat with the question', async ({ page }) => {
     await signIn(page, 'alex');
     await page.getByRole('textbox', { name: 'Ask about your brief' }).fill('What should I prep?');
-    // Clicks the chip: Trench Coat's icon-only button is 0×0 to Playwright (KNOWN_TRENCHCOAT_ISSUES.iconButtonZeroSize).
-    await page.locator('tc-button[label="Ask Donovan"]').click();
+    await page.getByRole('button', { name: 'Ask Donovan' }).click();
     await expect(page).toHaveURL(/\/chats\/new\?q=What%20should%20I%20prep%3F$/);
 
     await page.goto('/brief');
