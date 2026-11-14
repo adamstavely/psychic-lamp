@@ -61,7 +61,7 @@
           <span class="meta-row">
             <span class="kind" [dnIcon]="kindIcon(a.kind)" [iconSize]="14"></span>
             <span class="meta">{{ a.kind }} · v{{ a.version }}</span>
-            <span class="sens" [attr.data-level]="a.sensitivity">{{ a.sensitivity }}</span>
+            <span class="sens dn-sens" [attr.data-level]="a.sensitivity">{{ a.sensitivity }}</span>
           </span>
           <a class="name" [routerLink]="['/artifacts', a.id]">{{ a.name }}</a>
           <span class="meta">{{ a.chat?.title ?? 'Uploaded' }} · {{ when(a.updatedAt) }}</span>

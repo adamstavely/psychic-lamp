@@ -68,18 +68,6 @@ h1 {
   font-weight: 600;
   white-space: nowrap;
 }
-.sens[data-level='Public'] {
-  color: var(--tc-status-success-fg);
-}
-.sens[data-level='Internal'] {
-  color: var(--tc-status-info-fg);
-}
-.sens[data-level='Confidential'] {
-  color: var(--tc-status-warning-fg);
-}
-.sens[data-level='Restricted'] {
-  color: var(--tc-status-danger-fg);
-}
 
 .pill-tag {
   padding: 2px 8px;

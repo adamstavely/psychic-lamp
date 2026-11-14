@@ -14,7 +14,7 @@
           }
         </p>
       </div>
-      <span class="sens" [attr.data-level]="p.sensitivity">{{ p.sensitivity }}</span>
+      <span class="sens dn-sens" [attr.data-level]="p.sensitivity">{{ p.sensitivity }}</span>
       @if (p.readOnly) {
         <span class="pill-tag">Read only</span>
         <tc-button variant="primary" size="sm" label="Copy to your projects" (click)="copyLibrary(p)" />

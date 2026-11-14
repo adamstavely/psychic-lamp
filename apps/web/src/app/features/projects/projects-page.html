@@ -47,7 +47,7 @@
         <li class="card">
           <span class="top">
             <span class="glyph" dnIcon="folder"></span>
-            <span class="sens" [attr.data-level]="p.sensitivity">{{ p.sensitivity }}</span>
+            <span class="sens dn-sens" [attr.data-level]="p.sensitivity">{{ p.sensitivity }}</span>
           </span>
           <a class="name" [routerLink]="['/projects', p.id]">{{ p.name }}</a>
           <span class="meta">{{ date(p.updatedAt) }} · {{ p.sourceCount }} sources</span>

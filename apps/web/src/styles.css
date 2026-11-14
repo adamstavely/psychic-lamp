@@ -34,3 +34,17 @@ body {
   white-space: nowrap;
   border: 0;
 }
+
+/* Sensitivity in words, coloured to match it (projects, artifacts and their cards share it) */
+.dn-sens[data-level='Public'] {
+  color: var(--tc-status-success-fg);
+}
+.dn-sens[data-level='Internal'] {
+  color: var(--tc-status-info-fg);
+}
+.dn-sens[data-level='Confidential'] {
+  color: var(--tc-status-warning-fg);
+}
+.dn-sens[data-level='Restricted'] {
+  color: var(--tc-status-danger-fg);
+}
