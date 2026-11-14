@@ -40,9 +40,10 @@ test.describe('Daily Brief', () => {
   test.describe('marks', () => {
     // These change the test user's saved state, so one browser project runs them and each undoes its change.
     test.skip(({ colorScheme }) => colorScheme !== 'light', 'state-changing; runs once');
+    test.describe.configure({ mode: 'serial' });
 
     test('ticking a need off counts it done and keeps it after a reload', async ({ page }) => {
-      await signIn(page, 'mara');
+      await signIn(page, 'devon');
       await api(page).put('/api/brief/needs/invoice-eval/done', { done: false });
       await page.reload();
       const before = await page.getByRole('heading', { name: /^Needs you/ }).textContent();
@@ -59,7 +60,7 @@ test.describe('Daily Brief', () => {
     });
 
     test('Mark all read clears the unread memos', async ({ page }) => {
-      await signIn(page, 'mara');
+      await signIn(page, 'devon');
       const memos = ['go-no-go-moved', 'approval-tiers', 'intents-draft-2', 'routing-default'];
       const unreadAll = async () => {
         for (const id of memos) await api(page).delete(`/api/brief/memos/${id}/read`);

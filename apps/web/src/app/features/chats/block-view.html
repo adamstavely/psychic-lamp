@@ -20,7 +20,21 @@
       [duration]="b.status === 'pending' ? undefined : (b.durationMs ?? undefined)"
       [error]="b.status === 'denied' ? 'Denied' : undefined"
     />
-    @if (b.status === 'pending') {
+    @if (approval(); as a) {
+      <tc-approval-card
+        class="approval"
+        [heading]="a.heading"
+        [why]="a.why"
+        [risk]="a.risk"
+        [details]="a.details"
+        [onApprove]="a.approve"
+        allowAlways
+        [alwaysLabel]="'Always in this chat'"
+        [approveLabel]="'Approve once'"
+        [denyLabel]="'Deny'"
+        (tc-deny)="deny(b.id)"
+      />
+    } @else if (b.status === 'pending') {
       <p class="waiting" role="note">
         <strong>Waiting for your approval.</strong> {{ b.name }} is a write tool, so it runs only after you review it.
       </p>

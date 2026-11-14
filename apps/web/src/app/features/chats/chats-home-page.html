@@ -1,0 +1,35 @@
+<section class="home" aria-labelledby="home-heading">
+  <p class="eyebrow">{{ date }}</p>
+  <h1 id="home-heading">{{ heading() }}</h1>
+  <p class="lede">
+    Auto-routing is on. Donovan picks skills, tools and a model per message; override any of them in the composer.
+  </p>
+
+  <div class="composer">
+    <tc-chat-composer
+      placeholder="Ask anything, or type / for a skill"
+      [value]="value()"
+      [models]="models"
+      model="auto"
+      [onSend]="send"
+      disclaimer="AI-generated claims can be wrong. Verify before acting."
+    />
+    <div class="composer-meta">
+      <tc-sensitivity-label-picker
+        [fileName]="'this chat'"
+        [options]="sensitivities"
+        [value]="sensitivity()"
+        (tc-value-change)="onSensitivity($event)"
+      />
+    </div>
+  </div>
+
+  <!-- tc-prompt-starters' own heading is an h3; this h2 keeps the page's outline in order. -->
+  <h2 class="sr-only">Ways to start</h2>
+  <tc-prompt-starters
+    heading="Try one of these"
+    [items]="starters"
+    (tc-fill)="fill($event)"
+    (tc-send)="sendStarter($event)"
+  />
+</section>

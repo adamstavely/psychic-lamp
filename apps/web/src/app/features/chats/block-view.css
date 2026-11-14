@@ -103,3 +103,8 @@
   font-size: var(--tc-font-size-sm);
   font-weight: 600;
 }
+
+.approval {
+  display: block;
+  margin-top: var(--tc-space-2);
+}

@@ -6,7 +6,13 @@ import { runMigrations } from './db/migrate.js';
 import { setUp } from './setup.js';
 
 async function bootstrap() {
-  const app = setUp(await NestFactory.create(AppModule));
+  // Read .env now (when there is one): AppModule.forEnvironment looks at the environment before ConfigModule loads it.
+  try {
+    process.loadEnvFile('.env');
+  } catch {
+    // No .env: the environment is set some other way.
+  }
+  const app = setUp(await NestFactory.create(AppModule.forEnvironment()));
   const config = app.get<ConfigService<Env, true>>(ConfigService);
   await runMigrations(config.get('DATABASE_URL', { infer: true }));
   await app.listen(config.get('PORT', { infer: true }));

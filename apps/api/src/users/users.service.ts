@@ -15,7 +15,13 @@ export class UsersService {
 
   /** The caller's user id, creating their row the first time this process sees them. */
   async idFor(claims: Claims): Promise<string> {
-    return this.#ids.get(claims.sub) ?? (await this.me(claims)).id;
+    const cached = this.#ids.get(claims.sub);
+    if (cached) {
+      // The row can go (the end-to-end reset deletes it); recreate rather than point at nothing.
+      const [row] = await this.db.select({ id: users.id }).from(users).where(eq(users.id, cached));
+      if (row) return cached;
+    }
+    return (await this.me(claims)).id;
   }
 
   /** The caller's user row, created on first sign-in and kept in step with their token's name and email. */
