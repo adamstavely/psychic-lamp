@@ -89,6 +89,8 @@ export const chats = pgTable(
     allowedTools: jsonb().$type<string[]>().notNull().default([]),
     /** Deleted from the list; kept so Undo can bring it back. */
     archivedAt: timestamp({ withTimezone: true }),
+    /** Bumped with every change to what search sees (title, turns, shown versions); the index records which it has. */
+    searchVersion: integer().notNull().default(0),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },

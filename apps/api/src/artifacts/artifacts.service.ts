@@ -176,11 +176,18 @@ export class ArtifactsService {
   }
 
   /** Elasticsearch when it answers; otherwise a plain name and text match in Postgres, so search still works. */
+  /**
+   * Ids of the person's artifacts that match: from the search index, or from Postgres when the index is down or finds
+   * nothing (it may be behind; reconciliation catches it up), so a stale index never hides a match.
+   */
   private async matching(userId: string, query: ArtifactQuery & { q: string }): Promise<string[]> {
     try {
-      return await this.search.search(userId, query.q, query.kind);
+      const ids = await this.search.search(userId, query.q, query.kind);
+      if (ids.length) return ids;
     } catch (err) {
-      this.#log.warn(`Artifact search fell back to Postgres: ${String(err)}`);
+      this.#log.warn(`Artifact search fell back to Postgres (${err instanceof Error ? err.name : 'error'})`);
+    }
+    {
       const like = `%${query.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
       const rows = await this.db
         .select({ id: artifacts.id })
@@ -199,10 +206,19 @@ export class ArtifactsService {
   private async indexQuietly(rows: Row[]): Promise<void> {
     try {
       await this.search.index(
-        rows.map((r) => ({ ownerId: r.ownerId, id: r.id, name: r.name, kind: r.kind, text: plainText(r.body) })),
+        rows.map((r) => ({
+          ownerId: r.ownerId,
+          id: r.id,
+          name: r.name,
+          kind: r.kind,
+          text: plainText(r.body),
+          version: r.updatedAt.getTime(),
+        })),
       );
     } catch (err) {
-      this.#log.warn(`Couldn't index artifacts for search: ${String(err)}`);
+      this.#log.warn(
+        `Couldn't index artifacts for search (${err instanceof Error ? err.name : 'error'}); reconciliation will retry`,
+      );
     }
   }
 }

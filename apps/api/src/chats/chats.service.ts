@@ -37,10 +37,20 @@ export class ChatsService {
     private readonly chatSearch: ChatSearch,
   ) {}
 
-  /** Keeps the chat's search entry in step with its title and turns. */
+  /**
+   * Keeps the chat's search entry in step with its title and turns, at the chat's current searchVersion. The version
+   * is bumped in the same transaction as the change (see bumpSearch), so if this index fails, reconciliation sees the
+   * entry is behind and redoes it.
+   */
   private async reindex(userId: string, id: string): Promise<void> {
     const chat = await this.get(userId, id);
-    await this.chatSearch.index([{ ownerId: userId, id, title: chat.title, text: chatText(chat.messages) }]);
+    const [row] = await this.db
+      .select({ version: chats.searchVersion })
+      .from(chats)
+      .where(and(eq(chats.ownerId, userId), eq(chats.id, id)));
+    await this.chatSearch.index([
+      { ownerId: userId, id, title: chat.title, text: chatText(chat.messages), version: row?.version ?? 0 },
+    ]);
   }
 
   /** The person's chats, pinned first, then most recently active. */
@@ -166,7 +176,11 @@ export class ChatsService {
     const [row] = await this.db
       .update(chats)
       // Renaming or pinning isn't activity, so updatedAt (and the chat's place in the list) stays.
-      .set({ ...patch, updatedAt: sql`${chats.updatedAt}` })
+      .set({
+        ...patch,
+        updatedAt: sql`${chats.updatedAt}`,
+        ...(patch.title ? { searchVersion: sql`${chats.searchVersion} + 1` } : {}),
+      })
       .where(and(eq(chats.ownerId, userId), eq(chats.id, id)))
       .returning();
     if (!row) throw new NotFoundException('No chat with that id');
@@ -228,7 +242,7 @@ export class ChatsService {
         .returning();
       await tx
         .update(chats)
-        .set({ updatedAt: new Date() })
+        .set({ updatedAt: new Date(), searchVersion: sql`${chats.searchVersion} + 1` })
         .where(and(eq(chats.ownerId, userId), eq(chats.id, chatId)));
       return { user: toMessage(u!) as UserMessage, answer: toMessage(a!) as AssistantMessage };
     });
@@ -239,7 +253,7 @@ export class ChatsService {
   /** Approves or denies a write tool that's waiting, and adds Donovan's reply to the decision. */
   async decide(userId: string, chatId: string, toolId: string, body: ToolDecision): Promise<ToolDecisionResult> {
     await this.get(userId, chatId);
-    return this.db.transaction(async (tx) => {
+    const decided = await this.db.transaction(async (tx) => {
       const rows = await tx
         .select()
         .from(messages)
@@ -293,16 +307,18 @@ export class ChatsService {
         .returning();
       await tx
         .update(chats)
-        .set({ updatedAt: new Date() })
+        .set({ updatedAt: new Date(), searchVersion: sql`${chats.searchVersion} + 1` })
         .where(and(eq(chats.ownerId, userId), eq(chats.id, chatId)));
       return { updated: toMessage(updated!) as AssistantMessage, reply: toMessage(reply!) as AssistantMessage };
     });
+    await this.reindex(userId, chatId);
+    return decided;
   }
 
   /** Adds a new version of an answer, from the question before it, and shows it. */
   async regenerate(userId: string, chatId: string, messageId: string, model: ModelChoice): Promise<AssistantMessage> {
     await this.get(userId, chatId);
-    return this.db.transaction(async (tx) => {
+    const regenerated = await this.db.transaction(async (tx) => {
       const [row] = await tx
         .select()
         .from(messages)
@@ -327,8 +343,11 @@ export class ChatsService {
         .set({ body: showing([...versions, next], versions.length + 1), vote: null, voteReason: null })
         .where(eq(messages.id, row.id))
         .returning();
+      await bumpSearch(tx, userId, chatId);
       return toMessage(saved!) as AssistantMessage;
     });
+    await this.reindex(userId, chatId);
+    return regenerated;
   }
 
   /** Shows an earlier (or later) version of an answer. */
@@ -347,10 +366,14 @@ export class ChatsService {
     if (!row || 'text' in row.body) throw new NotFoundException('No answer with that id in this chat');
     const versions = versionsOf(row.body);
     if (version > versions.length) throw new NotFoundException(`This answer has ${versions.length} versions`);
-    await this.db
-      .update(messages)
-      .set({ body: showing(versions, version) })
-      .where(eq(messages.id, row.id));
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(messages)
+        .set({ body: showing(versions, version) })
+        .where(eq(messages.id, row.id));
+      await bumpSearch(tx, userId, chatId);
+    });
+    await this.reindex(userId, chatId);
   }
 
   async vote(userId: string, chatId: string, messageId: string, body: Vote): Promise<void> {
@@ -391,6 +414,14 @@ export class ChatsService {
 }
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+
+/** Marks the chat's search entry as behind (it's re-indexed after the transaction, or by reconciliation). */
+async function bumpSearch(tx: Tx, userId: string, chatId: string): Promise<void> {
+  await tx
+    .update(chats)
+    .set({ searchVersion: sql`${chats.searchVersion} + 1` })
+    .where(and(eq(chats.ownerId, userId), eq(chats.id, chatId)));
+}
 
 /**
  * The next free position in a chat. It locks the chat's row first, so concurrent writers to one chat (two sends, a send

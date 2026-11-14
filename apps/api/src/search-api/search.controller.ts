@@ -62,7 +62,8 @@ export class SearchController {
   private async findChats(userId: string, q: string, like: string): Promise<SearchResults['chats']> {
     try {
       const hits = await this.chatSearch.search(userId, q);
-      if (hits.length === 0) return [];
+      // Nothing found may mean the index is behind (reconciliation catches it up): titles in Postgres meanwhile.
+      if (hits.length === 0) return this.titleMatches(userId, like);
       const rows = await this.db
         .select({ id: chats.id, title: chats.title })
         .from(chats)
@@ -81,13 +82,17 @@ export class SearchController {
         return row ? [{ id: row.id, title: row.title, detail: h.snippet ?? 'Title matches' }] : [];
       });
     } catch (err) {
-      this.#log.warn(`Chat search fell back to Postgres: ${String(err)}`);
-      const rows = await this.db
-        .select({ id: chats.id, title: chats.title })
-        .from(chats)
-        .where(and(eq(chats.ownerId, userId), isNull(chats.archivedAt), ilike(chats.title, like)))
-        .limit(8);
-      return rows.map((r) => ({ ...r, detail: 'Title matches' }));
+      this.#log.warn(`Chat search fell back to Postgres (${err instanceof Error ? err.name : 'error'})`);
+      return this.titleMatches(userId, like);
     }
+  }
+
+  private async titleMatches(userId: string, like: string): Promise<SearchResults['chats']> {
+    const rows = await this.db
+      .select({ id: chats.id, title: chats.title })
+      .from(chats)
+      .where(and(eq(chats.ownerId, userId), isNull(chats.archivedAt), ilike(chats.title, like)))
+      .limit(8);
+    return rows.map((r) => ({ ...r, detail: 'Title matches' }));
   }
 }

@@ -1,15 +1,28 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { OidcSecurityService } from 'angular-auth-oidc-client';
 
-/** Where sign-in lands when it fails, instead of sending the person straight back to the sign-in page in a loop. */
+/**
+ * Where sign-in lands when it fails, instead of sending the person straight back to the sign-in page in a loop: when
+ * the identity provider refused or failed, or (reason=rejected) when it signed them in but Donovan's server kept
+ * refusing the result.
+ */
 @Component({
   selector: 'dn-sign-in-failed-page',
   imports: [Button],
   template: `
     <main id="main" class="page">
-      <h1>We couldn't sign you in</h1>
-      <p>Your sign-in didn't complete. Try again, and if it keeps happening, tell your administrator.</p>
+      @if (rejected()) {
+        <h1>Donovan didn't accept your sign-in</h1>
+        <p>
+          You signed in, but Donovan's server refused the sign-in twice in a row, so it stopped here rather than sending
+          you round again. This is usually a setup problem rather than anything you did: try again, and if it keeps
+          happening, tell your administrator (the server and the sign-in service may disagree about this app).
+        </p>
+      } @else {
+        <h1>We couldn't sign you in</h1>
+        <p>Your sign-in didn't complete. Try again, and if it keeps happening, tell your administrator.</p>
+      }
       <tc-button variant="primary" label="Try again" (click)="retry()" />
     </main>
   `,
@@ -32,6 +45,9 @@ import { OidcSecurityService } from 'angular-auth-oidc-client';
 })
 export default class SignInFailedPage {
   readonly #oidc = inject(OidcSecurityService);
+  /** From the query string: rejected when the API kept refusing a fresh sign-in. */
+  readonly reason = input<string>();
+  protected readonly rejected = computed(() => this.reason() === 'rejected');
 
   protected retry(): void {
     this.#oidc.authorize();
