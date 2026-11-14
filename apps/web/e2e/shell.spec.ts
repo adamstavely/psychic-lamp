@@ -79,3 +79,18 @@ test.describe('the frame around every page', () => {
     await expectNoAxeViolations(page);
   });
 });
+
+test.describe('when the sign-in service is down', () => {
+  test('says so, instead of a blank page', async ({ page }) => {
+    await page.route('**/.well-known/openid-configuration', (route) => route.abort('connectionrefused'));
+    await page.goto('/projects');
+    await expect(page.getByRole('heading', { name: "Donovan can't reach the sign-in service" })).toBeVisible();
+    await expect(page).toHaveURL(/\/unauthorized\?reason=unreachable$/);
+    await expectNoAxeViolations(page);
+
+    // Back up: Try again starts over and goes on to sign in.
+    await page.unroute('**/.well-known/openid-configuration');
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await expect(page).toHaveURL(/localhost:8180\/realms\/donovan\//);
+  });
+});
