@@ -6,10 +6,7 @@ import { resolve } from 'node:path';
  * known-issues test fails once it's installed, so a workaround can't outlive its bug.
  */
 export const KNOWN_TRENCHCOAT_ISSUES: Record<string, { fixedIn: string | null; axeRule?: string; selector?: string }> =
-  {
-    /** An icon-only tc-button's native button is 0×0, so Playwright can't press it; click the chip instead. Not fixed yet. */
-    iconButtonZeroSize: { fixedIn: null },
-  };
+  {};
 
 export function installedTrenchcoat(): string {
   const pkg = resolve(process.cwd(), '../../node_modules/@adamstavely/trenchcoat/package.json');
