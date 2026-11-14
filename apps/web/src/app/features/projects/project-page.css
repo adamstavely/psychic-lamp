@@ -181,7 +181,7 @@ tc-switch.pill {
   cursor: pointer;
 }
 
-:is(.icon-btn, .pill, .round, .link, .mini, .chip, .question, .tool, .cite, input):focus-visible,
+:is(.icon-btn, .pill, .round, .link, .mini, .chip, .question, .tool, .cite, .way, input, textarea):focus-visible,
 .chats a:focus-visible,
 .outputs a:focus-visible {
   outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
@@ -386,6 +386,133 @@ h2 {
 
 .rows > .meta {
   padding: var(--tc-space-2) var(--tc-space-2-5, 10px);
+}
+
+/* The Add sources menu: ways to add, then a small form for the one picked */
+.ways {
+  margin: 0;
+  padding: var(--tc-space-1);
+  list-style: none;
+}
+
+.way {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2-5, 10px);
+  width: 100%;
+  padding: var(--tc-space-2) var(--tc-space-2-5, 10px);
+  border: 0;
+  border-radius: var(--tc-radius-sm);
+  background: transparent;
+  color: var(--tc-text-primary);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.way:hover {
+  background: var(--tc-surface-sunken);
+}
+
+.way .title {
+  font-size: var(--tc-font-size-sm);
+  font-weight: 500;
+}
+
+.way-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-2);
+  padding: var(--tc-space-2-5, 10px);
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+}
+
+.drop-label {
+  margin: 0;
+  font-size: var(--tc-font-size-xs);
+  font-weight: 600;
+}
+
+.way-form .rows {
+  margin: 0 calc(-1 * var(--tc-space-2-5, 10px));
+}
+
+.inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tc-space-2);
+}
+
+.inline.stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.inline.stack .mini {
+  align-self: flex-start;
+}
+
+.inline label {
+  flex-basis: 100%;
+  font-size: var(--tc-font-size-xs);
+  font-weight: 600;
+}
+
+.inline input,
+.inline textarea {
+  flex: 1;
+  min-width: 0;
+  padding: var(--tc-space-1-5) var(--tc-space-2);
+  border: 1px solid var(--tc-border-control);
+  border-radius: var(--tc-radius-sm);
+  background: var(--tc-surface-control);
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
+}
+
+.inline textarea {
+  resize: vertical;
+}
+
+.file {
+  align-self: flex-start;
+}
+
+.file input:focus-visible + .pill {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+.error {
+  margin: 0;
+  color: var(--tc-status-danger-fg);
+  font-size: var(--tc-font-size-xs);
+}
+
+.error:empty {
+  display: none;
+}
+
+.mini.done {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border-color: var(--tc-status-success-border);
+  color: var(--tc-status-success-fg);
+  cursor: default;
+}
+
+.mini:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .finder {

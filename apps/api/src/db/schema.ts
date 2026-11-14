@@ -197,6 +197,9 @@ export const projectSources = pgTable(
     meta: text().notNull(),
     selected: boolean().notNull().default(true),
     position: integer().notNull(),
+    /** Added by hand: a link's address, or the text of an upload or a paste (kept for when answers read sources). */
+    url: text(),
+    content: text(),
   },
   (t) => [
     primaryKey({ columns: [t.ownerId, t.projectId, t.id] }),

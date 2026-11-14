@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ChatSummary, Sensitivity } from './chat.js';
+import { UPLOAD_LIMIT_BYTES } from './defaults.js';
 
 const Iso = z.iso.datetime({ offset: true });
 
@@ -73,13 +74,44 @@ export type SourceCandidate = z.infer<typeof SourceCandidate>;
 
 export const SourceSearch = z.strictObject({
   query: z.string().trim().min(1, 'Say what to look for').max(200),
-  scope: z.enum(['workspace', 'web', 'all']).default('all'),
+  scope: z.enum(['workspace', 'web', 'connectors', 'all']).default('all'),
   depth: z.enum(['quick', 'deep']).default('quick'),
 });
 export type SourceSearch = z.infer<typeof SourceSearch>;
 
 export const SourceSearchResult = z.object({ results: z.array(SourceCandidate), searched: z.number().int() });
 export type SourceSearchResult = z.infer<typeof SourceSearchResult>;
+
+/** A live connector (an MCP server) or a dataset a project can read from. */
+export const CatalogEntry = z.object({ id: z.string(), name: z.string(), detail: z.string() });
+export type CatalogEntry = z.infer<typeof CatalogEntry>;
+
+/** What can be added as a source besides files, links and text: the organisation's connectors and datasets. */
+export const SourceCatalog = z.object({ connectors: z.array(CatalogEntry), datasets: z.array(CatalogEntry) });
+export type SourceCatalog = z.infer<typeof SourceCatalog>;
+
+/** One source added by hand, from the Add sources menu. */
+export const NewSource = z.discriminatedUnion('from', [
+  z.strictObject({
+    from: z.literal('upload'),
+    name: z.string().trim().min(1).max(200),
+    size: z.number().int().nonnegative().max(UPLOAD_LIMIT_BYTES, 'Files can be up to 512 KB'),
+    /** The file's text, when it has some (Markdown, CSV, JSON, plain text); empty for others. */
+    content: z.string().max(UPLOAD_LIMIT_BYTES).default(''),
+  }),
+  z.strictObject({
+    from: z.literal('link'),
+    url: z.url({ protocol: /^https?$/, error: 'Enter a web address that starts with http:// or https://' }).max(2000),
+  }),
+  z.strictObject({ from: z.literal('connector'), id: z.string().min(1).max(80) }),
+  z.strictObject({ from: z.literal('dataset'), id: z.string().min(1).max(80) }),
+  z.strictObject({
+    from: z.literal('paste'),
+    title: z.string().trim().max(200).optional(),
+    text: z.string().trim().min(1, 'Paste some text').max(20_000),
+  }),
+]);
+export type NewSource = z.infer<typeof NewSource>;
 
 export const OUTPUT_TOOLS = ['brief', 'table', 'faq', 'timeline'] as const;
 export const NewOutput = z.strictObject({ tool: z.enum(OUTPUT_TOOLS) });

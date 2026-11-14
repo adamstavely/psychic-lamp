@@ -297,3 +297,19 @@ export const TEAMS = [
   'Insights team',
   'Document Intel',
 ];
+
+/** Live connectors (MCP servers) the organisation has set up, and its datasets: what Add sources offers (fictional). */
+export const SOURCE_CONNECTORS = [
+  { id: 'postgres-fraud-dw', name: 'Postgres · fraud_dw', detail: 'Risk ML warehouse · read-only' },
+  { id: 'snowflake-analytics', name: 'Snowflake · analytics', detail: 'Company metrics · read-only' },
+  { id: 'jira', name: 'Jira', detail: 'Issues and epics' },
+  { id: 'confluence', name: 'Confluence', detail: 'Team spaces' },
+  { id: 'google-drive', name: 'Google Drive', detail: 'Shared drives' },
+];
+
+export const SOURCE_DATASETS = [
+  { id: 'card-transactions-90d', name: 'Card transactions, last 90 days', detail: '41M rows · Restricted' },
+  { id: 'support-tickets-2026', name: 'Support tickets 2026', detail: '212k rows · Internal' },
+  { id: 'supplier-registry', name: 'Supplier registry', detail: '3.4k rows · Internal' },
+  { id: 'sku-catalog', name: 'SKU catalog', detail: '58k rows · Internal' },
+];

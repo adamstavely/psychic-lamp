@@ -82,6 +82,51 @@ test.describe('Projects', () => {
       await expect(sources.getByRole('heading', { name: /4 of 5 selected/ })).toBeVisible();
     });
 
+    test('Add sources takes a link, pasted text and a connector, and says what is wrong', async ({ page }) => {
+      await signIn(page, 'kemi', '/projects/sku-onboarding');
+      await resetUser(page);
+      const sources = page.getByRole('region', { name: /Sources/ });
+      const list = sources.getByRole('list').last();
+      await sources.getByRole('button', { name: 'Add sources' }).click();
+      await expectNoAxeViolations(page);
+
+      await sources.getByRole('button', { name: /^Website or link/ }).click();
+      await sources.getByRole('textbox', { name: 'Web address' }).fill('gs1.org');
+      await sources.getByRole('button', { name: 'Add link' }).click();
+      await expect(sources.getByRole('alert')).toHaveText(/starts with http/);
+      await sources.getByRole('textbox', { name: 'Web address' }).fill('https://www.gs1.org/standards/gdsn');
+      await sources.getByRole('button', { name: 'Add link' }).click();
+      await expect(list.getByRole('checkbox', { name: /gs1\.org\/standards\/gdsn/ })).toBeChecked();
+
+      await sources.getByRole('button', { name: 'Add sources' }).click();
+      await sources.getByRole('button', { name: /^Paste text/ }).click();
+      await sources.getByRole('textbox', { name: 'Title' }).fill('Merch call notes');
+      await sources.getByRole('textbox', { name: 'Text' }).fill('Pack size belongs in net content, not the title.');
+      await sources.getByRole('button', { name: 'Add text' }).click();
+      await expect(list.getByRole('checkbox', { name: /Merch call notes/ })).toBeChecked();
+
+      await sources.getByRole('button', { name: 'Add sources' }).click();
+      await sources.getByRole('button', { name: /^MCP connector/ }).click();
+      await sources.getByRole('button', { name: 'Add Jira' }).click();
+      await expect(list.getByRole('checkbox', { name: /^Jira/ })).toBeChecked();
+    });
+
+    test('a connector search finds connectors and datasets, and marks what was added', async ({ page }) => {
+      await signIn(page, 'kemi', '/projects/support-triage');
+      await resetUser(page);
+      const sources = page.getByRole('region', { name: /Sources/ });
+      await sources.getByRole('textbox', { name: 'What to look for' }).fill('support tickets');
+      for (let i = 0; i < 3; i++) await sources.getByRole('button', { name: /^Where to look/ }).click();
+      await expect(sources.getByRole('button', { name: 'Where to look: Connectors' })).toBeVisible();
+      await sources.getByRole('button', { name: 'Search', exact: true }).click();
+      const found = sources
+        .getByRole('list', { name: 'Search results' })
+        .getByRole('listitem')
+        .filter({ hasText: 'Support tickets 2026' });
+      await found.getByRole('button', { name: /^Add/ }).click();
+      await expect(found).toContainText('Added');
+    });
+
     test('a new project starts empty and opens', async ({ page }) => {
       await signIn(page, 'kemi', '/projects');
       await page.getByRole('button', { name: 'New project' }).first().click();

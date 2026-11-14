@@ -10,6 +10,9 @@ import type {
   SourceSearchResult,
   CitedText,
   NewNote,
+  NewSource,
+  ProjectSource,
+  SourceCatalog,
   NewProject,
   OrgLibrary,
   Project,
@@ -26,7 +29,14 @@ import { ArtifactsService } from '../artifacts/artifacts.service.js';
 import { ChatsService } from '../chats/chats.service.js';
 import { DB, type Db } from '../db/db.module.js';
 import { artifacts, chats, projectNotes, projects, projectShares, projectSources, users } from '../db/schema.js';
-import { ORG_LIBRARIES, SEED_PROJECTS, TEAMS, type SeedProject } from '../seed/projects.fixture.js';
+import {
+  ORG_LIBRARIES,
+  SEED_PROJECTS,
+  SOURCE_CONNECTORS,
+  SOURCE_DATASETS,
+  TEAMS,
+  type SeedProject,
+} from '../seed/projects.fixture.js';
 import { SeedService } from '../seed/seed.service.js';
 import { sourceId, toCitedText } from './cited.js';
 
@@ -211,6 +221,37 @@ export class ProjectsService {
     await this.touch(userId, id);
   }
 
+  /** Connectors and datasets that can be added as sources. */
+  catalog(): SourceCatalog {
+    return { connectors: SOURCE_CONNECTORS, datasets: SOURCE_DATASETS };
+  }
+
+  /**
+   * Adds one source by hand: an uploaded file, a link, a connector, a dataset or pasted text. It's selected, and kept
+   * even if another source has the same title (two uploads can share a name).
+   */
+  async addSource(userId: string, id: string, body: NewSource): Promise<ProjectSource> {
+    await this.ensure(userId);
+    await this.row(userId, id);
+    const source = describe(body);
+    return this.db.transaction(async (tx) => {
+      const [{ n }] = await tx
+        .select({ n: sql<number>`coalesce(max(${projectSources.position}), 0)::int` })
+        .from(projectSources)
+        .where(and(eq(projectSources.ownerId, userId), eq(projectSources.projectId, id)));
+      const position = n + 1;
+      const [row] = await tx
+        .insert(projectSources)
+        .values({ ownerId: userId, projectId: id, id: sourceId(position), position, ...source })
+        .returning();
+      await tx
+        .update(projects)
+        .set({ updatedAt: new Date() })
+        .where(and(eq(projects.ownerId, userId), eq(projects.id, id)));
+      return { id: row!.id, kind: row!.kind, title: row!.title, meta: row!.meta, selected: row!.selected };
+    });
+  }
+
   async selectAll(userId: string, id: string, selected: boolean): Promise<void> {
     await this.ensure(userId);
     await this.row(userId, id);
@@ -227,35 +268,48 @@ export class ProjectsService {
   async searchSources(userId: string, id: string, body: SourceSearch): Promise<SourceSearchResult> {
     const project = await this.get(userId, id);
     const words = body.query.toLowerCase().split(/\s+/);
+    const live = (c: SourceCandidate) => c.kind === 'connector' || c.kind === 'dataset';
     const inScope = (c: SourceCandidate) =>
-      body.scope === 'all' || (body.scope === 'web' ? c.kind === 'web' : c.kind !== 'web');
+      body.scope === 'all' ||
+      (body.scope === 'web' ? c.kind === 'web' : body.scope === 'connectors' ? live(c) : c.kind !== 'web');
     const known = project.suggestions
       .filter(inScope)
       .filter((c) => words.some((w) => c.title.toLowerCase().includes(w)));
     const q = body.query.trim();
-    const found: SourceCandidate[] = [
-      ...(body.scope !== 'web'
-        ? [
-            { kind: 'doc' as const, title: `${capitalise(q)}: team notes`, meta: 'Shared drive · Doc' },
-            {
-              kind: 'slack' as const,
-              title: `#${slug(q).slice(0, 20)}: recent discussion`,
-              meta: 'Slack · 14 messages',
-            },
-          ]
-        : []),
-      ...(body.scope !== 'workspace'
-        ? [{ kind: 'web' as const, title: `${capitalise(q)}: an overview`, meta: 'Web · 6 min read' }]
-        : []),
-      ...(body.depth === 'deep'
-        ? [
-            { kind: 'pdf' as const, title: `${capitalise(q)}: research report`, meta: 'PDF · 24 pages' },
-            ...(body.scope !== 'workspace'
-              ? [{ kind: 'web' as const, title: `Recent news on ${q}`, meta: 'Web · 3 articles' }]
+    const connectors: SourceCandidate[] = [...SOURCE_CONNECTORS, ...SOURCE_DATASETS]
+      .filter((c) => words.some((w) => `${c.name} ${c.detail}`.toLowerCase().includes(w)))
+      .map((c) => ({
+        kind: SOURCE_DATASETS.includes(c) ? ('dataset' as const) : ('connector' as const),
+        title: c.name,
+        meta: SOURCE_DATASETS.includes(c) ? `Dataset · ${c.detail}` : `Live connector · ${c.detail}`,
+      }));
+    const found: SourceCandidate[] =
+      body.scope === 'connectors'
+        ? connectors
+        : [
+            ...(body.scope === 'all' ? connectors : []),
+            ...(body.scope !== 'web'
+              ? [
+                  { kind: 'doc' as const, title: `${capitalise(q)}: team notes`, meta: 'Shared drive · Doc' },
+                  {
+                    kind: 'slack' as const,
+                    title: `#${slug(q).slice(0, 20)}: recent discussion`,
+                    meta: 'Slack · 14 messages',
+                  },
+                ]
               : []),
-          ]
-        : []),
-    ];
+            ...(body.scope !== 'workspace'
+              ? [{ kind: 'web' as const, title: `${capitalise(q)}: an overview`, meta: 'Web · 6 min read' }]
+              : []),
+            ...(body.depth === 'deep'
+              ? [
+                  { kind: 'pdf' as const, title: `${capitalise(q)}: research report`, meta: 'PDF · 24 pages' },
+                  ...(body.scope !== 'workspace'
+                    ? [{ kind: 'web' as const, title: `Recent news on ${q}`, meta: 'Web · 3 articles' }]
+                    : []),
+                ]
+              : []),
+          ];
     const have = new Set(project.sources.map((s) => s.title));
     const results = [...known, ...found].filter((c) => !have.has(c.title));
     return { results, searched: body.depth === 'deep' ? 120 : 30 };
@@ -474,6 +528,59 @@ function guideFor(canned: SeedProject | undefined, selected: ReadonlySet<string>
   if (selected.size === 0) return [];
   if (canned) return toCitedText(canned.guide, selected);
   return [{ text: `${selected.size} sources selected. Ask a question and the answer will cite them.`, cite: [] }];
+}
+
+/** A hand-added source's kind, title and detail line. */
+function describe(body: NewSource): {
+  kind: ProjectSource['kind'];
+  title: string;
+  meta: string;
+  url?: string;
+  content?: string;
+} {
+  switch (body.from) {
+    case 'upload': {
+      const ext = body.name.split('.').pop()?.toLowerCase() ?? '';
+      const kind = ext === 'pdf' ? 'pdf' : ['csv', 'xlsx', 'xls', 'tsv'].includes(ext) ? 'sheet' : 'doc';
+      const label = ext ? ext.toUpperCase() : 'File';
+      return { kind, title: body.name, meta: `${label} · ${size(body.size)} · uploaded`, content: body.content };
+    }
+    case 'link': {
+      const url = new URL(body.url);
+      const host = url.hostname.replace(/^www\./, '');
+      const path = url.pathname.replace(/\/$/, '');
+      return {
+        kind: 'web',
+        title: path && path !== '/' ? `${host}${path}` : host,
+        meta: `Web · ${host}`,
+        url: body.url,
+      };
+    }
+    case 'connector': {
+      const c = SOURCE_CONNECTORS.find((x) => x.id === body.id);
+      if (!c) throw new BadRequestException('No connector with that id');
+      return { kind: 'connector', title: c.name, meta: `Live connector · ${c.detail}` };
+    }
+    case 'dataset': {
+      const d = SOURCE_DATASETS.find((x) => x.id === body.id);
+      if (!d) throw new BadRequestException('No dataset with that id');
+      return { kind: 'dataset', title: d.name, meta: `Dataset · ${d.detail}` };
+    }
+    case 'paste': {
+      const words = body.text.split(/\s+/).filter(Boolean).length;
+      const title = body.title || `${body.text.slice(0, 48).trim()}${body.text.length > 48 ? '…' : ''}`;
+      return {
+        kind: 'doc',
+        title,
+        meta: `Text · ${words} ${words === 1 ? 'word' : 'words'} · pasted`,
+        content: body.text,
+      };
+    }
+  }
+}
+
+function size(bytes: number): string {
+  return bytes < 1024 ? `${bytes} B` : `${Math.round(bytes / 1024)} KB`;
 }
 
 function toSummary(r: Row, sourceCount: number): ProjectSummary {

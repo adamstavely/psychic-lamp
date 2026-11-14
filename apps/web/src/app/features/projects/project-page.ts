@@ -27,6 +27,8 @@ import { toast } from '@adamstavely/trenchcoat/toaster';
 import type {
   ArtifactSummary,
   NewOutput,
+  NewSource,
+  SourceCatalog,
   Project,
   ProjectAnswer,
   ProjectSource,
@@ -36,6 +38,7 @@ import type {
   SourceSearch,
   SourceSearchResult,
 } from '@donovan/contracts';
+import { UPLOAD_LIMIT_BYTES } from '@donovan/contracts/defaults';
 import { firstValueFrom } from 'rxjs';
 import { IconDirective } from '../../core/icon.directive';
 import type { IconName } from '../../core/icons';
@@ -64,7 +67,22 @@ const SCOPES: { value: SourceSearch['scope']; label: string }[] = [
   { value: 'all', label: 'Everywhere' },
   { value: 'workspace', label: 'Workspace' },
   { value: 'web', label: 'Web' },
+  { value: 'connectors', label: 'Connectors' },
 ];
+
+type AddMode = NewSource['from'];
+
+/** The Add sources menu, as the prototype lists it. */
+const WAYS: { mode: AddMode; label: string; hint: string; icon: IconName }[] = [
+  { mode: 'upload', label: 'Upload files', hint: 'PDF, Doc, Sheet, text', icon: 'upload' },
+  { mode: 'link', label: 'Website or link', hint: 'A page to read', icon: 'link' },
+  { mode: 'connector', label: 'MCP connector', hint: 'A live system, read-only', icon: 'plug' },
+  { mode: 'dataset', label: 'Dataset', hint: 'A governed table', icon: 'database' },
+  { mode: 'paste', label: 'Paste text', hint: 'Notes, transcripts, emails', icon: 'paste' },
+];
+
+/** Files whose text is read and kept with the source; others are added by name. */
+const TEXT_FILE = /\.(md|markdown|txt|csv|tsv|json)$/i;
 const DEPTHS: { value: SourceSearch['depth']; label: string }[] = [
   { value: 'quick', label: 'Fast search' },
   { value: 'deep', label: 'Deep research' },
@@ -119,7 +137,26 @@ export default class ProjectPage {
   /** Side columns fold away to give the guide room; the choice lasts while the page is open. */
   protected readonly showSources = signal(true);
   protected readonly showStudio = signal(true);
-  protected readonly showSuggested = signal(false);
+  // Add sources
+  protected readonly ways = WAYS;
+  protected readonly addOpen = signal(false);
+  protected readonly addMode = signal<AddMode | null>(null);
+  protected readonly adding = signal(false);
+  protected readonly addError = signal('');
+  protected linkUrl = '';
+  protected pasteTitle = '';
+  protected pasteText = '';
+  /** Loaded the first time someone opens the connector or dataset list. */
+  readonly #wantCatalog = signal(false);
+  protected readonly catalog = httpResource<SourceCatalog>(() =>
+    this.#wantCatalog() ? '/api/projects/source-catalog' : undefined,
+  );
+  protected readonly catalogConnectors = computed(() =>
+    this.catalog.hasValue() ? this.catalog.value().connectors : [],
+  );
+  protected readonly catalogDatasets = computed(() => (this.catalog.hasValue() ? this.catalog.value().datasets : []));
+  /** Search results added this visit: they stay in the list, marked Added. */
+  protected readonly added = signal<ReadonlySet<string>>(new Set());
   /** The source a citation chip just pointed at, highlighted for a moment. */
   protected readonly flashed = signal<string | null>(null);
 
@@ -229,10 +266,77 @@ export default class ProjectPage {
         sources: sources.map(({ kind, title, meta }) => ({ kind, title, meta })),
       }),
     );
-    const titles = new Set(sources.map((s) => s.title));
-    const f = this.found();
-    if (f) this.found.set({ ...f, results: f.results.filter((r) => !titles.has(r.title)) });
+    this.added.update((a) => new Set([...a, ...sources.map((s) => s.title)]));
     this.status.set(sources.length === 1 ? 'Source added.' : `${sources.length} sources added.`);
+  }
+
+  protected notAdded(results: SourceCandidate[]): SourceCandidate[] {
+    const a = this.added();
+    return results.filter((r) => !a.has(r.title));
+  }
+
+  protected toggleAdd(): void {
+    this.addOpen.update((open) => !open);
+    this.pickWay(null);
+  }
+
+  protected pickWay(mode: AddMode | null): void {
+    this.addMode.set(mode);
+    this.addError.set('');
+    if (mode === 'connector' || mode === 'dataset') this.#wantCatalog.set(true);
+  }
+
+  protected async upload(input: HTMLInputElement): Promise<void> {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (file.size > UPLOAD_LIMIT_BYTES) {
+      this.addError.set(`${file.name} is too big. Files can be up to 512 KB.`);
+      return;
+    }
+    const content = TEXT_FILE.test(file.name) ? await file.text() : '';
+    await this.addFrom({ from: 'upload', name: file.name, size: file.size, content });
+  }
+
+  protected addLink(): Promise<void> {
+    const url = this.linkUrl.trim();
+    if (!/^https?:\/\/\S+\.\S+/.test(url)) {
+      this.addError.set('Enter a web address that starts with http:// or https://');
+      return Promise.resolve();
+    }
+    return this.addFrom({ from: 'link', url });
+  }
+
+  protected addPaste(): Promise<void> {
+    if (!this.pasteText.trim()) {
+      this.addError.set('Paste some text');
+      return Promise.resolve();
+    }
+    return this.addFrom({
+      from: 'paste',
+      text: this.pasteText,
+      ...(this.pasteTitle.trim() ? { title: this.pasteTitle.trim() } : {}),
+    });
+  }
+
+  /** Adds one source from the menu; the menu closes and the new source shows, selected. */
+  protected async addFrom(body: NewSource): Promise<void> {
+    this.adding.set(true);
+    this.addError.set('');
+    try {
+      const made = await firstValueFrom(this.#http.post<ProjectSource>(this.url('sources/new'), body));
+      this.project.reload();
+      this.linkUrl = this.pasteTitle = this.pasteText = '';
+      this.addOpen.set(false);
+      this.addMode.set(null);
+      this.status.set(`Added ${made.title}.`);
+      toast.success(`Added ${made.title}`);
+    } catch (err) {
+      const message = (err as { error?: { message?: string | string[] } }).error?.message;
+      this.addError.set((Array.isArray(message) ? message[0] : message) ?? "Couldn't add that. Try again in a moment.");
+    } finally {
+      this.adding.set(false);
+    }
   }
 
   protected async search(): Promise<void> {
