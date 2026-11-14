@@ -1,0 +1,47 @@
+{
+  "name": "donovan",
+  "private": true,
+  "packageManager": "npm@11.21.2",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:deps": "docker compose up -d --wait",
+    "start:api": "npm run start:dev -w api",
+    "start:web": "npm start -w web",
+    "build": "npm run build -w @donovan/contracts && npm run build -w api && npm run build -w web",
+    "lint": "eslint . && npm run lint:tc -w web",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "npm run build -w @donovan/contracts && npm test -w @donovan/contracts && npm test -w api && npm test -w web",
+    "test:int": "npm run test:int -w api",
+    "e2e": "npm run e2e -w web",
+    "tc:vendor": "scripts/vendor-trenchcoat.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "angular-eslint": "^22.0.0",
+    "eslint": "^10.4.0",
+    "prettier": "^3.8.1",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.60.0"
+  },
+  "overrides": {
+    "@angular/core": "22.2.6",
+    "@angular/common": "22.2.6",
+    "@angular/forms": "22.2.6",
+    "@angular/platform-browser": "22.2.6",
+    "@angular/router": "22.2.6",
+    "@angular/compiler": "22.2.6"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "@parcel/watcher@2.6.0": true,
+    "lmdb@3.5.6": true,
+    "msgpackr-extract@3.0.7": true
+  }
+}

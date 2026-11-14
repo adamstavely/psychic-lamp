@@ -1,0 +1,5 @@
+/* Donovan's layer over Trench Coat's clean look. Only brand values live here; everything else is Trench Coat's tokens. */
+:root {
+  color-scheme: light dark;
+  --dn-canvas: var(--tc-surface-base);
+}
