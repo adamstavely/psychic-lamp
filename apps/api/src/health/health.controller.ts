@@ -1,10 +1,37 @@
-import { Controller, Get } from '@nestjs/common';
-import type { Health } from '@donovan/contracts';
+import type { DependencyStatus, Health } from '@donovan/contracts';
+import { Client } from '@elastic/elasticsearch';
+import { Controller, Get, Inject } from '@nestjs/common';
+import { sql } from 'drizzle-orm';
+import { Public } from '../auth/public.decorator.js';
+import { DB, type Db } from '../db/db.module.js';
 
 @Controller('health')
 export class HealthController {
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    private readonly search: Client,
+  ) {}
+
+  @Public()
   @Get()
-  get(): Health {
-    return { status: 'ok', version: process.env.npm_package_version ?? '0.0.0' };
+  async get(): Promise<Health> {
+    const [postgres, elasticsearch] = await Promise.all([
+      status(() => this.db.execute(sql`select 1`)),
+      status(() => this.search.ping()),
+    ]);
+    return {
+      status: postgres === 'up' && elasticsearch === 'up' ? 'ok' : 'degraded',
+      version: process.env['npm_package_version'] ?? '0.0.0',
+      checks: { postgres, elasticsearch },
+    };
+  }
+}
+
+async function status(check: () => Promise<unknown>): Promise<DependencyStatus> {
+  try {
+    await check();
+    return 'up';
+  } catch {
+    return 'down';
   }
 }

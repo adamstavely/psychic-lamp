@@ -1,0 +1,56 @@
+{
+  "realm": "donovan",
+  "enabled": true,
+  "displayName": "Donovan (local)",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "accessTokenLifespan": 900,
+  "clients": [
+    {
+      "clientId": "donovan-web",
+      "name": "Donovan web",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:4200/*", "http://localhost:4620/*"],
+      "webOrigins": ["http://localhost:4200", "http://localhost:4620"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:4200/*##http://localhost:4620/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "donovan-api audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "donovan-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "alex",
+      "email": "alex.morgan@example.com",
+      "emailVerified": true,
+      "firstName": "Alex",
+      "lastName": "Morgan",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "alex", "temporary": false }]
+    },
+    {
+      "username": "mara",
+      "email": "mara.lindqvist@example.com",
+      "emailVerified": true,
+      "firstName": "Mara",
+      "lastName": "Lindqvist",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "mara", "temporary": false }]
+    }
+  ]
+}

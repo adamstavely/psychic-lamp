@@ -10,6 +10,10 @@ npm run start:api    # http://localhost:3200/api
 npm run start:web    # http://localhost:4200, proxies /api to the API
 ```
 
+Local sign-in is Keycloak at http://localhost:8180 (realm `donovan`, admin console `admin`/`admin`). Test users:
+`alex`/`alex` (Alex Morgan) and `mara`/`mara` (Mara Lindqvist). The API applies database migrations on start; after
+changing `apps/api/src/db/schema.ts`, run `npx drizzle-kit generate --name <change>` in `apps/api` and commit the SQL.
+
 Checks CI runs: `npm run format:check`, `npm run lint`, `npm test`, `npm run build`, `npm run test:int`, `npm run e2e`.
 Build `@donovan/contracts` first after changing it (`npm run build -w @donovan/contracts`); both apps import its `dist`.
 
