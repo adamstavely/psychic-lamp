@@ -197,6 +197,8 @@ export type ModelChoice = z.infer<typeof ModelChoice>;
 export const SendMessage = z.strictObject({
   text: z.string().trim().min(1, 'Write a message first').max(8000),
   model: ModelChoice.default('auto'),
+  /** Chosen by the client for each message; a retry with the same id returns the turn already saved. */
+  requestId: z.uuid().optional(),
 });
 export type SendMessage = z.infer<typeof SendMessage>;
 

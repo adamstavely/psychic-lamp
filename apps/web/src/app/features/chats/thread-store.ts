@@ -1,5 +1,5 @@
 import { HttpClient, httpResource } from '@angular/common/http';
-import { computed, inject, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, type OnDestroy, signal } from '@angular/core';
 import type {
   AssistantMessage,
   Block,
@@ -15,15 +15,23 @@ import type {
   Vote,
 } from '@donovan/contracts';
 import { toast } from '@adamstavely/trenchcoat/toaster';
-import { firstValueFrom, lastValueFrom, tap } from 'rxjs';
+import { firstValueFrom, lastValueFrom, Subject, takeUntil, tap } from 'rxjs';
 import { ChatsStore } from '../../core/chats-store';
 import { streamMessage, streamPost } from './answer-stream';
 
-/** One open chat: its turns, the answer being written, and the person's decisions and votes. */
+/**
+ * One open chat: its turns, the answer being written, and the person's decisions and votes.
+ *
+ * Opening another chat (or leaving the page) cancels what the last one had in flight, and anything that still comes
+ * back for it is dropped: each request remembers the generation it started in, and only the current one may change
+ * the thread.
+ */
 @Injectable()
-export class ThreadStore {
+export class ThreadStore implements OnDestroy {
   readonly #http = inject(HttpClient);
   readonly #chats = inject(ChatsStore);
+  #generation = 0;
+  readonly #cancel = new Subject<void>();
 
   readonly chatId = signal<string>('');
   readonly chat = httpResource<Chat>(() =>
@@ -62,35 +70,64 @@ export class ThreadStore {
 
   open(chatId: string): void {
     if (chatId === this.chatId()) return;
+    this.#retire();
     this.#local.set([]);
     this.#reviews.set({});
     this.chatId.set(chatId);
   }
 
+  ngOnDestroy(): void {
+    this.#retire();
+    this.#cancel.complete();
+  }
+
+  /** Cancels what's in flight and starts a new generation, so nothing late from the old one lands here. */
+  #retire(): void {
+    this.#cancel.next();
+    this.#generation++;
+    this.streaming.set(false);
+    this.status.set('');
+  }
+
+  /** True while the chat a request started in is still the one open. */
+  #current(generation: number): boolean {
+    return generation === this.#generation;
+  }
+
   async send(text: string, model: ModelChoice): Promise<void> {
+    const generation = this.#generation;
     this.streaming.set(true);
     this.status.set('Donovan is answering…');
     let answer: AssistantMessage | null = null;
+    // One id per message: a retry of the same send is recognised and not saved twice.
+    const requestId = crypto.randomUUID();
     try {
       await lastValueFrom(
-        streamMessage(this.#http, this.chatId(), { text, model }).pipe(tap((e) => (answer = this.apply(e, answer)))),
+        streamMessage(this.#http, this.chatId(), { text, model, requestId }).pipe(
+          takeUntil(this.#cancel),
+          tap((e) => {
+            if (this.#current(generation)) answer = this.apply(e, answer);
+          }),
+        ),
         { defaultValue: null },
       );
-      this.status.set('Donovan answered.');
       this.#chats.list.reload();
+      if (this.#current(generation)) this.status.set('Donovan answered.');
     } catch {
+      if (!this.#current(generation)) return;
       this.status.set('');
       toast.error("Donovan couldn't answer that", {
         description: 'Your message may not have been saved. Try sending it again.',
       });
       throw new Error('send failed');
     } finally {
-      this.streaming.set(false);
+      if (this.#current(generation)) this.streaming.set(false);
     }
   }
 
   /** Streams a new version of an answer into it; the version switcher moves to it. */
   async regenerate(message: AssistantMessage, model: ModelChoice = 'auto'): Promise<void> {
+    const generation = this.#generation;
     this.streaming.set(true);
     this.status.set('Donovan is answering again…');
     let answer: AssistantMessage | null = null;
@@ -98,16 +135,22 @@ export class ThreadStore {
       await lastValueFrom(
         streamPost(this.#http, `/api/chats/${encodeURIComponent(this.chatId())}/messages/${message.id}/regenerate`, {
           model,
-        }).pipe(tap((e) => (answer = this.apply(e, answer, message)))),
+        }).pipe(
+          takeUntil(this.#cancel),
+          tap((e) => {
+            if (this.#current(generation)) answer = this.apply(e, answer, message);
+          }),
+        ),
         { defaultValue: null },
       );
-      this.status.set(`Version ${message.versions.length + 1} of the answer is ready.`);
+      if (this.#current(generation)) this.status.set(`Version ${message.versions.length + 1} of the answer is ready.`);
     } catch {
+      if (!this.#current(generation)) return;
       this.upsert(message);
       this.status.set('');
       throw new Error('regenerate failed');
     } finally {
-      this.streaming.set(false);
+      if (this.#current(generation)) this.streaming.set(false);
     }
   }
 
@@ -129,12 +172,14 @@ export class ThreadStore {
   }
 
   async decide(toolId: string, decision: ToolDecision): Promise<void> {
+    const generation = this.#generation;
     const result = await firstValueFrom(
       this.#http.post<ToolDecisionResult>(
         `/api/chats/${encodeURIComponent(this.chatId())}/tools/${encodeURIComponent(toolId)}/decision`,
         decision,
       ),
     );
+    if (!this.#current(generation)) return;
     this.upsert(result.updated);
     this.upsert(result.reply);
     this.status.set(
@@ -147,6 +192,7 @@ export class ThreadStore {
   readonly reviews = computed(() => this.#reviews());
 
   async reviewClaim(claimId: string, review: ClaimReview['review']): Promise<void> {
+    const generation = this.#generation;
     const before = this.#reviews();
     this.#reviews.set({ ...before, [claimId]: review });
     try {
@@ -160,6 +206,7 @@ export class ThreadStore {
       );
       this.status.set(review ? `Claim ${review}.` : 'Verdict cleared.');
     } catch {
+      if (!this.#current(generation)) return;
       this.#reviews.set(before);
       toast.error("Couldn't save your verdict", { description: 'Try again in a moment.' });
     }
@@ -186,6 +233,7 @@ export class ThreadStore {
   }
 
   async vote(message: AssistantMessage, body: Vote): Promise<void> {
+    const generation = this.#generation;
     const before = message;
     this.upsert({ ...message, vote: body.vote });
     try {
@@ -193,6 +241,7 @@ export class ThreadStore {
         this.#http.put<void>(`/api/chats/${encodeURIComponent(this.chatId())}/messages/${message.id}/vote`, body),
       );
     } catch {
+      if (!this.#current(generation)) return;
       this.upsert(before);
       toast.error("Couldn't save your feedback", { description: 'Try again in a moment.' });
     }

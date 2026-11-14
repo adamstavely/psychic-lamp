@@ -72,6 +72,44 @@ describe('sending, approving and voting', () => {
     expect(start).toMatchObject({ routing: [{ kind: 'model', name: 'claude-opus-4.1' }] });
   });
 
+  it('takes ten sends to one chat at once, each saved once and in order', async () => {
+    const token = await t.token();
+    const created = ChatSummary.parse(
+      (await http.post('/api/chats').auth(token, bearer).send({ text: 'Start' }).expect(201)).body,
+    );
+    const results = await Promise.all(
+      Array.from({ length: 10 }, (_, i) =>
+        http
+          .post(`/api/chats/${created.id}/messages`)
+          .auth(token, bearer)
+          .send({ text: `Message ${i}` }),
+      ),
+    );
+    expect(results.map((r) => r.status)).toEqual(Array(10).fill(200));
+    const chat = Chat.parse((await http.get(`/api/chats/${created.id}`).auth(token, bearer).expect(200)).body);
+    const asked = chat.messages.filter((m) => m.role === 'user').map((m) => (m.role === 'user' ? m.text : ''));
+    expect(asked.filter((t) => t.startsWith('Message ')).sort()).toEqual(
+      Array.from({ length: 10 }, (_, i) => `Message ${i}`).sort(),
+    );
+    // Each question is followed by its own answer.
+    chat.messages.forEach((m, i) => expect(m.role).toBe(i % 2 === 0 ? 'user' : 'assistant'));
+  });
+
+  it('saves a retried send once, and returns the turn it saved', async () => {
+    const token = await t.token();
+    const created = ChatSummary.parse(
+      (await http.post('/api/chats').auth(token, bearer).send({ text: 'Start' }).expect(201)).body,
+    );
+    const requestId = '7d3c2f0e-4a1b-4c5d-8e9f-0a1b2c3d4e5f';
+    const send = () =>
+      http.post(`/api/chats/${created.id}/messages`).auth(token, bearer).send({ text: 'Once only', requestId });
+    const [first, again] = [await send(), await send()];
+    const userOf = (text: string) => events(text).find((e) => e.type === 'user') as { message: { id: string } };
+    expect(userOf(again.text).message.id).toBe(userOf(first.text).message.id);
+    const chat = Chat.parse((await http.get(`/api/chats/${created.id}`).auth(token, bearer).expect(200)).body);
+    expect(chat.messages.filter((m) => m.role === 'user' && m.text === 'Once only')).toHaveLength(1);
+  });
+
   it('refuses an empty message', async () => {
     const token = await t.token();
     await http.post('/api/chats/rfc/messages').auth(token, bearer).send({ text: '   ' }).expect(400);

@@ -115,10 +115,13 @@ export const messages = pgTable(
     body: jsonb().$type<MessageBody>().notNull(),
     vote: text({ enum: ['up', 'down'] }),
     voteReason: text(),
+    /** The client's id for the send that saved this message (user messages), so a retry isn't saved twice. */
+    requestId: uuid(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     unique('messages_chat_seq').on(t.ownerId, t.chatId, t.seq),
+    unique('messages_chat_request').on(t.ownerId, t.chatId, t.requestId),
     foreignKey({ columns: [t.ownerId, t.chatId], foreignColumns: [chats.ownerId, chats.id] }).onDelete('cascade'),
   ],
 );
