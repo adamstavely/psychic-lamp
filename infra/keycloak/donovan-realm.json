@@ -108,6 +108,21 @@
           "temporary": false
         }
       ]
+    },
+    {
+      "username": "kemi",
+      "email": "kemi.okafor@example.com",
+      "emailVerified": true,
+      "firstName": "Kemi",
+      "lastName": "Okafor",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "kemi",
+          "temporary": false
+        }
+      ]
     }
   ]
 }

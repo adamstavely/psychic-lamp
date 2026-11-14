@@ -27,6 +27,15 @@ describe('/api/artifacts', () => {
     for (const id of linked) expect(list.map((a) => a.id)).toContain(id);
   });
 
+  it("finds artifacts on a person's very first search, even while the first list is still seeding them", async () => {
+    const token = await t.token();
+    const [, found] = await Promise.all([
+      http.get('/api/artifacts').auth(token, bearer),
+      http.get('/api/artifacts?q=break-glass').auth(token, bearer),
+    ]);
+    expect(List.parse(found.body).map((a) => a.name)).toEqual(['approval_tiers_rfc.md']);
+  });
+
   it('filters by kind and finds by words in the name or body', async () => {
     const token = await t.token();
     const data = List.parse((await http.get('/api/artifacts?kind=Data').auth(token, bearer)).body);

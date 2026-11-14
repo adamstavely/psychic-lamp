@@ -158,3 +158,57 @@ export const artifacts = pgTable(
   },
   (t) => [primaryKey({ columns: [t.ownerId, t.id] }), index('artifacts_owner_updated').on(t.ownerId, t.updatedAt)],
 );
+
+export const projects = pgTable(
+  'projects',
+  {
+    ownerId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    id: text().notNull(),
+    name: text().notNull(),
+    team: text().notNull(),
+    sensitivity: text({ enum: ['Public', 'Internal', 'Confidential', 'Restricted'] }).notNull(),
+    calibrated: boolean().notNull().default(false),
+    description: text().notNull().default(''),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.ownerId, t.id] })],
+);
+
+export const projectSources = pgTable(
+  'project_sources',
+  {
+    ownerId: uuid().notNull(),
+    projectId: text().notNull(),
+    id: text().notNull(),
+    kind: text({ enum: ['pdf', 'sheet', 'doc', 'slack', 'connector', 'web', 'dataset'] }).notNull(),
+    title: text().notNull(),
+    meta: text().notNull(),
+    selected: boolean().notNull().default(true),
+    position: integer().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.ownerId, t.projectId, t.id] }),
+    foreignKey({ columns: [t.ownerId, t.projectId], foreignColumns: [projects.ownerId, projects.id] }).onDelete(
+      'cascade',
+    ),
+  ],
+);
+
+export const projectNotes = pgTable(
+  'project_notes',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: uuid().notNull(),
+    projectId: text().notNull(),
+    text: text().notNull(),
+    at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.ownerId, t.projectId], foreignColumns: [projects.ownerId, projects.id] }).onDelete(
+      'cascade',
+    ),
+  ],
+);

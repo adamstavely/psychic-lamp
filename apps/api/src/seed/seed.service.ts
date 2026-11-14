@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DB, type Db } from '../db/db.module.js';
-import { artifacts, chats, messages, userSeeds } from '../db/schema.js';
+import { artifacts, chats, messages, projects, projectSources, userSeeds } from '../db/schema.js';
+import { SEED_PROJECTS } from './projects.fixture.js';
 import { SEED_ARTIFACTS } from './artifacts.fixture.js';
 import { SEED_CHATS } from './chats.fixture.js';
 
@@ -45,34 +46,69 @@ export class SeedService {
     });
   }
 
-  /** Copies the canned artifacts; true when this call did it (so the caller can index them for search). */
-  ensureArtifacts(userId: string, now = new Date()): Promise<boolean> {
+  /**
+   * Copies the canned artifacts. `afterInsert` runs inside the same transaction (to index them for search), so a request
+   * that arrives meanwhile waits until they're both stored and searchable.
+   */
+  ensureArtifacts(
+    userId: string,
+    afterInsert: (rows: (typeof artifacts.$inferSelect)[]) => Promise<void> = async () => undefined,
+    now = new Date(),
+  ): Promise<boolean> {
     return this.once(userId, 'artifacts', async (tx) => {
-      await tx.insert(artifacts).values(
-        SEED_ARTIFACTS.map((a) => {
-          const versions = a.versions.map((v, i) => ({
-            version: i + 1,
-            at: new Date(now.getTime() - v.minutesAgo * MINUTE).toISOString(),
-            note: v.note,
-          }));
-          const updatedAt = new Date(versions.at(-1)!.at);
-          return {
-            ownerId: userId,
-            id: a.id,
-            name: a.name,
-            kind: a.body.kind,
-            sensitivity: a.sensitivity,
-            chatId: a.chatId,
-            project: a.project,
-            sharedWith: a.sharedWith,
-            versions,
-            sources: a.sources,
-            body: a.body,
-            createdAt: new Date(versions[0]!.at),
-            updatedAt,
-          };
-        }),
-      );
+      const rows = await tx
+        .insert(artifacts)
+        .values(
+          SEED_ARTIFACTS.map((a) => {
+            const versions = a.versions.map((v, i) => ({
+              version: i + 1,
+              at: new Date(now.getTime() - v.minutesAgo * MINUTE).toISOString(),
+              note: v.note,
+            }));
+            const updatedAt = new Date(versions.at(-1)!.at);
+            return {
+              ownerId: userId,
+              id: a.id,
+              name: a.name,
+              kind: a.body.kind,
+              sensitivity: a.sensitivity,
+              chatId: a.chatId,
+              project: a.project,
+              sharedWith: a.sharedWith,
+              versions,
+              sources: a.sources,
+              body: a.body,
+              createdAt: new Date(versions[0]!.at),
+              updatedAt,
+            };
+          }),
+        )
+        .returning();
+      await afterInsert(rows);
+    });
+  }
+
+  ensureProjects(userId: string, now = new Date()): Promise<boolean> {
+    return this.once(userId, 'projects', async (tx) => {
+      for (const p of SEED_PROJECTS) {
+        const updatedAt = new Date(now.getTime() - p.minutesAgo * MINUTE);
+        await tx.insert(projects).values({
+          ownerId: userId,
+          id: p.id,
+          name: p.name,
+          team: p.team,
+          sensitivity: p.sensitivity,
+          calibrated: p.calibrated,
+          description: p.description,
+          createdAt: updatedAt,
+          updatedAt,
+        });
+        await tx
+          .insert(projectSources)
+          .values(
+            p.sources.map((s, i) => ({ ownerId: userId, projectId: p.id, id: `s${i + 1}`, position: i + 1, ...s })),
+          );
+      }
     });
   }
 

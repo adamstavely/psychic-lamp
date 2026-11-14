@@ -8,6 +8,7 @@ export const USERS = {
   devon: { username: 'devon', password: 'devon', name: 'Devon Price' },
   priya: { username: 'priya', password: 'priya', name: 'Priya Shah' },
   sam: { username: 'sam', password: 'sam', name: 'Sam Adeyemi' },
+  kemi: { username: 'kemi', password: 'kemi', name: 'Kemi Okafor' },
 } as const;
 
 /** Signs in through the local Keycloak, the way a person does, and waits for the app. */

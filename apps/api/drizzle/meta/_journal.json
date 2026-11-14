@@ -43,6 +43,13 @@
       "when": 1794632757793,
       "tag": "0005_artifacts",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794633263226,
+      "tag": "0006_projects",
+      "breakpoints": true
     }
   ]
 }
