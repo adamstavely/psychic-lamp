@@ -141,3 +141,9 @@ h3 {
   display: grid;
   font-size: var(--tc-font-size-sm);
 }
+
+@media (max-width: 1100px) {
+  :host {
+    border-left: 0;
+  }
+}

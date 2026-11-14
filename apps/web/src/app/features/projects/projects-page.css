@@ -1,5 +1,6 @@
 .page {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--tc-space-6);
   max-width: 88rem;
   margin-inline: auto;
@@ -183,4 +184,13 @@ button.card:hover {
   justify-content: flex-end;
   gap: var(--tc-space-2);
   margin-top: var(--tc-space-3);
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding-inline: var(--tc-space-4);
+  }
+  .head {
+    flex-wrap: wrap;
+  }
 }

@@ -11,6 +11,8 @@ export const KNOWN_TRENCHCOAT_ISSUES: Record<string, { fixedIn: string | null; a
     storiesLabelInName: { fixedIn: '0.28.1', axeRule: 'label-content-name-mismatch', selector: 'tc-stories' },
     /** tc-approval-card's dark-mode ⌘↵ hint on Approve was 4.0:1 (WCAG 1.4.3). */
     approvalKbdContrast: { fixedIn: '0.28.1', axeRule: 'color-contrast', selector: 'tc-approval-card' },
+    /** tc-command-menu's popover stayed open after Tab left it (WCAG 2.4.11); the shell sends Escape on focusout. */
+    commandMenuFocusOut: { fixedIn: '0.28.1' },
     /** An icon-only tc-button's native button is 0×0, so Playwright can't press it; click the chip instead. Not fixed yet. */
     iconButtonZeroSize: { fixedIn: null },
   };
