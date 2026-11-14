@@ -2,8 +2,6 @@ import type { Routes } from '@angular/router';
 import { signInGuard } from './core/return-to';
 import { Shell } from './shell/shell';
 
-const placeholder = () => import('./features/placeholder/placeholder-page');
-
 export const routes: Routes = [
   // angular-auth-oidc-client sends a failed sign-in here.
   {
@@ -21,7 +19,12 @@ export const routes: Routes = [
       { path: 'chats', title: 'Chats', loadComponent: () => import('./features/chats/chats-home-page') },
       { path: 'chats/new', title: 'New chat', loadComponent: () => import('./features/chats/chats-home-page') },
       { path: 'chats/:chatId', title: 'Chat', loadComponent: () => import('./features/chats/chat-page') },
-      { path: 'projects', title: 'Projects', loadComponent: placeholder, data: { heading: 'Projects' } },
+      { path: 'projects', title: 'Projects', loadComponent: () => import('./features/projects/projects-page') },
+      {
+        path: 'projects/:projectId',
+        title: 'Project',
+        loadComponent: () => import('./features/projects/project-page'),
+      },
       { path: 'artifacts', title: 'Artifacts', loadComponent: () => import('./features/artifacts/artifacts-page') },
       {
         path: 'artifacts/:artifactId',

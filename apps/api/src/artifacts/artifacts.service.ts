@@ -85,8 +85,7 @@ export class ArtifactsService {
 
   private async ensure(userId: string): Promise<void> {
     await this.seeds.ensureChats(userId);
-    const seeded = await this.seeds.ensureArtifacts(userId);
-    if (seeded) await this.indexQuietly(await this.db.select().from(artifacts).where(eq(artifacts.ownerId, userId)));
+    await this.seeds.ensureArtifacts(userId, (rows) => this.indexQuietly(rows));
   }
 
   private rows(userId: string, where?: ReturnType<typeof eq>) {

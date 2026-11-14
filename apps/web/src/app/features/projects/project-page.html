@@ -1,0 +1,155 @@
+@if (p(); as p) {
+  <div class="page">
+    <header class="head">
+      <p class="eyebrow"><a routerLink="/projects">Projects</a></p>
+      <h1>{{ p.name }}</h1>
+      <div class="head-row">
+        <p class="meta">{{ p.team }} · {{ p.sourceCount }} sources · Updated {{ when(p.updatedAt) }}</p>
+        <span class="tag">{{ p.sensitivity }}</span>
+        <tc-switch label="Calibrated" [value]="p.calibrated" (tc-value-change)="setCalibrated($event)" />
+        <tc-button variant="secondary" size="sm" label="Share" (click)="share()" />
+      </div>
+    </header>
+
+    <div class="columns">
+      <section class="col" aria-labelledby="sources-h">
+        <h2 id="sources-h">
+          Sources <span class="meta">{{ selectedCount() }} of {{ p.sources.length }} selected</span>
+        </h2>
+        <ul class="list">
+          @for (s of p.sources; track s.id) {
+            <li>
+              <tc-checkbox
+                [label]="s.title"
+                [description]="s.meta"
+                [value]="s.selected"
+                (tc-value-change)="toggleSource(s, $event)"
+              />
+            </li>
+          } @empty {
+            <li class="meta">No sources yet. Add some below.</li>
+          }
+        </ul>
+        @if (p.suggestions.length) {
+          <h3>Add sources</h3>
+          <ul class="list">
+            @for (x of p.suggestions; track x.id) {
+              <li class="suggestion">
+                <span>
+                  <span class="title">{{ x.title }}</span>
+                  <span class="meta">{{ x.meta }}</span>
+                </span>
+                <tc-button variant="secondary" size="sm" label="Add" (click)="addSources([x.id])" />
+              </li>
+            }
+          </ul>
+          @if (p.suggestions.length > 1) {
+            <tc-button
+              variant="secondary"
+              size="sm"
+              label="Add all"
+              (click)="addSources(p.suggestions.map((s) => s.id))"
+            />
+          }
+        }
+      </section>
+
+      <section class="col main" aria-labelledby="guide-h">
+        <h2 id="guide-h">Project guide</h2>
+        @if (p.guide.length) {
+          <tc-cited-answer [segments]="segments(p.guide)" [sources]="citedSources()" />
+        } @else {
+          <p class="meta">Select sources to get a guide to them.</p>
+        }
+
+        <h3>Ask about these sources</h3>
+        <ul class="questions">
+          @for (q of p.questions; track q) {
+            <li>
+              <button type="button" class="question" [disabled]="asking()" (click)="ask(q)">{{ q }}</button>
+            </li>
+          }
+        </ul>
+        <form class="ask" (ngSubmit)="ask(question)">
+          <label for="project-ask" class="sr-only">Ask a question about this project's sources</label>
+          <input
+            id="project-ask"
+            name="q"
+            [(ngModel)]="question"
+            placeholder="Ask about {{ selectedCount() }} sources"
+            autocomplete="off"
+          />
+          <tc-button variant="primary" size="md" label="Ask" [loading]="asking()" (click)="ask(question)" />
+        </form>
+
+        @if (answer(); as a) {
+          <section class="answer" aria-labelledby="answer-h">
+            <h3 id="answer-h">{{ a.question }}</h3>
+            <p class="meta">From {{ a.sourcesRead }} sources</p>
+            <tc-cited-answer
+              [segments]="segments(a.answer)"
+              [sources]="citedSources()"
+              [actionLabel]="'Save to note'"
+              (tc-action)="saveAnswer()"
+            />
+          </section>
+        }
+
+        <h3>Earlier chats in this project</h3>
+        <ul class="list">
+          @for (c of p.chats; track c.id) {
+            <li>
+              <a [routerLink]="['/chats', c.id]">{{ c.title }}</a> <span class="meta">{{ when(c.updatedAt) }}</span>
+            </li>
+          } @empty {
+            <li class="meta">No chats in this project yet.</li>
+          }
+        </ul>
+      </section>
+
+      <section class="col" aria-labelledby="studio-h">
+        <h2 id="studio-h">Studio</h2>
+        <h3>Notes</h3>
+        <ul class="list">
+          @for (n of p.notes; track n.id) {
+            <li class="note">
+              <p>{{ n.text }}</p>
+              <span class="meta">{{ when(n.at) }}</span>
+              <tc-button variant="ghost" size="sm" label="Delete note" (click)="deleteNote(n.id)" />
+            </li>
+          } @empty {
+            <li class="meta">Save an answer to keep it here.</li>
+          }
+        </ul>
+        <h3>Outputs</h3>
+        <ul class="list">
+          @for (o of p.outputs; track o.title) {
+            <li>
+              <span class="title">{{ o.title }}</span> <span class="meta">{{ o.meta }}</span>
+            </li>
+          } @empty {
+            <li class="meta">Briefs and tables made from this project show here.</li>
+          }
+        </ul>
+        <h3>Workflows</h3>
+        <ul class="list">
+          @for (w of p.workflows; track w.name) {
+            <li>
+              <span class="title">{{ w.name }}</span> <span class="meta">{{ w.meta }} · In Build, coming soon</span>
+            </li>
+          } @empty {
+            <li class="meta">None attached.</li>
+          }
+        </ul>
+      </section>
+    </div>
+    <p class="sr-only" role="status">{{ status() }}</p>
+  </div>
+} @else if (project.error()) {
+  <section class="state" role="alert">
+    <h1>That project isn't here</h1>
+    <p><a routerLink="/projects">See all projects</a>.</p>
+  </section>
+} @else {
+  <p class="state" role="status">Loading the project…</p>
+}
