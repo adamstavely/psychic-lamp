@@ -165,3 +165,53 @@ export const ChatPatch = z.strictObject({
   pinned: z.boolean().optional(),
 });
 export type ChatPatch = z.infer<typeof ChatPatch>;
+
+/** The models a person can pin a message to; "auto" lets routing pick. */
+export const MODELS = ['claude-sonnet-4.5', 'claude-opus-4.1', 'claude-haiku-4.5'] as const;
+export const ModelChoice = z.enum(['auto', ...MODELS]);
+export type ModelChoice = z.infer<typeof ModelChoice>;
+
+export const SendMessage = z.strictObject({
+  text: z.string().trim().min(1, 'Write a message first').max(8000),
+  model: ModelChoice.default('auto'),
+});
+export type SendMessage = z.infer<typeof SendMessage>;
+
+export const NewChat = z.strictObject({
+  /** The first message; the chat is titled from it. */
+  text: z.string().trim().min(1).max(8000),
+  sensitivity: Sensitivity.default('Internal'),
+});
+export type NewChat = z.infer<typeof NewChat>;
+
+/**
+ * What the answer stream sends, in order: the saved user turn, the answer's start, each block as it arrives (a block is
+ * sent again when it changes, e.g. a tool call finishing), text as it's written, and the finished answer.
+ */
+export const StreamEvent = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('user'), message: UserMessage }),
+  z.object({ type: z.literal('start'), id: z.string(), routing: z.array(Route), at: Iso }),
+  z.object({ type: z.literal('block'), index: z.number().int().nonnegative(), block: Block }),
+  z.object({ type: z.literal('delta'), index: z.number().int().nonnegative(), text: z.string() }),
+  z.object({ type: z.literal('done'), message: AssistantMessage }),
+  z.object({ type: z.literal('error'), message: z.string() }),
+]);
+export type StreamEvent = z.infer<typeof StreamEvent>;
+
+export const ToolDecision = z.strictObject({
+  decision: z.enum(['approve', 'deny']),
+  /** Approve this tool without asking for the rest of the chat. */
+  always: z.boolean().default(false),
+});
+export type ToolDecision = z.infer<typeof ToolDecision>;
+
+/** The chat's turns after a decision: the tool's message updated, and Donovan's reply to it. */
+export const ToolDecisionResult = z.object({ updated: AssistantMessage, reply: AssistantMessage });
+export type ToolDecisionResult = z.infer<typeof ToolDecisionResult>;
+
+export const Vote = z.strictObject({
+  vote: z.enum(['up', 'down']).nullable(),
+  /** For a thumbs down: what went wrong. */
+  reason: z.string().max(200).optional(),
+});
+export type Vote = z.infer<typeof Vote>;

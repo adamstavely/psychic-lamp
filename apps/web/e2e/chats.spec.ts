@@ -16,7 +16,7 @@ test.describe('Chats', () => {
     await expect(turns.getByRole('heading', { name: 'You' })).toHaveCount(1);
     await expect(turns.getByText('Worked for')).toBeVisible();
     await expect(turns.getByRole('list', { name: 'Routed to' }).first()).toContainText('claude-sonnet-4.5');
-    await expect(turns.getByText('Waiting for your approval.')).toBeVisible();
+    await expect(turns.getByRole('heading', { name: 'Approve post_message?' })).toBeVisible();
     await expect(turns.getByRole('link', { name: /Open Rollout note — Fraud Sentinel v3.2/ })).toBeVisible();
     await expectNoAxeViolations(page);
   });

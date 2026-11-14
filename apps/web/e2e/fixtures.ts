@@ -4,6 +4,9 @@ import { expect, test as base, type Page } from '@playwright/test';
 export const USERS = {
   alex: { username: 'alex', password: 'alex', name: 'Alex Morgan' },
   mara: { username: 'mara', password: 'mara', name: 'Mara Lindqvist' },
+  // State-changing specs each get their own user, so parallel files never reset each other's data.
+  devon: { username: 'devon', password: 'devon', name: 'Devon Price' },
+  priya: { username: 'priya', password: 'priya', name: 'Priya Shah' },
 } as const;
 
 /** Signs in through the local Keycloak, the way a person does, and waits for the app. */
@@ -43,6 +46,14 @@ export function api(page: Page) {
     post: async (url: string, data: unknown) => page.request.post(url, { headers: await headers(), data }),
     delete: async (url: string) => page.request.delete(url, { headers: await headers() }),
   };
+}
+
+/** Wipes the signed-in test user's data (the API's ALLOW_TEST_RESET endpoint), then reloads on fresh canned content. */
+export async function resetUser(page: Page): Promise<void> {
+  const res = await api(page).delete('/api/test/me');
+  expect(res.status(), 'the API needs ALLOW_TEST_RESET=true (apps/api/.env.example)').toBe(204);
+  await page.reload();
+  await expect(page.getByRole('main')).toBeVisible();
 }
 
 export const test = base;

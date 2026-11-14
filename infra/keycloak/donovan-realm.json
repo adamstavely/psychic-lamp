@@ -41,7 +41,13 @@
       "firstName": "Alex",
       "lastName": "Morgan",
       "enabled": true,
-      "credentials": [{ "type": "password", "value": "alex", "temporary": false }]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "alex",
+          "temporary": false
+        }
+      ]
     },
     {
       "username": "mara",
@@ -50,7 +56,43 @@
       "firstName": "Mara",
       "lastName": "Lindqvist",
       "enabled": true,
-      "credentials": [{ "type": "password", "value": "mara", "temporary": false }]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "mara",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "devon",
+      "email": "devon.price@example.com",
+      "emailVerified": true,
+      "firstName": "Devon",
+      "lastName": "Price",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devon",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "priya",
+      "email": "priya.shah@example.com",
+      "emailVerified": true,
+      "firstName": "Priya",
+      "lastName": "Shah",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "priya",
+          "temporary": false
+        }
+      ]
     }
   ]
 }

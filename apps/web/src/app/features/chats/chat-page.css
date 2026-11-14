@@ -115,11 +115,14 @@
   margin: 0;
 }
 
-.disclaimer {
-  margin: var(--tc-space-6) 0 0;
-  color: var(--tc-text-secondary);
-  font-size: var(--tc-font-size-xs);
-  text-align: center;
+.composer {
+  position: sticky;
+  bottom: 0;
+  width: 100%;
+  max-width: 52rem;
+  margin: auto auto 0;
+  padding: 0 var(--tc-space-6) var(--tc-space-4);
+  background: linear-gradient(transparent, var(--dn-canvas) var(--tc-space-4));
 }
 
 .state {

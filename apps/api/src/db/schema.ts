@@ -74,6 +74,8 @@ export const chats = pgTable(
     pinned: boolean().notNull().default(false),
     calibrated: boolean().notNull().default(false),
     intent: jsonb().$type<SessionIntent>(),
+    /** Write tools the owner chose to always allow in this chat. */
+    allowedTools: jsonb().$type<string[]>().notNull().default([]),
     /** Deleted from the list; kept so Undo can bring it back. */
     archivedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -94,6 +96,7 @@ export const messages = pgTable(
     role: text({ enum: ['user', 'assistant'] }).notNull(),
     body: jsonb().$type<MessageBody>().notNull(),
     vote: text({ enum: ['up', 'down'] }),
+    voteReason: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

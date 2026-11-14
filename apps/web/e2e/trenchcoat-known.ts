@@ -8,6 +8,8 @@ import { resolve } from 'node:path';
 export const KNOWN_TRENCHCOAT_ISSUES = {
   /** tc-stories tiles were named by aria-label, so axe's label-content-name-mismatch flagged them (WCAG 2.5.3). */
   storiesLabelInName: { fixedIn: '0.28.1', axeRule: 'label-content-name-mismatch', selector: 'tc-stories' },
+  /** tc-approval-card's dark-mode ⌘↵ hint on Approve was 4.0:1 (WCAG 1.4.3). */
+  approvalKbdContrast: { fixedIn: '0.28.1', axeRule: 'color-contrast', selector: 'tc-approval-card' },
   /** An icon-only tc-button's native button was 0×0, so Playwright can't press it; click the chip instead. */
   iconButtonZeroSize: { fixedIn: '0.28.1' },
 } as const;

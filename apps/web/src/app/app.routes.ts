@@ -18,8 +18,8 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'brief' },
       { path: 'brief', title: 'Daily Brief', loadComponent: () => import('./features/brief/brief-page') },
-      { path: 'chats', title: 'Chats', loadComponent: placeholder, data: { heading: 'Chats' } },
-      { path: 'chats/new', title: 'New chat', loadComponent: placeholder, data: { heading: 'New chat' } },
+      { path: 'chats', title: 'Chats', loadComponent: () => import('./features/chats/chats-home-page') },
+      { path: 'chats/new', title: 'New chat', loadComponent: () => import('./features/chats/chats-home-page') },
       { path: 'chats/:chatId', title: 'Chat', loadComponent: () => import('./features/chats/chat-page') },
       { path: 'projects', title: 'Projects', loadComponent: placeholder, data: { heading: 'Projects' } },
       { path: 'artifacts', title: 'Artifacts', loadComponent: placeholder, data: { heading: 'Artifacts' } },

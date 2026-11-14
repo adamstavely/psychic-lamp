@@ -2,6 +2,7 @@ import type { AssistantMessage } from '@donovan/contracts';
 
 /** "Worked for 8.6s · 3 tool calls" */
 export function workedLabel(m: AssistantMessage): string {
+  if (m.durationMs === 0) return 'Working…';
   const tools = m.blocks.filter((b) => b.type === 'tool').length;
   const seconds = (m.durationMs / 1000).toFixed(1);
   return `Worked for ${seconds}s${tools ? ` · ${tools} tool call${tools > 1 ? 's' : ''}` : ''}`;

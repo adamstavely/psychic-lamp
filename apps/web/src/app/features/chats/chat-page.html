@@ -32,7 +32,7 @@
       }
 
       <ol class="turns" aria-label="Conversation">
-        @for (m of c.messages; track m.id) {
+        @for (m of thread.messages(); track m.id) {
           @if (isAssistant(m)) {
             <li class="turn assistant">
               <h2 class="sr-only">Donovan</h2>
@@ -51,10 +51,19 @@
               }
               <div class="blocks">
                 @for (b of m.blocks; track $index) {
-                  <dn-block [block]="b" />
+                  <dn-block [block]="b" [decide]="decide" />
                 }
               </div>
-              <tc-message-actions label="Answer actions" [actions]="['copy']" [text]="plainText(m)" />
+              @if (!(thread.streaming() && $last)) {
+                <tc-message-actions
+                  label="Answer actions"
+                  [actions]="['copy', 'feedback']"
+                  [text]="plainText(m)"
+                  [feedback]="m.vote"
+                  [reasons]="reasons"
+                  (tc-feedback)="onFeedback(m, $event)"
+                />
+              }
             </li>
           } @else {
             <li class="turn user">
@@ -64,11 +73,22 @@
           }
         }
       </ol>
-
-      <p class="disclaimer">
-        AI-generated claims can be wrong, including plausible ones with no basis in the sources. Verify before acting.
-      </p>
     </div>
+
+    <div class="composer">
+      <tc-chat-composer
+        placeholder="Reply…"
+        [models]="models"
+        model="auto"
+        hideConnectApps
+        hideProject
+        hideApproval
+        [onDictate]="dictate"
+        [onSend]="send"
+        disclaimer="AI-generated claims can be wrong, including plausible ones with no basis in the sources. Verify before acting."
+      />
+    </div>
+    <p class="sr-only" role="status" aria-live="polite">{{ thread.status() }}</p>
   </div>
 } @else if (chat.error()) {
   <section class="state" role="alert">
