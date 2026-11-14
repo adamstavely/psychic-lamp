@@ -5,6 +5,7 @@ import type {
   CitedText,
   Claim,
   Preferences,
+  RegistryItem,
   Route,
   SessionIntent,
 } from '@donovan/contracts';
@@ -306,4 +307,39 @@ export const notificationState = pgTable(
     dismissedAt: timestamp({ withTimezone: true }),
   },
   (t) => [primaryKey({ columns: [t.userId, t.key] })],
+);
+
+/**
+ * Build mode's registry: skills, MCP servers, agents, workflows, models, datasets, spaces, collections and prompts.
+ * Shared by everyone, unlike Assist's per-person tables; an item belongs to a team (the seeded catalog) or to the person
+ * who registered it. What every kind has is in columns; the rest is `details`, checked against the kind's contract.
+ */
+export const registryItems = pgTable(
+  'registry_items',
+  {
+    kind: text({
+      enum: ['skill', 'server', 'agent', 'workflow', 'model', 'dataset', 'space', 'collection', 'prompt'],
+    }).notNull(),
+    id: text().notNull(),
+    name: text().notNull(),
+    slug: text().notNull(),
+    version: text().notNull(),
+    sensitivity: text({ enum: ['Public', 'Internal', 'Confidential', 'Restricted'] }).notNull(),
+    summary: text().notNull(),
+    ownerTeam: text(),
+    ownerId: uuid().references(() => users.id, { onDelete: 'set null' }),
+    ownerName: text().notNull(),
+    status: text({ enum: ['draft', 'pending', 'changes-requested', 'published', 'rejected'] }).notNull(),
+    details: jsonb().$type<RegistryItem['details']>().notNull(),
+    /** Bumped with every change, in the same transaction; search records the version it indexed (see SearchBackfill). */
+    searchVersion: integer().notNull().default(0),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.kind, t.id] }),
+    unique('registry_items_kind_slug').on(t.kind, t.slug),
+    index('registry_items_owner').on(t.ownerId),
+    index('registry_items_status').on(t.status),
+  ],
 );
