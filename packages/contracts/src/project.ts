@@ -45,7 +45,20 @@ export const OrgLibrary = z.object({
 });
 export type OrgLibrary = z.infer<typeof OrgLibrary>;
 
-export const ProjectsOverview = z.object({ org: z.array(OrgLibrary), mine: z.array(ProjectSummary) });
+/** A project someone else shared with the person: who owns it, and what they may do (view, for now). */
+export const SharedProjectSummary = ProjectSummary.extend({
+  ownerId: z.string(),
+  ownerName: z.string(),
+  level: z.enum(['viewer', 'editor']),
+});
+export type SharedProjectSummary = z.infer<typeof SharedProjectSummary>;
+
+export const ProjectsOverview = z.object({
+  org: z.array(OrgLibrary),
+  mine: z.array(ProjectSummary),
+  /** Other people's projects shared with this person. */
+  shared: z.array(SharedProjectSummary),
+});
 export type ProjectsOverview = z.infer<typeof ProjectsOverview>;
 
 /** Someone (or a team) a project is shared with, and what they can do. */
@@ -61,7 +74,20 @@ export const ShareLevel = z.enum(['viewer', 'editor']);
 export const ProjectShare = z.object({ recipient: Recipient, level: ShareLevel });
 export type ProjectShare = z.infer<typeof ProjectShare>;
 
-export const ProjectShares = z.strictObject({ access: z.array(ProjectShare).max(100) });
+/**
+ * Who a project is shared with, as the owner sets it. The API resolves each recipient from its directory (ids it gave
+ * out), so names here are ignored; for the pilot a project goes to named people, to view.
+ */
+export const ProjectShares = z.strictObject({
+  access: z
+    .array(
+      z.object({
+        recipient: Recipient,
+        level: z.literal('viewer', { error: 'Projects can be shared to view; editing together is coming later' }),
+      }),
+    )
+    .max(100),
+});
 export type ProjectShares = z.infer<typeof ProjectShares>;
 
 /** A source a search found, not yet added. */
@@ -142,8 +168,12 @@ export const ProjectAnswer = z.object({
 export type ProjectAnswer = z.infer<typeof ProjectAnswer>;
 
 export const Project = ProjectSummary.extend({
-  /** An organisation library: anyone can read it and copy it; nobody edits it here. */
+  /** An organisation library, or a project shared to view: it can be read, not changed. */
   readOnly: z.boolean(),
+  /** Whose it is: the person's own, shared with them to view, or an organisation library. */
+  access: z.enum(['owner', 'viewer', 'library']),
+  /** The owner's name, on a project shared with the person. */
+  ownerName: z.string().nullable(),
   description: z.string(),
   /** Skills, models and servers the project's chats use. */
   attached: z.array(z.string()),

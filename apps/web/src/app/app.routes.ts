@@ -26,6 +26,16 @@ export const routes: Routes = [
         loadComponent: () => import('./features/projects/project-page'),
       },
       {
+        path: 'projects/shared/:ownerId/:projectId',
+        title: 'Shared project',
+        loadComponent: () => import('./features/projects/project-page'),
+      },
+      {
+        path: 'projects/shared/:ownerId/:projectId/artifacts/:artifactId',
+        title: 'Artifact',
+        loadComponent: () => import('./features/artifacts/artifact-page'),
+      },
+      {
         path: 'projects/:projectId',
         title: 'Project',
         loadComponent: () => import('./features/projects/project-page'),

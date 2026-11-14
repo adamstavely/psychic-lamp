@@ -38,6 +38,12 @@ export default class ProjectsPage {
     return q ? all.filter((p) => p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q)) : all;
   });
 
+  protected readonly shared = computed(() => {
+    const q = this.filter().trim().toLowerCase();
+    const all = this.overview.hasValue() ? this.overview.value().shared : [];
+    return q ? all.filter((p) => p.name.toLowerCase().includes(q) || p.ownerName.toLowerCase().includes(q)) : all;
+  });
+
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('newDialog');
   protected readonly draft = { name: '', sensitivity: 'Internal' as Sensitivity, calibrated: false };
   protected readonly creating = signal(false);

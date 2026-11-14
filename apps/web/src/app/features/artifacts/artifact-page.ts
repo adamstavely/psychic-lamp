@@ -37,6 +37,9 @@ import { artifactText, downloadName } from './artifact-view';
 export default class ArtifactPage {
   /** From the route. */
   readonly artifactId = input.required<string>();
+  /** On a project shared with the person: whose project, and which (the artifact is read through the share). */
+  readonly ownerId = input<string>();
+  readonly projectId = input<string>();
   readonly #title = inject(Title);
   readonly #http = inject(HttpClient);
 
@@ -49,7 +52,16 @@ export default class ArtifactPage {
   protected projectChoice = '';
   protected readonly saving = signal(false);
 
-  protected readonly artifact = httpResource<Artifact>(() => `/api/artifacts/${encodeURIComponent(this.artifactId())}`);
+  protected readonly artifact = httpResource<Artifact>(() =>
+    this.ownerId() && this.projectId()
+      ? `/api/projects/shared/${encodeURIComponent(this.ownerId()!)}/${encodeURIComponent(this.projectId()!)}/artifacts/${encodeURIComponent(this.artifactId())}`
+      : `/api/artifacts/${encodeURIComponent(this.artifactId())}`,
+  );
+  /** Read through a share: it can be read, copied and downloaded, not filed or continued. */
+  protected readonly shared = computed(() => !!this.ownerId());
+  protected readonly backLink = computed(() =>
+    this.ownerId() ? ['/projects/shared', this.ownerId()!, this.projectId()!] : ['/artifacts'],
+  );
   protected readonly a = computed(() => (this.artifact.hasValue() ? this.artifact.value() : null));
 
   /** The version showing: the latest, until the reader picks another. */

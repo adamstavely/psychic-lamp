@@ -1,7 +1,9 @@
 @if (a(); as a) {
   <div class="page">
     <header class="bar">
-      <a class="back" routerLink="/artifacts"><span dnIcon="back" [iconSize]="14"></span>Artifacts</a>
+      <a class="back" [routerLink]="backLink()"
+        ><span dnIcon="back" [iconSize]="14"></span>{{ shared() ? a.project : 'Artifacts' }}</a
+      >
       <span class="tile" [dnIcon]="kindIcon(a.body.kind)"></span>
       <div class="title">
         <p class="name">{{ a.name }}</p>
@@ -33,8 +35,10 @@
       <button type="button" class="square" aria-label="Download" title="Download" (click)="download(a)">
         <span dnIcon="download" [iconSize]="15"></span>
       </button>
-      <button type="button" class="outline" (click)="openSaveToProject(a)">Save to project</button>
-      @if (a.chat; as chat) {
+      @if (!shared()) {
+        <button type="button" class="outline" (click)="openSaveToProject(a)">Save to project</button>
+      }
+      @if (!shared() && a.chat; as chat) {
         <a class="solid" [routerLink]="['/chats', chat.id]"
           ><span dnIcon="chat" [iconSize]="14"></span>Continue in chat</a
         >
@@ -90,7 +94,9 @@
 
         <section aria-labelledby="created-h">
           <h2 id="created-h">Created in</h2>
-          @if (a.chat; as chat) {
+          @if (shared() && a.chat) {
+            <p class="meta">A chat of {{ a.owner }}'s: {{ a.chat.title }}</p>
+          } @else if (a.chat; as chat) {
             <a class="origin" [routerLink]="['/chats', chat.id]"
               ><span dnIcon="chat" [iconSize]="15"></span><span class="t">{{ chat.title }}</span
               ><span dnIcon="external" [iconSize]="13"></span
