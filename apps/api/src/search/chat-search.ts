@@ -35,7 +35,7 @@ export class ChatSearch implements OnModuleInit {
       // An index from before versions were tracked gains the field; its documents read as version 0 until refreshed.
       else await this.es.indices.putMapping({ index: CHAT_INDEX, properties: { version: PROPERTIES.version } });
     } catch (err) {
-      this.#log.warn(`Couldn't prepare the ${CHAT_INDEX} index: ${String(err)}`);
+      this.#log.warn(`Couldn't prepare the ${CHAT_INDEX} index (${err instanceof Error ? err.name : 'error'})`);
     }
   }
 

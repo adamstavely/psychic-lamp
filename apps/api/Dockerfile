@@ -34,6 +34,7 @@ COPY --from=build /app/apps/api/package.json apps/api/
 COPY --from=build /app/apps/api/dist apps/api/dist
 COPY --from=build /app/apps/api/drizzle apps/api/drizzle
 WORKDIR /app/apps/api
-USER node
+# Numeric (the image's node user), so Kubernetes can check runAsNonRoot; it refuses a user given by name.
+USER 1000:1000
 EXPOSE 3870
 CMD ["node", "dist/main.js"]

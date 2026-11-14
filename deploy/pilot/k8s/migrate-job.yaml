@@ -13,7 +13,8 @@ spec:
       labels: { app: donovan-migrate }
     spec:
       restartPolicy: Never
-      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      securityContext:
+        { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, seccompProfile: { type: RuntimeDefault } }
       containers:
         - name: migrate
           image: registry.example.com/donovan-api:REPLACE_WITH_RELEASE
