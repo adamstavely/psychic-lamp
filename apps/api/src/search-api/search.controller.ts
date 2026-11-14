@@ -1,4 +1,5 @@
-import { SearchQuery, type SearchResults } from '@donovan/contracts';
+import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { SearchQuery, SearchResults } from '@donovan/contracts';
 import { Controller, Get, Inject, Logger, Query } from '@nestjs/common';
 import { and, desc, eq, ilike, inArray, isNull } from 'drizzle-orm';
 import { ArtifactsService } from '../artifacts/artifacts.service.js';
@@ -12,6 +13,8 @@ import { SeedService } from '../seed/seed.service.js';
 import { UsersService } from '../users/users.service.js';
 
 /** ⌘K: one query across the person's chats, artifacts and projects. */
+@ApiTags('Search')
+@ApiBearerAuth()
 @Controller('search')
 export class SearchController {
   readonly #log = new Logger(SearchController.name);
@@ -26,6 +29,7 @@ export class SearchController {
   ) {}
 
   @Get()
+  @ApiOkResponse({ standardSchema: SearchResults })
   async search(
     @Claims() claims: TokenClaims,
     @Query({ schema: SearchQuery }) query: SearchQuery,

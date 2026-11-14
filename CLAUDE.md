@@ -6,7 +6,7 @@ npm workspaces: `packages/contracts` (Zod schemas shared by both apps), `apps/ap
 
 ```bash
 npm run dev:deps     # Postgres, Elasticsearch and Keycloak in Docker
-npm run start:api    # http://localhost:3870/api
+npm run start:api    # http://localhost:3870/api (Swagger UI at /api/docs, the spec at /api/openapi.json)
 npm run start:web    # http://localhost:4200, proxies /api to the API
 ```
 

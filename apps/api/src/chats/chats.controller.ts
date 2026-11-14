@@ -1,18 +1,19 @@
+import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import {
   type AssistantMessage,
-  type Chat,
+  Chat,
   type UserMessage,
   ChatPatch,
-  type ChatSummary,
+  ChatSummary,
   ClaimReview,
   NewCheckpoint,
-  type ProvenanceManifest,
+  ProvenanceManifest,
   NewChat,
   RegenerateAnswer,
   SendMessage,
   ShowVersion,
   ToolDecision,
-  type ToolDecisionResult,
+  ToolDecisionResult,
   Vote,
 } from '@donovan/contracts';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Req, Res } from '@nestjs/common';
@@ -30,6 +31,8 @@ import { sse, streamAnswer } from './stream.js';
 export const ChatId = z.string().regex(/^[a-z0-9-]{1,64}$/, 'Not a chat id');
 const ToolId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, 'Not a tool call id');
 
+@ApiTags('Chats')
+@ApiBearerAuth()
 @Controller('chats')
 export class ChatsController {
   constructor(
@@ -39,6 +42,7 @@ export class ChatsController {
   ) {}
 
   @Post()
+  @ApiOkResponse({ standardSchema: ChatSummary })
   async create(@Claims() claims: TokenClaims, @Body({ schema: NewChat }) body: NewChat): Promise<ChatSummary> {
     return this.chats.create(await this.users.idFor(claims), body);
   }
@@ -99,6 +103,7 @@ export class ChatsController {
   }
 
   @Get(':id/export')
+  @ApiOkResponse({ standardSchema: ProvenanceManifest })
   async export(
     @Claims() claims: TokenClaims,
     @Param('id', { schema: ChatId }) id: string,
@@ -132,6 +137,7 @@ export class ChatsController {
   }
 
   @Post(':id/tools/:toolId/decision')
+  @ApiOkResponse({ standardSchema: ToolDecisionResult })
   async decide(
     @Claims() claims: TokenClaims,
     @Param('id', { schema: ChatId }) id: string,
@@ -153,16 +159,19 @@ export class ChatsController {
   }
 
   @Get()
+  @ApiOkResponse({ standardSchema: z.array(ChatSummary) })
   async list(@Claims() claims: TokenClaims): Promise<ChatSummary[]> {
     return this.chats.list(await this.users.idFor(claims));
   }
 
   @Get(':id')
+  @ApiOkResponse({ standardSchema: Chat })
   async get(@Claims() claims: TokenClaims, @Param('id', { schema: ChatId }) id: string): Promise<Chat> {
     return this.chats.get(await this.users.idFor(claims), id);
   }
 
   @Patch(':id')
+  @ApiOkResponse({ standardSchema: ChatSummary })
   async update(
     @Claims() claims: TokenClaims,
     @Param('id', { schema: ChatId }) id: string,
