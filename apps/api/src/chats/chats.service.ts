@@ -195,9 +195,32 @@ export class ChatsService {
     const reply = pickReply(body.text, body.model);
     const sent = await this.db.transaction(async (tx) => {
       const seq = await nextSeq(tx, userId, chatId);
+      // A retry of a send that was saved (its response lost on the way back) returns that turn again.
+      if (body.requestId) {
+        const [saved] = await tx
+          .select()
+          .from(messages)
+          .where(
+            and(eq(messages.ownerId, userId), eq(messages.chatId, chatId), eq(messages.requestId, body.requestId)),
+          );
+        if (saved) {
+          const [reply] = await tx
+            .select()
+            .from(messages)
+            .where(and(eq(messages.ownerId, userId), eq(messages.chatId, chatId), eq(messages.seq, saved.seq + 1)));
+          return { user: toMessage(saved) as UserMessage, answer: toMessage(reply!) as AssistantMessage };
+        }
+      }
       const [u] = await tx
         .insert(messages)
-        .values({ ownerId: userId, chatId, seq, role: 'user', body: { text: body.text } })
+        .values({
+          ownerId: userId,
+          chatId,
+          seq,
+          role: 'user',
+          body: { text: body.text },
+          requestId: body.requestId ?? null,
+        })
         .returning();
       const [a] = await tx
         .insert(messages)
@@ -369,7 +392,17 @@ export class ChatsService {
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
+/**
+ * The next free position in a chat. It locks the chat's row first, so concurrent writers to one chat (two sends, a send
+ * and an approval) take turns instead of claiming the same position and failing; the lock lasts until the transaction
+ * ends, so call this before the transaction's other writes.
+ */
 async function nextSeq(tx: Tx, userId: string, chatId: string): Promise<number> {
+  await tx
+    .select({ id: chats.id })
+    .from(chats)
+    .where(and(eq(chats.ownerId, userId), eq(chats.id, chatId)))
+    .for('update');
   const [r] = await tx
     .select({ max: sql<number | null>`max(${messages.seq})` })
     .from(messages)
