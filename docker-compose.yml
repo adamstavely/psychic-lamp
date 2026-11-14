@@ -1,0 +1,55 @@
+# Local services for Donovan. Ports are offset from the defaults so they sit beside other local stacks.
+name: donovan
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: donovan
+      POSTGRES_PASSWORD: donovan
+      POSTGRES_DB: donovan
+    ports: ['5433:5432']
+    volumes: ['pgdata:/var/lib/postgresql']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U donovan']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.2
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false # local only; deployed clusters use an API key
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports: ['9201:9200']
+    volumes: ['esdata:/usr/share/elasticsearch/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fs http://localhost:9200/_cluster/health?wait_for_status=yellow || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  # Sign-in for local development: the donovan realm, a public PKCE client for the web app and test users.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    command: ['start-dev', '--import-realm', '--health-enabled=true']
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8180
+    ports: ['8180:8180', '9100:9000']
+    volumes: ['./infra/keycloak:/opt/keycloak/data/import:ro']
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          "exec 3<>/dev/tcp/localhost/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  pgdata:
+  esdata:

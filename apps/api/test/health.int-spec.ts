@@ -1,25 +1,13 @@
-import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { App } from 'supertest/types.js';
-import { AppModule } from '../src/app.module.js';
+import { createTestApp, type TestApp } from './support/test-app.js';
 
 describe('GET /api/health', () => {
-  let app: INestApplication<App>;
+  let t: TestApp;
+  beforeAll(async () => (t = await createTestApp()));
+  afterAll(() => t.app.close());
 
-  beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication();
-    app.setGlobalPrefix('api');
-    await app.init();
-  });
-
-  afterAll(async () => {
-    await app.close();
-  });
-
-  it('answers ok', async () => {
-    const res = await request(app.getHttpServer()).get('/api/health').expect(200);
-    expect(res.body).toMatchObject({ status: 'ok' });
+  it('answers without sign-in and sees both stores', async () => {
+    const res = await request(t.app.getHttpServer()).get('/api/health').expect(200);
+    expect(res.body).toMatchObject({ status: 'ok', checks: { postgres: 'up', elasticsearch: 'up' } });
   });
 });

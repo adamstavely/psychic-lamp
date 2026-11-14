@@ -37,6 +37,17 @@ jobs:
 
   integration:
     runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18
+        env: { POSTGRES_USER: donovan, POSTGRES_PASSWORD: donovan, POSTGRES_DB: donovan }
+        ports: ['5433:5432']
+        options: --health-cmd "pg_isready -U donovan" --health-interval 5s --health-timeout 5s --health-retries 20
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.19.2
+        env: { discovery.type: single-node, xpack.security.enabled: 'false', ES_JAVA_OPTS: -Xms1g -Xmx1g }
+        ports: ['9201:9200']
+        options: --health-cmd "curl -fs http://localhost:9200/_cluster/health?wait_for_status=yellow" --health-interval 10s --health-timeout 5s --health-retries 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
