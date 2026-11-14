@@ -85,9 +85,27 @@ jobs:
           retention-days: 7
 
   # The one check the main ruleset requires, so adding or renaming jobs never needs a ruleset change.
+  # The pilot's container images (deploy/pilot): they build, the API starts far enough to refuse an unsafe production
+  # setting, and the web front's generated nginx config is valid.
+  images:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f apps/api/Dockerfile -t donovan-api:ci .
+      - run: docker build -f apps/web/Dockerfile -t donovan-web:ci .
+      - name: The API loads, and production refuses local settings
+        run: |
+          out=$(docker run --rm -e DATABASE_URL=postgres://donovan:donovan@db/donovan -e ELASTICSEARCH_URL=http://es:9200 \
+            -e OIDC_ISSUER=http://id/realms/x -e OIDC_AUDIENCE=donovan-api donovan-api:ci 2>&1 || true)
+          echo "$out" | grep -q 'Production signs in over https' || { echo "$out"; exit 1; }
+      - name: The web front's nginx config is valid
+        run: >
+          docker run --rm --read-only --tmpfs /tmp:uid=101,gid=101 --add-host api:127.0.0.1 -e OIDC_AUTHORITY=https://id.example.org/realms/x
+          -e OIDC_CLIENT_ID=donovan-web -e API_UPSTREAM=http://api:3870 donovan-web:ci nginx -t
+
   ci-ok:
     if: always()
-    needs: [lint, unit, integration, e2e]
+    needs: [lint, unit, integration, e2e, images]
     runs-on: ubuntu-24.04
     steps:
       - run: '[ "${{ contains(needs.*.result, ''failure'') || contains(needs.*.result, ''cancelled'') || contains(needs.*.result, ''skipped'') }}" = "false" ]'

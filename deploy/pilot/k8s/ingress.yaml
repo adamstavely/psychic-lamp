@@ -1,0 +1,28 @@
+# TLS at the edge; only the web front is exposed (it proxies /api). Timeouts allow answers to stream for minutes.
+# Annotations are for ingress-nginx; other controllers have their own equivalents.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: donovan
+  namespace: donovan
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: 'off'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '300'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '300'
+    nginx.ingress.kubernetes.io/proxy-body-size: 1m
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+    # A coarse per-address limit at the edge; the API keeps its own per-person limits.
+    nginx.ingress.kubernetes.io/limit-rps: '20'
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [donovan.example.com]
+      secretName: donovan-tls
+  rules:
+    - host: donovan.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: donovan-web, port: { name: http } }

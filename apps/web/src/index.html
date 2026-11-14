@@ -7,13 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
-    <script>
-      // The last theme this browser showed, applied before the app boots so the page doesn't flash (see core/theme.ts).
-      try {
-        var t = localStorage.getItem('donovan.theme');
-        if (t === 'light' || t === 'dark' || t === 'system') document.documentElement.setAttribute('data-tc-theme', t);
-      } catch (e) {}
-    </script>
+    <!-- The last theme this browser showed, applied before the app boots so the page doesn't flash (see core/theme.ts).
+         A file, not inline, so the Content-Security-Policy can allow scripts from this origin only. -->
+    <script src="theme-boot.js"></script>
   </head>
   <body>
     <dn-root></dn-root>

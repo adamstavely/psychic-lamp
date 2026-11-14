@@ -1,0 +1,39 @@
+# Default deny; then: the ingress controller reaches the web front, the web front reaches the API, and the API and the
+# migration job reach the data stores and the identity provider (adjust the egress CIDRs to yours) and DNS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: default-deny, namespace: donovan }
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: web, namespace: donovan }
+spec:
+  podSelector: { matchLabels: { app: donovan-web } }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } } }]
+      ports: [{ port: 8080 }]
+  egress:
+    - to: [{ podSelector: { matchLabels: { app: donovan-api } } }]
+      ports: [{ port: 3870 }]
+    - to: [{ namespaceSelector: {} }]
+      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: api, namespace: donovan }
+spec:
+  podSelector: { matchExpressions: [{ key: app, operator: In, values: [donovan-api, donovan-migrate] }] }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{ podSelector: { matchLabels: { app: donovan-web } } }]
+      ports: [{ port: 3870 }]
+  egress:
+    # Postgres, Elasticsearch and the identity provider: replace with their private addresses.
+    - to: [{ ipBlock: { cidr: 10.0.0.0/8 } }]
+      ports: [{ port: 5432 }, { port: 9200 }, { port: 443 }]
+    - to: [{ namespaceSelector: {} }]
+      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]

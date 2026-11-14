@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: donovan-api
+  namespace: donovan
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: donovan-api }
+  strategy:
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  template:
+    metadata:
+      labels: { app: donovan-api }
+    spec:
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      # Answers stream for up to a few minutes: let them finish before a pod goes.
+      terminationGracePeriodSeconds: 330
+      containers:
+        - name: api
+          image: registry.example.com/donovan-api:REPLACE_WITH_RELEASE
+          ports: [{ containerPort: 3870, name: http }]
+          envFrom:
+            - configMapRef: { name: donovan-api }
+            - secretRef: { name: donovan-api-secrets }
+          # Liveness: the process answers. Readiness: Postgres answers (503 otherwise), so traffic stops going to an
+          # instance that can't serve; search being down only degrades it.
+          livenessProbe:
+            httpGet: { path: /api/health/live, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          readinessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 250m, memory: 256Mi }
+            limits: { memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: donovan-api
+  namespace: donovan
+spec:
+  selector: { app: donovan-api }
+  ports: [{ port: 3870, targetPort: http, name: http }]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: donovan-api
+  namespace: donovan
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app: donovan-api }
