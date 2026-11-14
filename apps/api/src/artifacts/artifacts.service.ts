@@ -1,4 +1,12 @@
-import type { Artifact, ArtifactBody, ArtifactPatch, ArtifactQuery, ArtifactSummary, ArtifactUpload, Sensitivity } from '@donovan/contracts';
+import type {
+  Artifact,
+  ArtifactBody,
+  ArtifactPatch,
+  ArtifactQuery,
+  ArtifactSummary,
+  ArtifactUpload,
+  Sensitivity,
+} from '@donovan/contracts';
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import { randomBytes } from 'node:crypto';
@@ -86,11 +94,22 @@ export class ArtifactsService {
   /** Makes an artifact (a Studio tool's output, say) and indexes it for search. */
   async create(
     userId: string,
-    a: { name: string; sensitivity: Sensitivity; project: string | null; sources: string[]; note: string; body: ArtifactBody },
+    a: {
+      name: string;
+      sensitivity: Sensitivity;
+      project: string | null;
+      sources: string[];
+      note: string;
+      body: ArtifactBody;
+    },
   ): Promise<ArtifactSummary> {
     await this.ensure(userId);
     const now = new Date();
-    const id = `${a.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)}-${randomBytes(3).toString('hex')}`;
+    const id = `${a.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40)}-${randomBytes(3).toString('hex')}`;
     const [row] = await this.db
       .insert(artifacts)
       .values({

@@ -227,6 +227,8 @@ export const projectShares = pgTable(
   },
   (t) => [
     primaryKey({ columns: [t.ownerId, t.projectId, t.recipientId] }),
-    foreignKey({ columns: [t.ownerId, t.projectId], foreignColumns: [projects.ownerId, projects.id] }).onDelete('cascade'),
+    foreignKey({ columns: [t.ownerId, t.projectId], foreignColumns: [projects.ownerId, projects.id] }).onDelete(
+      'cascade',
+    ),
   ],
 );

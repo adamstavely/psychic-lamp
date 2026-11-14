@@ -64,7 +64,11 @@ export const ProjectShares = z.strictObject({ access: z.array(ProjectShare).max(
 export type ProjectShares = z.infer<typeof ProjectShares>;
 
 /** A source a search found, not yet added. */
-export const SourceCandidate = z.object({ kind: SourceKind, title: z.string().min(1).max(200), meta: z.string().max(200) });
+export const SourceCandidate = z.object({
+  kind: SourceKind,
+  title: z.string().min(1).max(200),
+  meta: z.string().max(200),
+});
 export type SourceCandidate = z.infer<typeof SourceCandidate>;
 
 export const SourceSearch = z.strictObject({

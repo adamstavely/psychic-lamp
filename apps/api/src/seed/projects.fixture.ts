@@ -274,7 +274,26 @@ export const ORG_LIBRARIES = [
       { kind: 'web', title: 'Data platform handbook', meta: 'Web · internal wiki' },
     ],
   },
-] as const satisfies readonly { id: string; name: string; team: string; sourceCount: number; daysAgo: number; description: string; sources: readonly { kind: SourceKind; title: string; meta: string }[] }[];
+] as const satisfies readonly {
+  id: string;
+  name: string;
+  team: string;
+  sourceCount: number;
+  daysAgo: number;
+  description: string;
+  sources: readonly { kind: SourceKind; title: string; meta: string }[];
+}[];
 
 /** Teams a project can be shared with (fictional). */
-export const TEAMS = ['Risk ML', 'Risk Ops', 'Support AI', 'Procurement', 'Governance', 'Platform', 'Demand Science', 'Strategy Office', 'Insights team', 'Document Intel'];
+export const TEAMS = [
+  'Risk ML',
+  'Risk Ops',
+  'Support AI',
+  'Procurement',
+  'Governance',
+  'Platform',
+  'Demand Science',
+  'Strategy Office',
+  'Insights team',
+  'Document Intel',
+];

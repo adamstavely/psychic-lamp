@@ -81,7 +81,10 @@ export class ProjectsService {
         .where(and(eq(projectNotes.ownerId, userId), eq(projectNotes.projectId, id)))
         .orderBy(desc(projectNotes.at)),
       this.chatsService.list(userId),
-      this.db.select().from(projectShares).where(and(eq(projectShares.ownerId, userId), eq(projectShares.projectId, id))),
+      this.db
+        .select()
+        .from(projectShares)
+        .where(and(eq(projectShares.ownerId, userId), eq(projectShares.projectId, id))),
       this.artifactsService.inProject(userId, row.name),
     ]);
     const canned = SEED_PROJECTS.find((p) => p.id === id);
@@ -190,7 +193,9 @@ export class ProjectsService {
     const project = await this.get(userId, id);
     if (project.readOnly) throw new BadRequestException("An organisation library can't be changed here");
     const have = new Set(project.sources.map((s) => s.title));
-    const fresh = body.sources.filter((s, i, all) => !have.has(s.title) && all.findIndex((x) => x.title === s.title) === i);
+    const fresh = body.sources.filter(
+      (s, i, all) => !have.has(s.title) && all.findIndex((x) => x.title === s.title) === i,
+    );
     if (fresh.length === 0) return;
     await this.db.insert(projectSources).values(
       fresh.map((s, i) => ({
@@ -224,13 +229,19 @@ export class ProjectsService {
     const words = body.query.toLowerCase().split(/\s+/);
     const inScope = (c: SourceCandidate) =>
       body.scope === 'all' || (body.scope === 'web' ? c.kind === 'web' : c.kind !== 'web');
-    const known = project.suggestions.filter(inScope).filter((c) => words.some((w) => c.title.toLowerCase().includes(w)));
+    const known = project.suggestions
+      .filter(inScope)
+      .filter((c) => words.some((w) => c.title.toLowerCase().includes(w)));
     const q = body.query.trim();
     const found: SourceCandidate[] = [
       ...(body.scope !== 'web'
         ? [
             { kind: 'doc' as const, title: `${capitalise(q)}: team notes`, meta: 'Shared drive · Doc' },
-            { kind: 'slack' as const, title: `#${slug(q).slice(0, 20)}: recent discussion`, meta: 'Slack · 14 messages' },
+            {
+              kind: 'slack' as const,
+              title: `#${slug(q).slice(0, 20)}: recent discussion`,
+              meta: 'Slack · 14 messages',
+            },
           ]
         : []),
       ...(body.scope !== 'workspace'
@@ -239,7 +250,9 @@ export class ProjectsService {
       ...(body.depth === 'deep'
         ? [
             { kind: 'pdf' as const, title: `${capitalise(q)}: research report`, meta: 'PDF · 24 pages' },
-            ...(body.scope !== 'workspace' ? [{ kind: 'web' as const, title: `Recent news on ${q}`, meta: 'Web · 3 articles' }] : []),
+            ...(body.scope !== 'workspace'
+              ? [{ kind: 'web' as const, title: `Recent news on ${q}`, meta: 'Web · 3 articles' }]
+              : []),
           ]
         : []),
     ];
@@ -254,16 +267,32 @@ export class ProjectsService {
     const selected = project.sources.filter((s) => s.selected);
     if (selected.length === 0) throw new BadRequestException('Select at least one source first');
     const label = { brief: 'Brief', table: 'Source table', faq: 'FAQ', timeline: 'Timeline' }[body.tool];
-    const guideText = project.guide.map((g) => g.text).join('').trim();
+    const guideText = project.guide
+      .map((g) => g.text)
+      .join('')
+      .trim();
     const canned = SEED_PROJECTS.find((p) => p.id === id);
-    const answer = canned ? toCitedText(canned.answer, new Set(selected.map((s) => s.id))).map((g) => g.text).join('').trim() : '';
+    const answer = canned
+      ? toCitedText(canned.answer, new Set(selected.map((s) => s.id)))
+          .map((g) => g.text)
+          .join('')
+          .trim()
+      : '';
     const bodyFor: Record<NewOutput['tool'], ArtifactBody> = {
       brief: {
         kind: 'Doc',
         blocks: [
-          { type: 'callout', tone: 'info', title: `Made from ${selected.length} sources`, text: `A brief on ${project.name}, from the project's selected sources.` },
+          {
+            type: 'callout',
+            tone: 'info',
+            title: `Made from ${selected.length} sources`,
+            text: `A brief on ${project.name}, from the project's selected sources.`,
+          },
           { type: 'heading', text: 'Summary' },
-          { type: 'paragraph', text: guideText || project.description || `What the ${selected.length} selected sources cover.` },
+          {
+            type: 'paragraph',
+            text: guideText || project.description || `What the ${selected.length} selected sources cover.`,
+          },
           { type: 'heading', text: 'Sources' },
           { type: 'list', items: selected.map((s) => `${s.title} (${s.meta})`) },
         ],
@@ -272,14 +301,21 @@ export class ProjectsService {
         kind: 'Doc',
         blocks: [
           { type: 'heading', text: `Sources in ${project.name}` },
-          { type: 'table', columns: ['Source', 'Kind', 'Detail'], rows: selected.map((s) => [s.title, s.kind, s.meta]) },
+          {
+            type: 'table',
+            columns: ['Source', 'Kind', 'Detail'],
+            rows: selected.map((s) => [s.title, s.kind, s.meta]),
+          },
         ],
       },
       faq: {
         kind: 'Doc',
         blocks: project.questions.flatMap((q, i) => [
           { type: 'heading' as const, text: q },
-          { type: 'paragraph' as const, text: i === 0 && answer ? answer : 'Ask this in the project to get an answer that cites its sources.' },
+          {
+            type: 'paragraph' as const,
+            text: i === 0 && answer ? answer : 'Ask this in the project to get an answer that cites its sources.',
+          },
         ]),
       },
       timeline: {
@@ -329,7 +365,12 @@ export class ProjectsService {
     return [
       ...people
         .filter((p) => p.id !== userId)
-        .map((p) => ({ id: `user:${p.id}`, kind: 'person' as const, name: p.name, ...(p.email ? { detail: p.email } : {}) })),
+        .map((p) => ({
+          id: `user:${p.id}`,
+          kind: 'person' as const,
+          name: p.name,
+          ...(p.email ? { detail: p.email } : {}),
+        })),
       ...TEAMS.map((t) => ({ id: `team:${slug(t)}`, kind: 'group' as const, name: t, detail: 'Team' })),
     ];
   }
@@ -338,7 +379,13 @@ export class ProjectsService {
   library(libraryId: string): Project {
     const l = ORG_LIBRARIES.find((x) => x.id === libraryId);
     if (!l) throw new NotFoundException('No organisation library with that id');
-    const sources = l.sources.map((s, i) => ({ id: sourceId(i + 1), kind: s.kind, title: s.title, meta: s.meta, selected: true }));
+    const sources = l.sources.map((s, i) => ({
+      id: sourceId(i + 1),
+      kind: s.kind,
+      title: s.title,
+      meta: s.meta,
+      selected: true,
+    }));
     return {
       id: l.id,
       name: l.name,
@@ -352,7 +399,12 @@ export class ProjectsService {
       attached: [],
       sharedWith: [{ recipient: { id: 'org', kind: 'group', name: 'Everyone in the organisation' }, level: 'viewer' }],
       sources,
-      guide: [{ text: `${l.description} ${l.sourceCount} sources; ${sources.length} shown here. Copy the library to ask questions about them.`, cite: [] }],
+      guide: [
+        {
+          text: `${l.description} ${l.sourceCount} sources; ${sources.length} shown here. Copy the library to ask questions about them.`,
+          cite: [],
+        },
+      ],
       questions: [],
       notes: [],
       outputs: [],
