@@ -36,6 +36,13 @@
       "when": 1794632179775,
       "tag": "0004_session",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794632757793,
+      "tag": "0005_artifacts",
+      "breakpoints": true
     }
   ]
 }

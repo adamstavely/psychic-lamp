@@ -4,7 +4,7 @@ import { KNOWN_TRENCHCOAT_ISSUES } from './trenchcoat-known';
 
 /** Axe findings that are Trench Coat bugs already fixed upstream (see trenchcoat-known.ts). */
 const KNOWN = Object.values(KNOWN_TRENCHCOAT_ISSUES).filter(
-  (i): i is Extract<typeof i, { axeRule: string }> => 'axeRule' in i,
+  (i): i is { fixedIn: string | null; axeRule: string; selector: string } => !!i.axeRule && !!i.selector,
 );
 
 /** Fails the test on any WCAG 2.2 A/AA violation axe can find on the page as it stands. */

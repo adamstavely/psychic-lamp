@@ -22,7 +22,12 @@ export const routes: Routes = [
       { path: 'chats/new', title: 'New chat', loadComponent: () => import('./features/chats/chats-home-page') },
       { path: 'chats/:chatId', title: 'Chat', loadComponent: () => import('./features/chats/chat-page') },
       { path: 'projects', title: 'Projects', loadComponent: placeholder, data: { heading: 'Projects' } },
-      { path: 'artifacts', title: 'Artifacts', loadComponent: placeholder, data: { heading: 'Artifacts' } },
+      { path: 'artifacts', title: 'Artifacts', loadComponent: () => import('./features/artifacts/artifacts-page') },
+      {
+        path: 'artifacts/:artifactId',
+        title: 'Artifact',
+        loadComponent: () => import('./features/artifacts/artifact-page'),
+      },
       { path: '**', title: 'Page not found', loadComponent: () => import('./features/not-found/not-found-page') },
     ],
   },

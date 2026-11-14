@@ -1,4 +1,4 @@
-import type { Block, Preferences, Route, SessionIntent } from '@donovan/contracts';
+import type { ArtifactBody, ArtifactVersion, Block, Preferences, Route, SessionIntent } from '@donovan/contracts';
 import {
   boolean,
   foreignKey,
@@ -135,4 +135,26 @@ export const checkpoints = pgTable(
   (t) => [
     foreignKey({ columns: [t.ownerId, t.chatId], foreignColumns: [chats.ownerId, chats.id] }).onDelete('cascade'),
   ],
+);
+
+export const artifacts = pgTable(
+  'artifacts',
+  {
+    ownerId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    id: text().notNull(),
+    name: text().notNull(),
+    kind: text({ enum: ['Doc', 'Code', 'Data'] }).notNull(),
+    sensitivity: text({ enum: ['Public', 'Internal', 'Confidential', 'Restricted'] }).notNull(),
+    chatId: text(),
+    project: text(),
+    sharedWith: jsonb().$type<string[]>().notNull().default([]),
+    versions: jsonb().$type<ArtifactVersion[]>().notNull(),
+    sources: jsonb().$type<string[]>().notNull().default([]),
+    body: jsonb().$type<ArtifactBody>().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.ownerId, t.id] }), index('artifacts_owner_updated').on(t.ownerId, t.updatedAt)],
 );

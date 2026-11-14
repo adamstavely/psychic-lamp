@@ -1,5 +1,6 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ArtifactsModule } from './artifacts/artifacts.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { BriefModule } from './brief/brief.module.js';
 import { ChatsModule } from './chats/chats.module.js';
@@ -19,6 +20,7 @@ import { UsersModule } from './users/users.module.js';
     UsersModule,
     BriefModule,
     ChatsModule,
+    ArtifactsModule,
   ],
   controllers: [HealthController],
 })
@@ -26,6 +28,6 @@ export class AppModule {
   /** The app, plus the end-to-end test reset when the environment allows it. */
   static forEnvironment(env: NodeJS.ProcessEnv = process.env): DynamicModule {
     const allowReset = Env.shape.ALLOW_TEST_RESET.parse(env['ALLOW_TEST_RESET']);
-    return { module: AppModule, controllers: allowReset ? [TestResetController] : [] };
+    return { module: AppModule, imports: [ArtifactsModule], controllers: allowReset ? [TestResetController] : [] };
   }
 }

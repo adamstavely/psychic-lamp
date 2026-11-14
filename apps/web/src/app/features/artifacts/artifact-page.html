@@ -1,0 +1,193 @@
+@if (a(); as a) {
+  <div class="page">
+    <article class="doc" aria-labelledby="artifact-heading">
+      <header class="doc-head">
+        <p class="eyebrow"><a routerLink="/artifacts">Artifacts</a> <span aria-hidden="true">/</span> {{ a.kind }}</p>
+        <h1 id="artifact-heading">{{ a.name }}</h1>
+        <div class="doc-tools">
+          @if (a.versions.length > 1) {
+            <tc-segmented-control
+              size="sm"
+              aria-label="Version"
+              [options]="versionOptions()"
+              [value]="'' + version()"
+              (tc-value-change)="pickVersion($event)"
+            />
+          }
+          <p class="meta">v{{ version() }} · {{ versionNote() }}</p>
+          <span class="actions">
+            <tc-button variant="secondary" size="sm" label="Copy" (click)="copy(a)" />
+            <tc-button variant="secondary" size="sm" label="Download" (click)="download(a)" />
+            @if (a.chat; as chat) {
+              <a class="continue" [routerLink]="['/chats', chat.id]">Continue in chat</a>
+            }
+          </span>
+        </div>
+      </header>
+
+      <div class="body">
+        @switch (a.body.kind) {
+          @case ('Doc') {
+            @for (b of blocks(); track $index) {
+              <div class="block" [class.new]="b.isNew">
+                @if (b.isNew) {
+                  <span class="new-tag">New in v{{ version() }}</span>
+                }
+                @switch (b.type) {
+                  @case ('heading') {
+                    <h2>{{ b.text }}</h2>
+                  }
+                  @case ('paragraph') {
+                    <p>{{ b.text }}</p>
+                  }
+                  @case ('list') {
+                    <ul>
+                      @for (i of b.items; track $index) {
+                        <li>{{ i }}</li>
+                      }
+                    </ul>
+                  }
+                  @case ('table') {
+                    @let t = tableFor({ type: 'table', columns: b.columns, rows: b.rows });
+                    <tc-data-table
+                      readonly
+                      [selectable]="false"
+                      heading="Table"
+                      [columns]="t.columns"
+                      [rows]="t.rows"
+                    />
+                    @if (b.flag; as f) {
+                      <p class="flag">
+                        Over the guardrail: {{ b.rows[f[0]]![0] }}, {{ b.columns[f[1]] }} ({{ b.rows[f[0]]![f[1]] }}).
+                      </p>
+                    }
+                  }
+                  @case ('bars') {
+                    <figure class="bars">
+                      @for (i of b.items; track i.label) {
+                        <tc-meter-row
+                          compact
+                          [label]="i.label"
+                          [value]="i.value"
+                          [max]="barMax(b.items)"
+                          [valueText]="i.value.toLocaleString()"
+                          [warnAt]="2"
+                          [dangerAt]="2"
+                        />
+                      }
+                    </figure>
+                  }
+                  @case ('facts') {
+                    <dl class="facts">
+                      @for (r of b.rows; track r[0]) {
+                        <div>
+                          <dt>{{ r[0] }}</dt>
+                          <dd>{{ r[1] }}</dd>
+                        </div>
+                      }
+                    </dl>
+                  }
+                  @case ('callout') {
+                    <aside
+                      class="callout"
+                      [attr.data-tone]="b.tone"
+                      [attr.aria-label]="b.tone === 'warning' ? 'Warning' : 'Note'"
+                    >
+                      <strong>{{ b.title }}</strong>
+                      <p>{{ b.text }}</p>
+                    </aside>
+                  }
+                }
+              </div>
+            }
+          }
+          @case ('Code') {
+            @if (a.body.kind === 'Code') {
+              @for (c of a.body.cells; track $index) {
+                @switch (c.type) {
+                  @case ('markdown') {
+                    <p>{{ c.text }}</p>
+                  }
+                  @case ('code') {
+                    <tc-code-block [code]="c.text" [language]="a.body.language" />
+                  }
+                  @case ('output') {
+                    <pre class="output" aria-label="Output"><code>{{ c.text }}</code></pre>
+                  }
+                }
+              }
+            }
+          }
+          @case ('Data') {
+            @if (a.body.kind === 'Data' && dataTable(); as t) {
+              <tc-data-table readonly [selectable]="false" [heading]="a.name" [columns]="t.columns" [rows]="t.rows" />
+              <h2>Raw {{ a.body.format.toUpperCase() }}</h2>
+              <tc-code-block [code]="a.body.raw" [language]="a.body.format" />
+            }
+          }
+        }
+      </div>
+    </article>
+
+    <aside class="details" aria-labelledby="details-heading">
+      <h2 id="details-heading">Details</h2>
+      <dl class="facts">
+        <div>
+          <dt>Sensitivity</dt>
+          <dd>{{ a.sensitivity }}</dd>
+        </div>
+        <div>
+          <dt>Owner</dt>
+          <dd>{{ a.owner }}</dd>
+        </div>
+        <div>
+          <dt>Created in</dt>
+          <dd>
+            @if (a.chat; as chat) {
+              <a [routerLink]="['/chats', chat.id]">{{ chat.title }}</a>
+            } @else {
+              Uploaded
+            }
+          </dd>
+        </div>
+        @if (a.project) {
+          <div>
+            <dt>Project</dt>
+            <dd>{{ a.project }}</dd>
+          </div>
+        }
+      </dl>
+      <h3>Versions</h3>
+      <ol class="list">
+        @for (v of a.versions; track v.version) {
+          <li>
+            <strong>v{{ v.version }}</strong> · {{ when(v.at) }} · {{ v.note }}
+          </li>
+        }
+      </ol>
+      <h3>Sources used</h3>
+      <ul class="list">
+        @for (s of a.sources; track s) {
+          <li>{{ s }}</li>
+        }
+      </ul>
+      <h3>Shared with</h3>
+      @if (a.sharedWith.length) {
+        <ul class="list">
+          @for (p of a.sharedWith; track p) {
+            <li>{{ p }}</li>
+          }
+        </ul>
+      } @else {
+        <p class="meta">Only you</p>
+      }
+    </aside>
+  </div>
+} @else if (artifact.error()) {
+  <section class="state" role="alert">
+    <h1>That artifact isn't here</h1>
+    <p>It may have been removed, or the link is wrong. <a routerLink="/artifacts">See all artifacts</a>.</p>
+  </section>
+} @else {
+  <p class="state" role="status">Loading the artifact…</p>
+}

@@ -4,3 +4,4 @@ export * from './me.js';
 export * from './preferences.js';
 export * from './brief.js';
 export * from './chat.js';
+export * from './artifact.js';
