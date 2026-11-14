@@ -22,9 +22,11 @@ import type {
   ProjectQuestion,
   ProjectsOverview,
   ProjectSummary,
+  Artifact,
+  SharedProjectSummary,
 } from '@donovan/contracts';
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, count, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import { randomBytes } from 'node:crypto';
 import { ArtifactsService } from '../artifacts/artifacts.service.js';
 import { ChatsService } from '../chats/chats.service.js';
@@ -44,7 +46,6 @@ import {
   SEED_PROJECTS,
   SOURCE_CONNECTORS,
   SOURCE_DATASETS,
-  TEAMS,
   type SeedProject,
 } from '../seed/projects.fixture.js';
 import { SeedService } from '../seed/seed.service.js';
@@ -107,7 +108,77 @@ export class ProjectsService {
       sourceCount: l.sourceCount,
       updatedAt: new Date(now - l.daysAgo * DAY).toISOString(),
     }));
-    return { org, mine: rows.map((r) => toSummary(r, n.get(r.id) ?? 0)) };
+    return { org, mine: rows.map((r) => toSummary(r, n.get(r.id) ?? 0)), shared: await this.sharedWith(userId) };
+  }
+
+  /** Other people's projects shared with this person, most recent first. */
+  private async sharedWith(userId: string): Promise<SharedProjectSummary[]> {
+    const rows = await this.db
+      .select({ project: projects, ownerName: users.name, level: projectShares.level })
+      .from(projectShares)
+      .innerJoin(projects, and(eq(projects.ownerId, projectShares.ownerId), eq(projects.id, projectShares.projectId)))
+      .innerJoin(users, eq(users.id, projects.ownerId))
+      .where(eq(projectShares.recipientId, recipientIdFor(userId)))
+      .orderBy(desc(projects.updatedAt));
+    if (rows.length === 0) return [];
+    const counts = await this.db
+      .select({ ownerId: projectSources.ownerId, projectId: projectSources.projectId, n: count() })
+      .from(projectSources)
+      .where(inArray(projectSources.ownerId, [...new Set(rows.map((r) => r.project.ownerId))]))
+      .groupBy(projectSources.ownerId, projectSources.projectId);
+    const n = new Map(counts.map((c) => [`${c.ownerId}/${c.projectId}`, c.n]));
+    return rows.map((r) => ({
+      ...toSummary(r.project, n.get(`${r.project.ownerId}/${r.project.id}`) ?? 0),
+      ownerId: r.project.ownerId,
+      ownerName: r.ownerName,
+      level: r.level,
+    }));
+  }
+
+  /**
+   * A project someone shared with this person, to read: its sources, guide and outputs. What's private to the owner
+   * (their chat with the project, notes, chats, who else it's shared with) stays out. Anyone it isn't shared with gets
+   * the same 404 as for a project that doesn't exist.
+   */
+  async getShared(userId: string, ownerId: string, id: string): Promise<Project> {
+    const ownerName = await this.grantedBy(userId, ownerId, id);
+    const p = await this.get(ownerId, id);
+    return {
+      ...p,
+      readOnly: true,
+      access: 'viewer',
+      ownerName,
+      sharedWith: [],
+      notes: [],
+      chats: [],
+      thread: [],
+      suggestions: [],
+    };
+  }
+
+  /** An output of a project shared with this person: an artifact filed under that project, and no other. */
+  async sharedArtifact(userId: string, ownerId: string, id: string, artifactId: string): Promise<Artifact> {
+    const ownerName = await this.grantedBy(userId, ownerId, id);
+    const a = await this.artifactsService.get(ownerId, artifactId, ownerName);
+    if (a.projectId !== id) throw new NotFoundException('No project with that id');
+    return a;
+  }
+
+  /** The owner's name, if they shared this project with the person; otherwise not found. */
+  private async grantedBy(userId: string, ownerId: string, id: string): Promise<string> {
+    const [grant] = await this.db
+      .select({ ownerName: users.name })
+      .from(projectShares)
+      .innerJoin(users, eq(users.id, projectShares.ownerId))
+      .where(
+        and(
+          eq(projectShares.ownerId, ownerId),
+          eq(projectShares.projectId, id),
+          eq(projectShares.recipientId, recipientIdFor(userId)),
+        ),
+      );
+    if (!grant) throw new NotFoundException('No project with that id');
+    return grant.ownerName;
   }
 
   async get(userId: string, id: string): Promise<Project> {
@@ -142,6 +213,8 @@ export class ProjectsService {
     return {
       ...toSummary(row, sources.length),
       readOnly: false,
+      access: 'owner',
+      ownerName: null,
       description: row.description,
       attached: canned?.attached ?? [],
       sharedWith: shares.map((sh) => ({
@@ -539,28 +612,55 @@ export class ProjectsService {
     return made;
   }
 
-  /** Replaces who the project is shared with. */
+  /**
+   * Replaces who the project is shared with. Every recipient is resolved here, from people who have signed in to
+   * Donovan, by the id the directory gave out; the name and kind the client sent are ignored. Teams are refused (sign-in
+   * doesn't say who is in a team yet, so a team grant couldn't be enforced), as are the owner, duplicates and anyone
+   * unknown. For the pilot, sharing is to view.
+   */
   async setShares(userId: string, id: string, body: ProjectShares): Promise<void> {
     await this.ensure(userId);
     await this.row(userId, id);
+    const ids = body.access.map((g) => g.recipient.id);
+    if (new Set(ids).size !== ids.length) throw new BadRequestException('Each person can be added once');
+    const people = ids.map((rid) => {
+      const personId = /^user:([0-9a-f-]{36})$/.exec(rid)?.[1];
+      if (!personId)
+        throw new BadRequestException(
+          "Projects can be shared with people for now; sharing with teams needs your sign-in to say who's in them",
+        );
+      return personId;
+    });
+    if (people.includes(userId)) throw new BadRequestException("You don't need to share a project with yourself");
+    const found = people.length
+      ? await this.db
+          .select({ id: users.id, name: users.name, email: users.email })
+          .from(users)
+          .where(inArray(users.id, people))
+      : [];
+    if (found.length !== people.length) throw new BadRequestException("Someone you picked isn't in Donovan");
+    const byId = new Map(found.map((u) => [u.id, u]));
     await this.db.transaction(async (tx) => {
       await tx.delete(projectShares).where(and(eq(projectShares.ownerId, userId), eq(projectShares.projectId, id)));
-      if (body.access.length)
+      if (people.length)
         await tx.insert(projectShares).values(
-          body.access.map((g) => ({
-            ownerId: userId,
-            projectId: id,
-            recipientId: g.recipient.id,
-            kind: g.recipient.kind,
-            name: g.recipient.name,
-            detail: g.recipient.detail ?? null,
-            level: g.level,
-          })),
+          people.map((pid) => {
+            const u = byId.get(pid)!;
+            return {
+              ownerId: userId,
+              projectId: id,
+              recipientId: recipientIdFor(pid),
+              kind: 'person' as const,
+              name: u.name,
+              detail: u.email,
+              level: 'viewer' as const,
+            };
+          }),
         );
     });
   }
 
-  /** People who have signed in to Donovan, and teams: who a project can be shared with. */
+  /** People who have signed in to Donovan: who a project can be shared with. */
   async directory(userId: string): Promise<Recipient[]> {
     const people = await this.db.select({ id: users.id, name: users.name, email: users.email }).from(users);
     return [
@@ -572,7 +672,6 @@ export class ProjectsService {
           name: p.name,
           ...(p.email ? { detail: p.email } : {}),
         })),
-      ...TEAMS.map((t) => ({ id: `team:${slug(t)}`, kind: 'group' as const, name: t, detail: 'Team' })),
     ];
   }
 
@@ -596,6 +695,8 @@ export class ProjectsService {
       sourceCount: l.sourceCount,
       updatedAt: new Date(Date.now() - l.daysAgo * DAY).toISOString(),
       readOnly: true,
+      access: 'library',
+      ownerName: null,
       description: l.description,
       attached: [],
       sharedWith: [{ recipient: { id: 'org', kind: 'group', name: 'Everyone in the organisation' }, level: 'viewer' }],
@@ -795,6 +896,9 @@ function describe(body: NewSource): {
 function size(bytes: number): string {
   return bytes < 1024 ? `${bytes} B` : `${Math.round(bytes / 1024)} KB`;
 }
+
+/** How a person appears as a share's recipient. */
+const recipientIdFor = (userId: string) => `user:${userId}`;
 
 function toSummary(r: Row, sourceCount: number): ProjectSummary {
   return {

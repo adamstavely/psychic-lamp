@@ -23,6 +23,9 @@ jobs:
       - run: npm ci
       - run: npm run format:check
       - run: npm run lint
+      # The API's tests run untyped under Vitest; this checks them (and everything else) against the types.
+      - run: npm run build -w @donovan/contracts
+      - run: npm run typecheck -w api
 
   unit:
     runs-on: ubuntu-24.04

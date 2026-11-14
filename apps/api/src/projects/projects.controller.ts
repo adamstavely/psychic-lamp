@@ -21,6 +21,7 @@ import {
   ProjectSource,
   SourceCatalog,
   NotePatch,
+  Artifact,
 } from '@donovan/contracts';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put } from '@nestjs/common';
 import { z } from 'zod';
@@ -63,6 +64,27 @@ export class ProjectsController {
   @ApiOkResponse({ standardSchema: SourceCatalog })
   catalog(): SourceCatalog {
     return this.projects.catalog();
+  }
+
+  @Get('shared/:ownerId/:id')
+  @ApiOkResponse({ standardSchema: Project })
+  async getShared(
+    @Claims() claims: TokenClaims,
+    @Param('ownerId', { schema: z.uuid() }) ownerId: string,
+    @Param('id', { schema: ProjectId }) id: string,
+  ): Promise<Project> {
+    return this.projects.getShared(await this.users.idFor(claims), ownerId, id);
+  }
+
+  @Get('shared/:ownerId/:id/artifacts/:artifactId')
+  @ApiOkResponse({ standardSchema: Artifact })
+  async sharedArtifact(
+    @Claims() claims: TokenClaims,
+    @Param('ownerId', { schema: z.uuid() }) ownerId: string,
+    @Param('id', { schema: ProjectId }) id: string,
+    @Param('artifactId', { schema: z.string().regex(/^[a-z0-9-]{1,80}$/) }) artifactId: string,
+  ): Promise<Artifact> {
+    return this.projects.sharedArtifact(await this.users.idFor(claims), ownerId, id, artifactId);
   }
 
   @Get('libraries/:libraryId')

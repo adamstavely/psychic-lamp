@@ -1,8 +1,10 @@
 import type { ExecutionContext } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
+import type { Env } from '../config/env.js';
 import { RateLimitGuard, StreamLimiter } from './limits.js';
 
-const config = (values: Record<string, number>) => ({ get: (k: string) => values[k] }) as unknown as ConfigService;
+const config = (values: Record<string, number>) =>
+  ({ get: (k: string) => values[k] }) as unknown as ConfigService<Env, true>;
 
 const context = (sub: string, path = '/api/chats') => {
   const headers: Record<string, string> = {};

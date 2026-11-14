@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "test:int": "vitest run --config ./vitest.config.int.ts",
     "start:built": "node --env-file-if-exists=.env dist/main.js",
-    "migrate": "node --env-file-if-exists=.env dist/migrate.js"
+    "migrate": "node --env-file-if-exists=.env dist/migrate.js",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@donovan/contracts": "*",

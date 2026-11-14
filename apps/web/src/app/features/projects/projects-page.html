@@ -59,6 +59,24 @@
       }
     </ul>
   </section>
+
+  @if (shared().length) {
+    <section aria-labelledby="shared-heading">
+      <h2 id="shared-heading">Shared with you <span class="sub">Other people's projects, to view</span></h2>
+      <ul class="grid">
+        @for (p of shared(); track p.ownerId + '/' + p.id) {
+          <li class="card">
+            <span class="top">
+              <span class="glyph" dnIcon="folder"></span>
+              <span class="sens dn-sens" [attr.data-level]="p.sensitivity">{{ p.sensitivity }}</span>
+            </span>
+            <a class="name" [routerLink]="['/projects/shared', p.ownerId, p.id]">{{ p.name }}</a>
+            <span class="meta">From {{ p.ownerName }} · {{ date(p.updatedAt) }} · {{ p.sourceCount }} sources</span>
+          </li>
+        }
+      </ul>
+    </section>
+  }
 </div>
 
 <dialog #newDialog class="dialog" aria-labelledby="new-heading" (close)="error.set('')">

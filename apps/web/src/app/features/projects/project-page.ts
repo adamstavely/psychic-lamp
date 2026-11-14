@@ -95,10 +95,8 @@ const DEPTHS: { value: SourceSearch['depth']; label: string }[] = [
   { value: 'deep', label: 'Deep research' },
 ];
 
-const LEVELS: ShareLevel[] = [
-  { id: 'viewer', label: 'Can view' },
-  { id: 'editor', label: 'Can edit' },
-];
+/** For the pilot, projects are shared to view; editing together is coming later. */
+const LEVELS: ShareLevel[] = [{ id: 'viewer', label: 'Can view' }];
 
 /**
  * A project: the sources it reads, a guide and answers that cite them, Studio tools that make artifacts from them,
@@ -114,8 +112,10 @@ const LEVELS: ShareLevel[] = [
 export default class ProjectPage {
   /** From the route: a project of yours… */
   readonly projectId = input<string>();
-  /** …or an organisation library. */
+  /** …or an organisation library… */
   readonly libraryId = input<string>();
+  /** …or someone else's project shared with the person (with projectId). */
+  readonly ownerId = input<string>();
 
   readonly #http = inject(HttpClient);
   readonly #title = inject(Title);
@@ -124,9 +124,11 @@ export default class ProjectPage {
   protected readonly project = httpResource<Project>(() =>
     this.libraryId()
       ? `/api/projects/libraries/${encodeURIComponent(this.libraryId()!)}`
-      : this.projectId()
-        ? `/api/projects/${encodeURIComponent(this.projectId()!)}`
-        : undefined,
+      : this.ownerId() && this.projectId()
+        ? `/api/projects/shared/${encodeURIComponent(this.ownerId()!)}/${encodeURIComponent(this.projectId()!)}`
+        : this.projectId()
+          ? `/api/projects/${encodeURIComponent(this.projectId()!)}`
+          : undefined,
   );
   protected readonly p = computed(() => (this.project.hasValue() ? this.project.value() : null));
   protected readonly tools = TOOLS;
@@ -186,7 +188,7 @@ export default class ProjectPage {
   // Sharing
   private readonly shareDialog = viewChild<ElementRef<HTMLDialogElement>>('shareDialog');
   protected readonly directory = httpResource<Recipient[]>(() =>
-    this.projectId() ? '/api/projects/directory' : undefined,
+    this.projectId() && !this.ownerId() ? '/api/projects/directory' : undefined,
   );
   protected readonly sharing = signal(false);
   protected readonly access = computed<ShareGrant[]>(
@@ -196,10 +198,10 @@ export default class ProjectPage {
     this.directory.hasValue() ? this.directory.value().map(toRecipient) : [],
   );
 
-  /** Who may be added: anyone, except that a Restricted project goes to named people, not whole teams. */
+  /** Who may be added: people (the API checks again, and teams aren't offered until sign-in says who's in them). */
   protected readonly entitled: ShareEntitlementCheck = (recipient) =>
-    this.p()?.sensitivity === 'Restricted' && recipient.kind === 'group'
-      ? { status: 'denied', reason: 'Restricted projects are shared with named people only' }
+    recipient.kind === 'group'
+      ? { status: 'denied', reason: 'Projects are shared with named people for now' }
       : { status: 'allowed' };
 
   constructor() {
@@ -207,6 +209,12 @@ export default class ProjectPage {
       const p = this.p();
       if (p) this.#title.setTitle(`${p.name} · Projects · Donovan`);
     });
+  }
+
+  /** An output's page: the person's own artifact, or, on a shared project, the shared copy of it. */
+  protected artifactLink(artifactId: string): string[] {
+    const owner = this.ownerId();
+    return owner ? ['/projects/shared', owner, this.projectId()!, 'artifacts', artifactId] : ['/artifacts', artifactId];
   }
 
   protected date(iso: string): string {

@@ -9,15 +9,19 @@
         <h1>{{ p.name }}</h1>
         <p class="meta">
           {{ p.team }} · {{ p.sourceCount }} sources · Updated {{ date(p.updatedAt) }}
-          @if (p.readOnly) {
+          @if (p.access === 'library') {
             · Shared with your org
+          } @else if (p.access === 'viewer') {
+            · Shared by {{ p.ownerName }}
           }
         </p>
       </div>
       <span class="sens dn-sens" [attr.data-level]="p.sensitivity">{{ p.sensitivity }}</span>
-      @if (p.readOnly) {
+      @if (p.access === 'library') {
         <span class="pill-tag">Read only</span>
         <tc-button variant="primary" size="sm" label="Copy to your projects" (click)="copyLibrary(p)" />
+      } @else if (p.access === 'viewer') {
+        <span class="pill-tag">View only</span>
       } @else {
         <tc-switch
           class="pill"
@@ -470,7 +474,7 @@
         }
       </section>
 
-      @if (!p.readOnly) {
+      @if (p.access !== 'library') {
         @if (showStudio()) {
           <section class="col side studio" aria-labelledby="studio-h">
             <div class="col-head">
@@ -488,25 +492,27 @@
               </button>
             </div>
             <div class="col-body" id="studio-body">
-              <ul class="tools" aria-label="Make from the selected sources">
-                @for (t of tools; track t.tool) {
-                  <li>
-                    <button
-                      type="button"
-                      class="tool"
-                      [title]="t.hint"
-                      [disabled]="!selectedCount() || !!making()"
-                      [attr.aria-busy]="making() === t.tool"
-                      (click)="make(t.tool)"
-                    >
-                      <span [dnIcon]="t.icon"></span
-                      ><span class="tool-label">{{ making() === t.tool ? 'Making…' : t.label }}</span>
-                    </button>
-                  </li>
+              @if (!p.readOnly) {
+                <ul class="tools" aria-label="Make from the selected sources">
+                  @for (t of tools; track t.tool) {
+                    <li>
+                      <button
+                        type="button"
+                        class="tool"
+                        [title]="t.hint"
+                        [disabled]="!selectedCount() || !!making()"
+                        [attr.aria-busy]="making() === t.tool"
+                        (click)="make(t.tool)"
+                      >
+                        <span [dnIcon]="t.icon"></span
+                        ><span class="tool-label">{{ making() === t.tool ? 'Making…' : t.label }}</span>
+                      </button>
+                    </li>
+                  }
+                </ul>
+                @if (!selectedCount()) {
+                  <p class="meta">Select a source first.</p>
                 }
-              </ul>
-              @if (!selectedCount()) {
-                <p class="meta">Select a source first.</p>
               }
 
               <div>
@@ -553,7 +559,7 @@
                   }
                   @for (o of p.outputs; track o.artifactId) {
                     <li>
-                      <a [routerLink]="['/artifacts', o.artifactId]"
+                      <a [routerLink]="artifactLink(o.artifactId)"
                         ><span class="tile" [dnIcon]="outputIcon(o.meta)"></span
                         ><span class="text"
                           ><span class="title">{{ o.title }}</span
@@ -569,67 +575,76 @@
                 </ul>
               </div>
 
-              <div>
-                <h3 class="label">
-                  Notes <span class="count">{{ p.notes.length }}</span>
-                </h3>
-                <ul class="outputs">
-                  @if (writing()) {
-                    <li>
-                      <form class="note-form" (ngSubmit)="saveNote()">
-                        <label for="note-new" class="sr-only">New note</label>
-                        <textarea id="note-new" name="note" rows="3" [(ngModel)]="draftNote"></textarea>
-                        <div class="note-actions">
-                          <button type="submit" class="mini">Save note</button>
-                          <button type="button" class="link" (click)="cancelNote()">Cancel</button>
-                        </div>
-                      </form>
-                    </li>
-                  }
-                  @for (n of p.notes; track n.id) {
-                    @if (editing() === n.id) {
+              @if (!p.readOnly) {
+                <div>
+                  <h3 class="label">
+                    Notes <span class="count">{{ p.notes.length }}</span>
+                  </h3>
+                  <ul class="outputs">
+                    @if (writing()) {
                       <li>
                         <form class="note-form" (ngSubmit)="saveNote()">
-                          <label [for]="'note-edit-' + n.id" class="sr-only">Edit note</label>
-                          <textarea [id]="'note-edit-' + n.id" name="note" rows="4" [(ngModel)]="draftNote"></textarea>
+                          <label for="note-new" class="sr-only">New note</label>
+                          <textarea id="note-new" name="note" rows="3" [(ngModel)]="draftNote"></textarea>
                           <div class="note-actions">
                             <button type="submit" class="mini">Save note</button>
                             <button type="button" class="link" (click)="cancelNote()">Cancel</button>
                           </div>
                         </form>
                       </li>
-                    } @else {
-                      <li class="note">
-                        <span class="tile" dnIcon="note"></span
-                        ><span class="text"
-                          ><span class="title clamp">{{ n.text }}</span
-                          ><span class="meta">{{ date(n.at) }}</span></span
-                        >
-                        <button
-                          type="button"
-                          class="icon-btn"
-                          aria-label="Edit note"
-                          title="Edit note"
-                          (click)="editNote(n.id, n.text)"
-                        >
-                          <span dnIcon="pencil" [iconSize]="14"></span>
-                        </button>
-                        <button type="button" class="icon-btn" aria-label="Delete note" (click)="deleteNote(n.id)">
-                          <span aria-hidden="true">×</span>
-                        </button>
-                      </li>
                     }
-                  } @empty {
-                    @if (!writing()) {
-                      <li class="none">Add a note, or save the guide or an answer, to keep it here.</li>
+                    @for (n of p.notes; track n.id) {
+                      @if (editing() === n.id) {
+                        <li>
+                          <form class="note-form" (ngSubmit)="saveNote()">
+                            <label [for]="'note-edit-' + n.id" class="sr-only">Edit note</label>
+                            <textarea
+                              [id]="'note-edit-' + n.id"
+                              name="note"
+                              rows="4"
+                              [(ngModel)]="draftNote"
+                            ></textarea>
+                            <div class="note-actions">
+                              <button type="submit" class="mini">Save note</button>
+                              <button type="button" class="link" (click)="cancelNote()">Cancel</button>
+                            </div>
+                          </form>
+                        </li>
+                      } @else {
+                        <li class="note">
+                          <span class="tile" dnIcon="note"></span
+                          ><span class="text"
+                            ><span class="title clamp">{{ n.text }}</span
+                            ><span class="meta">{{ date(n.at) }}</span></span
+                          >
+                          <button
+                            type="button"
+                            class="icon-btn"
+                            aria-label="Edit note"
+                            title="Edit note"
+                            (click)="editNote(n.id, n.text)"
+                          >
+                            <span dnIcon="pencil" [iconSize]="14"></span>
+                          </button>
+                          <button type="button" class="icon-btn" aria-label="Delete note" (click)="deleteNote(n.id)">
+                            <span aria-hidden="true">×</span>
+                          </button>
+                        </li>
+                      }
+                    } @empty {
+                      @if (!writing()) {
+                        <li class="none">Add a note, or save the guide or an answer, to keep it here.</li>
+                      }
                     }
-                  }
-                </ul>
+                  </ul>
+                </div>
+              }
+            </div>
+            @if (!p.readOnly) {
+              <div class="studio-foot">
+                <button type="button" class="pill" (click)="startNote()"><span dnIcon="note"></span>Add note</button>
               </div>
-            </div>
-            <div class="studio-foot">
-              <button type="button" class="pill" (click)="startNote()"><span dnIcon="note"></span>Add note</button>
-            </div>
+            }
           </section>
         } @else {
           <section class="col rail" aria-label="Studio">
@@ -644,9 +659,11 @@
             >
               <span dnIcon="panelRight"></span>
             </button>
-            <button type="button" class="icon-btn" aria-label="Add note" title="Add note" (click)="startNote()">
-              <span dnIcon="note"></span>
-            </button>
+            @if (!p.readOnly) {
+              <button type="button" class="icon-btn" aria-label="Add note" title="Add note" (click)="startNote()">
+                <span dnIcon="note"></span>
+              </button>
+            }
           </section>
         }
       }

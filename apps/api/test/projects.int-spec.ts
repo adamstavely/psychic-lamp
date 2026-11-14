@@ -13,6 +13,7 @@ import {
   SourceSearchResult,
 } from '@donovan/contracts';
 import { z } from 'zod';
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { createTestApp, type TestApp } from './support/test-app.js';
 
@@ -357,20 +358,72 @@ describe('/api/projects', () => {
     await http.patch('/api/artifacts/churn-compare-csv').auth(token, bearer).send({ projectId: 'nope' }).expect(404);
   });
 
-  it('shares a project with people and teams from the directory', async () => {
-    const token = await t.token();
+  it('shares a project to view: the person it went to can open it and its outputs, nobody else can', async () => {
+    const tag = randomUUID().slice(0, 8);
+    const owner = await t.token({ name: `Owner ${tag}` });
+    const viewer = await t.token({ name: `Viewer ${tag}` });
+    const stranger = await t.token({ name: `Stranger ${tag}` });
+    for (const token of [owner, viewer, stranger]) await http.get('/api/me').auth(token, bearer).expect(200);
     const dir = z
       .array(Recipient)
-      .parse((await http.get('/api/projects/directory').auth(token, bearer).expect(200)).body);
-    const team = dir.find((r) => r.name === 'Risk Ops')!;
+      .parse((await http.get('/api/projects/directory').auth(owner, bearer).expect(200)).body);
+    expect(dir.every((r) => r.kind === 'person')).toBe(true);
+    const v = dir.find((r) => r.name === `Viewer ${tag}`)!;
+
+    // The name and kind sent are ignored: the API takes them from its directory.
     await http
       .put('/api/projects/fraud-rollout/shares')
-      .auth(token, bearer)
-      .send({ access: [{ recipient: team, level: 'editor' }] })
+      .auth(owner, bearer)
+      .send({ access: [{ recipient: { ...v, name: 'Someone else' }, level: 'viewer' }] })
       .expect(204);
-    const p = Project.parse((await http.get('/api/projects/fraud-rollout').auth(token, bearer)).body);
-    expect(p.sharedWith).toEqual([{ recipient: team, level: 'editor' }]);
-    expect(p.attached).toContain('Slack');
+    const mine = Project.parse((await http.get('/api/projects/fraud-rollout').auth(owner, bearer)).body);
+    expect(mine.sharedWith).toEqual([
+      { recipient: expect.objectContaining({ id: v.id, name: `Viewer ${tag}` }), level: 'viewer' },
+    ]);
+
+    const overview = ProjectsOverview.parse((await http.get('/api/projects').auth(viewer, bearer).expect(200)).body);
+    const shared = overview.shared.find((p) => p.ownerName === `Owner ${tag}`)!;
+    expect(shared).toMatchObject({ id: 'fraud-rollout', level: 'viewer', sourceCount: 6 });
+    const url = `/api/projects/shared/${shared.ownerId}/fraud-rollout`;
+    const p = Project.parse((await http.get(url).auth(viewer, bearer).expect(200)).body);
+    expect(p).toMatchObject({
+      readOnly: true,
+      access: 'viewer',
+      ownerName: `Owner ${tag}`,
+      notes: [],
+      thread: [],
+      chats: [],
+    });
+    expect(p.sources).toHaveLength(6);
+    const output = p.outputs.find((o) => o.title.startsWith('Rollout note'))!;
+    await http.get(`${url}/artifacts/${output.artifactId}`).auth(viewer, bearer).expect(200);
+    // Only what's filed under the shared project, and only for the person it's shared with.
+    await http.get(`${url}/artifacts/churn-compare-csv`).auth(viewer, bearer).expect(404);
+    await http.get(url).auth(stranger, bearer).expect(404);
+
+    await http.put('/api/projects/fraud-rollout/shares').auth(owner, bearer).send({ access: [] }).expect(204);
+    await http.get(url).auth(viewer, bearer).expect(404);
+  });
+
+  it('refuses grants it could not enforce: teams, editing, strangers, duplicates and oneself', async () => {
+    const owner = await t.token();
+    const me = (await http.get('/api/me').auth(owner, bearer).expect(200)).body as { id: string };
+    const share = (access: object[]) =>
+      http.put('/api/projects/fraud-rollout/shares').auth(owner, bearer).send({ access });
+    const someone = await t.token();
+    await http.get('/api/me').auth(someone, bearer).expect(200);
+    const dir = z.array(Recipient).parse((await http.get('/api/projects/directory').auth(owner, bearer)).body);
+    const person = dir[0]!;
+    await share([{ recipient: { id: 'team:risk-ops', kind: 'group', name: 'Risk Ops' }, level: 'viewer' }]).expect(400);
+    await share([{ recipient: person, level: 'editor' }]).expect(400);
+    await share([
+      { recipient: { id: `user:${randomUUID()}`, kind: 'person', name: 'Nobody' }, level: 'viewer' },
+    ]).expect(400);
+    await share([
+      { recipient: person, level: 'viewer' },
+      { recipient: person, level: 'viewer' },
+    ]).expect(400);
+    await share([{ recipient: { id: `user:${me.id}`, kind: 'person', name: 'Me' }, level: 'viewer' }]).expect(400);
   });
 
   it('opens an org library read-only', async () => {

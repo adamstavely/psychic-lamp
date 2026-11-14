@@ -203,15 +203,19 @@ test.describe('Projects', () => {
       await expectNoAxeViolations(page);
     });
 
-    test('sharing with a team shows on the project', async ({ page }) => {
-      await signIn(page, 'kemi', '/projects/sku-onboarding');
+    test('sharing a project lets that person open it to view, and its outputs', async ({ page, browser }) => {
+      // Mara signs in once, so she's in the directory.
+      const maraContext = await browser.newContext();
+      const mara = await maraContext.newPage();
+      await signIn(mara, 'mara', '/projects');
+
+      await signIn(page, 'kemi', '/projects/fraud-rollout');
       await resetUser(page);
       await page.getByRole('button', { name: 'Share' }).click();
-      const dialog = page.getByRole('dialog', { name: /Share SKU onboarding/ });
+      const dialog = page.getByRole('dialog', { name: /Share Fraud rollout/ });
       await expect(dialog).toBeVisible();
       await expectNoAxeViolations(page);
-      const box = dialog.getByRole('combobox').first();
-      await box.fill('Risk Ops');
+      await dialog.getByRole('combobox').first().fill('Mara');
       await page.keyboard.press('ArrowDown');
       await page.keyboard.press('Enter');
       await dialog
@@ -219,6 +223,23 @@ test.describe('Projects', () => {
         .last()
         .click();
       await expect(page.getByText('Shared with 1')).toBeVisible();
+
+      await mara.reload();
+      const shared = mara.getByRole('region', { name: /Shared with you/ });
+      await shared.getByRole('link', { name: 'Fraud rollout' }).click();
+      await expect(mara.getByRole('heading', { level: 1, name: 'Fraud rollout' })).toBeVisible();
+      await expect(mara.getByText('View only')).toBeVisible();
+      await expect(mara.getByText(/Shared by Kemi Okafor/)).toBeVisible();
+      await expect(mara.getByRole('checkbox')).toHaveCount(0);
+      await expect(mara.getByRole('button', { name: 'Add sources' })).toHaveCount(0);
+      await mara
+        .getByRole('region', { name: 'Studio' })
+        .getByRole('link', { name: /Rollout note/ })
+        .click();
+      await expect(mara.getByRole('heading', { level: 1, name: /Rollout note/ })).toBeVisible();
+      await expect(mara.getByRole('button', { name: 'Save to project' })).toHaveCount(0);
+      await expectNoAxeViolations(mara);
+      await maraContext.close();
     });
 
     test('an artifact can be saved to a project from its page', async ({ page }) => {
