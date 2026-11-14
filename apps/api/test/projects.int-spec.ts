@@ -310,6 +310,36 @@ describe('/api/projects', () => {
     expect(p.notes.find((n) => n.id === note.id)!.text).toBe('Pack size goes in net content');
   });
 
+  it('keeps two projects with the same name apart, through outputs and renames', async () => {
+    const token = await t.token();
+    const make = async () =>
+      ProjectSummary.parse(
+        (await http.post('/api/projects').auth(token, bearer).send({ name: 'Twin' }).expect(201)).body,
+      );
+    const [first, second] = [await make(), await make()];
+    expect(first.id).not.toBe(second.id);
+    // An output needs a selected source.
+    await http
+      .post(`/api/projects/${first.id}/sources/new`)
+      .auth(token, bearer)
+      .send({ from: 'paste', text: 'Some notes' })
+      .expect(201);
+    const made = ArtifactSummary.parse(
+      (await http.post(`/api/projects/${first.id}/outputs`).auth(token, bearer).send({ tool: 'brief' }).expect(201))
+        .body,
+    );
+    expect(made.projectId).toBe(first.id);
+    const outputs = async (id: string) =>
+      Project.parse((await http.get(`/api/projects/${id}`).auth(token, bearer).expect(200)).body).outputs;
+    expect((await outputs(first.id)).map((o) => o.artifactId)).toEqual([made.id]);
+    expect(await outputs(second.id)).toEqual([]);
+
+    await http.patch(`/api/projects/${first.id}`).auth(token, bearer).send({ name: 'Twin A' }).expect(200);
+    const a = Artifact.parse((await http.get(`/api/artifacts/${made.id}`).auth(token, bearer).expect(200)).body);
+    expect(a).toMatchObject({ projectId: first.id, project: 'Twin A' });
+    expect(await outputs(second.id)).toEqual([]);
+  });
+
   it('files an artifact under another project from the artifact', async () => {
     const token = await t.token();
     const moved = ArtifactSummary.parse(

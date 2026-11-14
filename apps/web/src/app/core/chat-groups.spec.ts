@@ -4,6 +4,7 @@ import { groupChats } from './chat-groups';
 const chat = (id: string, updatedAt: Date, pinned = false): ChatSummary => ({
   id,
   title: id,
+  projectId: null,
   project: null,
   sensitivity: 'Internal',
   pinned,

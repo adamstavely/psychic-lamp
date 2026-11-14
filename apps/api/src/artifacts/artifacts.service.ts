@@ -97,7 +97,7 @@ export class ArtifactsService {
     a: {
       name: string;
       sensitivity: Sensitivity;
-      project: string | null;
+      project: { id: string; name: string } | null;
       sources: string[];
       note: string;
       body: ArtifactBody;
@@ -118,7 +118,8 @@ export class ArtifactsService {
         name: a.name,
         kind: a.body.kind,
         sensitivity: a.sensitivity,
-        project: a.project,
+        projectId: a.project?.id ?? null,
+        project: a.project?.name ?? null,
         versions: [{ version: 1, at: now.toISOString(), note: a.note }],
         sources: a.sources,
         body: a.body,
@@ -145,7 +146,7 @@ export class ArtifactsService {
     }
     const [row] = await this.db
       .update(artifacts)
-      .set({ project: name })
+      .set({ projectId: patch.projectId, project: name })
       .where(and(eq(artifacts.ownerId, userId), eq(artifacts.id, id)))
       .returning();
     if (!row) throw new NotFoundException('No artifact with that id');
@@ -153,10 +154,10 @@ export class ArtifactsService {
     return toSummary(row, withChat?.chatTitle ?? null);
   }
 
-  /** The artifacts filed under a project (by its name), newest first. */
-  async inProject(userId: string, projectName: string): Promise<ArtifactSummary[]> {
+  /** The artifacts filed under a project (by its id), newest first. */
+  async inProject(userId: string, projectId: string): Promise<ArtifactSummary[]> {
     await this.ensure(userId);
-    const rows = await this.rows(userId, eq(artifacts.project, projectName));
+    const rows = await this.rows(userId, eq(artifacts.projectId, projectId));
     return rows.map((r) => toSummary(r.artifact, r.chatTitle));
   }
 
@@ -213,6 +214,7 @@ function toSummary(a: Row, chatTitle: string | null): ArtifactSummary {
     kind: a.kind,
     sensitivity: a.sensitivity,
     chat: a.chatId && chatTitle ? { id: a.chatId, title: chatTitle } : null,
+    projectId: a.projectId,
     project: a.project,
     version: a.versions.at(-1)!.version,
     updatedAt: a.updatedAt.toISOString(),

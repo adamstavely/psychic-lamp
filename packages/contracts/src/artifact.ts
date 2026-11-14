@@ -64,6 +64,8 @@ export const ArtifactSummary = z.object({
   sensitivity: Sensitivity,
   /** The chat that made it, if one did (uploads have none). */
   chat: z.object({ id: z.string(), title: z.string() }).nullable(),
+  /** The project it's filed under, by id, and that project's name (for display). */
+  projectId: z.string().nullable(),
   project: z.string().nullable(),
   version: z.number().int().positive(),
   updatedAt: Iso,
