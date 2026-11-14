@@ -4,7 +4,15 @@
   <header class="topbar">
     <tc-header-brand name="DONOVAN" href="/" [icon]="brandIcon" (tc-navigate)="onBrandNavigate($event)" />
 
-    <tc-segmented-control class="mode" size="sm" variant="tray" value="assist" [options]="modes" aria-label="Mode" />
+    <tc-segmented-control
+      class="mode"
+      size="sm"
+      variant="tray"
+      [value]="mode()"
+      [options]="modes"
+      aria-label="Mode"
+      (tc-value-change)="onMode($event)"
+    />
 
     <!-- Loaded once the page is idle, so the command menu isn't part of every page's first download. -->
     @defer (on idle) {
@@ -12,7 +20,7 @@
         class="search"
         layout="popover"
         label="Search Donovan"
-        placeholder="Search chats, projects, artifacts…"
+        placeholder="Search chats, projects, artifacts, Build…"
         filter="none"
         [groups]="searchGroups()"
         [loading]="searching()"
@@ -50,16 +58,16 @@
 
   <div class="rail">
     <tc-side-nav
-      label="Assist"
+      [label]="mode() === 'build' ? 'Build' : 'Assist'"
       collapsible
       [collapsed]="railCollapsed()"
-      [items]="navItems"
+      [items]="navItems()"
       [current]="currentArea()"
       (tc-navigate)="onNavigate($event)"
       (tc-collapsed-change)="onRailCollapsed($event)"
     />
     <!-- The chat list shows with the rail open, as in the prototype; folded, the Chats area is one click away. -->
-    @if (!railCollapsed()) {
+    @if (!railCollapsed() && mode() === 'assist') {
       @defer (on idle) {
         <nav class="rail-chats" aria-label="Chats">
           <tc-chat-history

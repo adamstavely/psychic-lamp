@@ -46,6 +46,13 @@ export const routes: Routes = [
         title: 'Artifact',
         loadComponent: () => import('./features/artifacts/artifact-page'),
       },
+      { path: 'build', pathMatch: 'full', redirectTo: 'build/skills' },
+      { path: 'build/:area', title: 'Build', loadComponent: () => import('./features/build/build-area-page') },
+      {
+        path: 'build/:area/:itemId',
+        title: 'Build',
+        loadComponent: () => import('./features/build/build-item-page'),
+      },
       { path: '**', title: 'Page not found', loadComponent: () => import('./features/not-found/not-found-page') },
     ],
   },

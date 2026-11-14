@@ -68,9 +68,39 @@ test.describe('the frame around every page', () => {
     await expect(page).toHaveURL(/\/artifacts\/cohort-json$/);
   });
 
-  test('Build mode is shown but cannot be picked yet', async ({ page }) => {
-    await expect(page.getByRole('radio', { name: 'Build, coming soon' })).toBeDisabled();
+  test('Build mode: the toggle, its rail with counts, an area and an item', async ({ page }) => {
     await expect(page.getByRole('radio', { name: 'Assist' })).toBeChecked();
+    await page.getByRole('radio', { name: 'Build' }).click();
+    await expect(page).toHaveURL(/\/build\/skills$/);
+    await expect(page.getByRole('radio', { name: 'Build' })).toBeChecked();
+    const nav = page.getByRole('navigation', { name: 'Build' });
+    await expect(nav.getByRole('link', { name: /^Skills/ })).toHaveAttribute('aria-current', 'page');
+    // Each area shows how many items it holds.
+    await expect(nav.getByRole('link', { name: /^MCP Servers\s*6$/ })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Chats' })).toHaveCount(0);
+
+    await nav.getByRole('link', { name: /^MCP Servers/ }).click();
+    await expect(page).toHaveTitle('MCP Servers · Donovan');
+    await expectNoAxeViolations(page);
+    await page.getByRole('link', { name: 'Filesystem' }).click();
+    await expect(page.getByRole('heading', { name: 'Filesystem', level: 1 })).toBeVisible();
+    await expect(page).toHaveTitle('Filesystem · Donovan');
+    await expectNoAxeViolations(page);
+
+    await page.getByRole('radio', { name: 'Assist' }).click();
+    await expect(page).toHaveURL(/\/brief$/);
+  });
+
+  test('⌘K finds a Build area and a registry item', async ({ page }) => {
+    await searchReady(page);
+    await page.keyboard.press('ControlOrMeta+k');
+    const answered = page.waitForResponse((r) => r.url().includes('/api/registry?q=upsert'));
+    await page.keyboard.type('upsert');
+    await answered;
+    // A tool's name finds the server that has it.
+    await page.getByRole('option', { name: /^PIM/ }).click();
+    await expect(page).toHaveURL(/\/build\/servers\/pim$/);
+    await expect(page.getByRole('radio', { name: 'Build' })).toBeChecked();
   });
 
   test('an unknown address says so', async ({ page }) => {

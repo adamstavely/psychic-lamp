@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
@@ -16,18 +16,18 @@ import type { CommandMenuGroup, CommandMenuRun } from '@adamstavely/trenchcoat/c
 import type { HeaderNavAccountSelect } from '@adamstavely/trenchcoat/header-nav';
 import type { NotificationCategory, NotificationItem } from '@adamstavely/trenchcoat/notifications';
 import type { ProfileMenuItem } from '@adamstavely/trenchcoat/profile-menu';
-import type { SegmentOption } from '@adamstavely/trenchcoat/segmented-control';
+import type { SegmentOption, SegmentValueChange } from '@adamstavely/trenchcoat/segmented-control';
 import type { SideNavCollapsedChange, SideNavItem, SideNavNavigate } from '@adamstavely/trenchcoat/side-nav';
 import { toast } from '@adamstavely/trenchcoat/toaster';
-import type { SearchResults } from '@donovan/contracts';
-import { debounceTime, filter, map, of, Subject, switchMap, catchError } from 'rxjs';
+import type { RegistryCounts, RegistrySummary, SearchResults } from '@donovan/contracts';
+import { catchError, debounceTime, filter, forkJoin, map, of, Subject, switchMap } from 'rxjs';
 import { IconDirective } from '../core/icon.directive';
 import { ChatsStore } from '../core/chats-store';
 import { NotificationsStore } from '../core/notifications-store';
 import { brandMark, icon } from '../core/icons';
 import { Session } from '../core/session';
 import { ThemeService } from '../core/theme';
-import { areaFor, ASSIST_AREAS } from './areas';
+import { areaFor, ASSIST_AREAS, BUILD_AREAS, buildAreaFor, modeFor, type Mode } from './areas';
 
 const SIGN_OUT = 'sign-out';
 
@@ -122,25 +122,48 @@ export class Shell {
 
   protected readonly modes: SegmentOption[] = [
     { value: 'assist', label: 'Assist', icon: icon('chat', 14) },
-    // Build mode is a later slice: shown so the product's shape is clear, but it can't be picked yet.
-    { value: 'build', label: 'Build', icon: icon('grid', 14), disabled: true, ariaLabel: 'Build, coming soon' },
+    { value: 'build', label: 'Build', icon: icon('grid', 14) },
   ];
 
-  protected readonly navItems: SideNavItem[] = ASSIST_AREAS.map((a) => ({
-    id: a.id,
-    label: a.label,
-    href: a.path,
-    icon: icon(a.icon),
-    section: 'Assist',
-  }));
-
-  protected readonly currentArea = toSignal(
+  readonly #url = toSignal(
     this.#router.events.pipe(
       filter((e): e is NavigationEnd => e instanceof NavigationEnd),
-      map((e) => areaFor(e.urlAfterRedirects)),
+      map((e) => e.urlAfterRedirects),
     ),
-    { initialValue: areaFor(this.#router.url) },
+    { initialValue: this.#router.url },
   );
+  protected readonly currentArea = computed(() => areaFor(this.#url()));
+  /** Assist or Build, from the address: /build/… is Build. */
+  protected readonly mode = computed<Mode>(() => modeFor(this.#url()));
+
+  /** How many items each Build area holds, for the rail; loaded only in Build. */
+  readonly #counts = httpResource<RegistryCounts>(() => (this.mode() === 'build' ? '/api/registry/counts' : undefined));
+
+  protected readonly navItems = computed<SideNavItem[]>(() => {
+    if (this.mode() === 'assist')
+      return ASSIST_AREAS.map((a) => ({
+        id: a.id,
+        label: a.label,
+        href: a.path,
+        icon: icon(a.icon),
+        section: 'Assist',
+      }));
+    const counts = this.#counts.hasValue() ? this.#counts.value() : undefined;
+    return BUILD_AREAS.map((a) => ({
+      id: a.id,
+      label: a.label,
+      href: a.path,
+      icon: icon(a.icon),
+      section: 'Build',
+      ...(a.kind && counts ? { badge: counts[a.kind] } : {}),
+    }));
+  });
+
+  /** Switching mode goes to the other mode's first area; the toggle then follows the address. */
+  protected onMode(event: CustomEvent<SegmentValueChange>): void {
+    event.preventDefault();
+    void this.#router.navigateByUrl(event.detail.value === 'build' ? '/build/skills' : '/brief');
+  }
 
   /** The open chat, from the URL, so the rail's list marks it. */
   protected readonly currentChat = toSignal(
@@ -207,7 +230,7 @@ export class Shell {
   readonly #http = inject(HttpClient);
   /** The search text, and what the API found for it. */
   protected readonly query = signal('');
-  protected readonly found = signal<SearchResults | null>(null);
+  protected readonly found = signal<(SearchResults & { registry: RegistrySummary[] }) | null>(null);
   protected readonly searching = signal(false);
   readonly #queries = new Subject<string>();
 
@@ -217,7 +240,19 @@ export class Shell {
       switchMap((q) => {
         if (!q) return of(null);
         this.searching.set(true);
-        return this.#http.get<SearchResults>('/api/search', { params: { q } }).pipe(catchError(() => of(null)));
+        // Assist's search and the Build registry, side by side; either failing leaves the other's results.
+        return forkJoin({
+          assist: this.#http.get<SearchResults>('/api/search', { params: { q } }).pipe(catchError(() => of(null))),
+          registry: this.#http
+            .get<RegistrySummary[]>('/api/registry', { params: { q } })
+            .pipe(catchError(() => of([] as RegistrySummary[]))),
+        }).pipe(
+          map(({ assist, registry }) =>
+            assist || registry.length
+              ? { chats: [], artifacts: [], projects: [], ...assist, registry: registry.slice(0, 8) }
+              : null,
+          ),
+        );
       }),
     )
     .subscribe((r) => {
@@ -268,6 +303,19 @@ export class Shell {
               icon: icon('folder'),
             })),
           },
+          {
+            id: 'registry',
+            label: 'Build',
+            commands: r.registry.map((item) => {
+              const area = buildAreaFor(item.kind);
+              return {
+                id: `build:${area.path}/${item.id}`,
+                label: item.name,
+                hint: `${area.label} · ${item.slug}`,
+                icon: icon(area.icon),
+              };
+            }),
+          },
         ].filter((g) => g.commands.length)
       : [];
     return [...local, ...remote];
@@ -278,6 +326,16 @@ export class Shell {
       id: 'go',
       label: 'Go to',
       commands: ASSIST_AREAS.map((a) => ({ id: `go:${a.path}`, label: a.label, icon: icon(a.icon) })),
+    },
+    {
+      id: 'go-build',
+      label: 'Go to Build',
+      commands: BUILD_AREAS.map((a) => ({
+        id: `go:${a.path}`,
+        label: a.label,
+        icon: icon(a.icon),
+        keywords: 'build registry',
+      })),
     },
     {
       id: 'actions',
@@ -291,6 +349,7 @@ export class Shell {
 
   protected readonly runCommand: CommandMenuRun = async (id) => {
     if (id.startsWith('go:')) await this.#router.navigateByUrl(id.slice(3));
+    else if (id.startsWith('build:')) await this.#router.navigateByUrl(id.slice(6));
     else if (id.startsWith('chat:')) await this.#router.navigate(['/chats', id.slice(5)]);
     else if (id.startsWith('artifact:')) await this.#router.navigate(['/artifacts', id.slice(9)]);
     else if (id.startsWith('project:')) await this.#router.navigate(['/projects', id.slice(8)]);
