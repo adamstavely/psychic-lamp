@@ -1,0 +1,56 @@
+<a class="skip-link" href="#main" (click)="skipToMain($event)">Skip to main content</a>
+
+<div class="shell" [class.rail-collapsed]="railCollapsed()">
+  <header class="topbar">
+    <tc-header-brand name="DONOVAN" href="/" [icon]="brandIcon" (tc-navigate)="onBrandNavigate($event)" />
+
+    <tc-segmented-control class="mode" size="sm" variant="tray" value="assist" [options]="modes" aria-label="Mode" />
+
+    <!-- Loaded once the page is idle, so the command menu isn't part of every page's first download. -->
+    @defer (on idle) {
+      <tc-command-menu
+        class="search"
+        layout="popover"
+        label="Search Donovan"
+        placeholder="Search chats, projects, artifacts…"
+        [groups]="commands"
+        [onRun]="runCommand"
+        [assistant]="false"
+      />
+    } @placeholder {
+      <span class="search"></span>
+    }
+
+    <div class="actions">
+      <tc-button variant="primary" size="md" label="New chat" (click)="newChat()">
+        <span slot="icon" dnIcon="plus"></span>
+      </tc-button>
+      <tc-button variant="ghost" size="md" hideLabel [label]="themeLabel()" (click)="toggleTheme()">
+        <span slot="icon" [dnIcon]="themeIconName()"></span>
+      </tc-button>
+      <tc-header-nav [user]="user()" [accountItems]="accountItems" (tc-account-select)="onAccountSelect($event)">
+        <!-- Empty until there's a notifications feed. -->
+        <tc-notifications heading="Notifications" [items]="[]" />
+      </tc-header-nav>
+    </div>
+  </header>
+
+  <tc-side-nav
+    class="rail"
+    label="Assist"
+    collapsible
+    [collapsed]="railCollapsed()"
+    [items]="navItems"
+    [current]="currentArea()"
+    (tc-navigate)="onNavigate($event)"
+    (tc-collapsed-change)="onRailCollapsed($event)"
+  />
+
+  <main id="main" class="content" tabindex="-1">
+    <router-outlet />
+  </main>
+</div>
+
+@defer (on idle) {
+  <tc-toaster position="bottom-right" />
+}

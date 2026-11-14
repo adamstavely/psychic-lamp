@@ -1,12 +1,13 @@
 import { z } from 'zod';
+import { PREFERENCE_DEFAULTS as D } from './defaults.js';
 
 /** Per-person settings. Every field has a default, so a stored partial always reads back whole. */
 export const Preferences = z.object({
-  theme: z.enum(['system', 'light', 'dark']).default('system'),
-  railExpanded: z.boolean().default(true),
-  startMode: z.enum(['assist', 'build']).default('assist'),
-  showGovernance: z.boolean().default(true),
-  briefAutoOpen: z.boolean().default(true),
+  theme: z.enum(['system', 'light', 'dark']).default(D.theme),
+  railExpanded: z.boolean().default(D.railExpanded),
+  startMode: z.enum(['assist', 'build']).default(D.startMode),
+  showGovernance: z.boolean().default(D.showGovernance),
+  briefAutoOpen: z.boolean().default(D.briefAutoOpen),
 });
 export type Preferences = z.infer<typeof Preferences>;
 
@@ -19,4 +20,4 @@ export const PreferencesPatch = z.strictObject({
 });
 export type PreferencesPatch = z.infer<typeof PreferencesPatch>;
 
-export const DEFAULT_PREFERENCES: Preferences = Preferences.parse({});
+export const DEFAULT_PREFERENCES: Preferences = { ...D };

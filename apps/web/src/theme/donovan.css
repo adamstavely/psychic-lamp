@@ -1,5 +1,7 @@
 /* Donovan's layer over Trench Coat's clean look. Only brand values live here; everything else is Trench Coat's tokens. */
 :root {
-  color-scheme: light dark;
   --dn-canvas: var(--tc-surface-base);
+  /* The spark in the logo: violet, a little lighter on dark backgrounds so it holds 3:1 against them. */
+  --dn-brand: light-dark(#6d4aff, #9d85ff);
+  --dn-header-height: 56px;
 }

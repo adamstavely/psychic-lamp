@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const Env = z.object({
-  PORT: z.coerce.number().int().positive().default(3200),
+  PORT: z.coerce.number().int().positive().default(3870),
   DATABASE_URL: z.url(),
   ELASTICSEARCH_URL: z.url(),
   /** The OIDC issuer; its discovery document gives the keys that sign access tokens. */

@@ -1,0 +1,6 @@
+{
+  "oidc": {
+    "authority": "http://localhost:8180/realms/donovan",
+    "clientId": "donovan-web"
+  }
+}
