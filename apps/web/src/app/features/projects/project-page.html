@@ -58,31 +58,143 @@
                 <button
                   type="button"
                   class="pill wide"
-                  [attr.aria-expanded]="showSuggested()"
-                  aria-controls="suggested"
-                  (click)="showSuggested.set(!showSuggested())"
+                  [attr.aria-expanded]="addOpen()"
+                  aria-controls="add-menu"
+                  (click)="toggleAdd()"
                 >
                   <span dnIcon="plus"></span>Add sources
                 </button>
-                @if (showSuggested()) {
-                  <div class="drop" id="suggested">
-                    <p class="drop-head">Suggested for this project</p>
-                    <ul class="rows">
-                      @for (x of p.suggestions; track x.id) {
-                        <li class="row">
-                          <span class="kind" [dnIcon]="kindIcon(x.kind)"></span>
-                          <span class="text"
-                            ><span class="title">{{ x.title }}</span
-                            ><span class="meta">{{ x.meta }}</span></span
-                          >
-                          <button type="button" class="mini" (click)="addSources([x])">
-                            Add<span class="sr-only"> {{ x.title }}</span>
-                          </button>
-                        </li>
-                      } @empty {
-                        <li class="meta">No suggestions right now. Search below.</li>
+                @if (addOpen()) {
+                  <div class="drop" id="add-menu">
+                    @switch (addMode()) {
+                      @case (null) {
+                        <ul class="ways" aria-label="Ways to add a source">
+                          @for (w of ways; track w.mode) {
+                            <li>
+                              <button type="button" class="way" (click)="pickWay(w.mode)">
+                                <span class="kind" [dnIcon]="w.icon"></span>
+                                <span class="text"
+                                  ><span class="title">{{ w.label }}</span
+                                  ><span class="meta">{{ w.hint }}</span></span
+                                >
+                              </button>
+                            </li>
+                          }
+                        </ul>
+                        @if (p.suggestions.length) {
+                          <p class="drop-head">Suggested for this project</p>
+                          <ul class="rows">
+                            @for (x of p.suggestions; track x.id) {
+                              <li class="row">
+                                <span class="kind" [dnIcon]="kindIcon(x.kind)"></span>
+                                <span class="text"
+                                  ><span class="title">{{ x.title }}</span
+                                  ><span class="meta">{{ x.meta }}</span></span
+                                >
+                                <button type="button" class="mini" (click)="addSources([x])">
+                                  Add<span class="sr-only"> {{ x.title }}</span>
+                                </button>
+                              </li>
+                            }
+                          </ul>
+                        }
                       }
-                    </ul>
+                      @default {
+                        <div class="way-form">
+                          <button type="button" class="link back-link" (click)="pickWay(null)">
+                            <span dnIcon="back" [iconSize]="12"></span>All ways to add
+                          </button>
+                          @switch (addMode()) {
+                            @case ('upload') {
+                              <label class="file">
+                                <input #fileInput type="file" class="sr-only" (change)="upload(fileInput)" />
+                                <span class="pill small"
+                                  ><span dnIcon="upload" [iconSize]="14"></span>Choose a file</span
+                                >
+                              </label>
+                              <p class="meta">PDF, Doc, Sheet or text, up to 512 KB.</p>
+                            }
+                            @case ('link') {
+                              <form class="inline" (ngSubmit)="addLink()">
+                                <label for="source-url">Web address</label>
+                                <input
+                                  id="source-url"
+                                  name="url"
+                                  type="url"
+                                  [(ngModel)]="linkUrl"
+                                  placeholder="https://"
+                                  autocomplete="off"
+                                  [attr.aria-invalid]="!!addError()"
+                                  aria-describedby="add-error"
+                                />
+                                <button type="submit" class="mini" [disabled]="adding()">Add link</button>
+                              </form>
+                            }
+                            @case ('connector') {
+                              <p class="drop-label" id="connectors-label">Connectors</p>
+                              <ul class="rows" aria-labelledby="connectors-label">
+                                @for (c of catalogConnectors(); track c.id) {
+                                  <li class="row">
+                                    <span class="kind" dnIcon="plug"></span>
+                                    <span class="text"
+                                      ><span class="title">{{ c.name }}</span
+                                      ><span class="meta">{{ c.detail }}</span></span
+                                    >
+                                    <button
+                                      type="button"
+                                      class="mini"
+                                      [disabled]="adding()"
+                                      (click)="addFrom({ from: 'connector', id: c.id })"
+                                    >
+                                      Add<span class="sr-only"> {{ c.name }}</span>
+                                    </button>
+                                  </li>
+                                }
+                              </ul>
+                            }
+                            @case ('dataset') {
+                              <p class="drop-label" id="datasets-label">Datasets</p>
+                              <ul class="rows" aria-labelledby="datasets-label">
+                                @for (d of catalogDatasets(); track d.id) {
+                                  <li class="row">
+                                    <span class="kind" dnIcon="database"></span>
+                                    <span class="text"
+                                      ><span class="title">{{ d.name }}</span
+                                      ><span class="meta">{{ d.detail }}</span></span
+                                    >
+                                    <button
+                                      type="button"
+                                      class="mini"
+                                      [disabled]="adding()"
+                                      (click)="addFrom({ from: 'dataset', id: d.id })"
+                                    >
+                                      Add<span class="sr-only"> {{ d.name }}</span>
+                                    </button>
+                                  </li>
+                                }
+                              </ul>
+                            }
+                            @case ('paste') {
+                              <form class="inline stack" (ngSubmit)="addPaste()">
+                                <label for="paste-title">Title <span class="meta">(optional)</span></label>
+                                <input id="paste-title" name="title" [(ngModel)]="pasteTitle" autocomplete="off" />
+                                <label for="paste-text">Text</label>
+                                <textarea
+                                  id="paste-text"
+                                  name="text"
+                                  rows="5"
+                                  [(ngModel)]="pasteText"
+                                  [attr.aria-invalid]="!!addError()"
+                                  aria-describedby="add-error"
+                                ></textarea>
+                                <button type="submit" class="mini" [disabled]="adding()">Add text</button>
+                              </form>
+                            }
+                          }
+                          <p id="add-error" class="error" role="alert">{{ addError() }}</p>
+                        </div>
+                      }
+                    }
                   </div>
                 }
 
@@ -124,11 +236,11 @@
                   <div class="found">
                     <div class="found-head">
                       <span>{{ f.results.length }} found · {{ f.searched }} looked at</span>
-                      @if (f.results.length > 1) {
-                        <button type="button" class="link" (click)="addSources(f.results)">Add all</button>
+                      @if (notAdded(f.results).length > 1) {
+                        <button type="button" class="link" (click)="addSources(notAdded(f.results))">Add all</button>
                       }
                     </div>
-                    <ul class="rows">
+                    <ul class="rows" aria-label="Search results">
                       @for (x of f.results; track x.title) {
                         <li class="row">
                           <span class="kind" [dnIcon]="kindIcon(x.kind)"></span>
@@ -136,9 +248,17 @@
                             ><span class="title">{{ x.title }}</span
                             ><span class="meta">{{ x.meta }}</span></span
                           >
-                          <button type="button" class="mini" (click)="addSources([x])">
-                            Add<span class="sr-only"> {{ x.title }}</span>
-                          </button>
+                          @if (added().has(x.title)) {
+                            <span class="mini done"
+                              ><span dnIcon="check" [iconSize]="12"></span>Added<span class="sr-only">
+                                {{ x.title }}</span
+                              ></span
+                            >
+                          } @else {
+                            <button type="button" class="mini" (click)="addSources([x])">
+                              Add<span class="sr-only"> {{ x.title }}</span>
+                            </button>
+                          }
                         </li>
                       }
                     </ul>
@@ -205,7 +325,7 @@
               class="icon-btn"
               aria-label="Add sources"
               title="Add sources"
-              (click)="showSources.set(true); showSuggested.set(true)"
+              (click)="showSources.set(true); addOpen.set(true)"
             >
               <span dnIcon="plus"></span>
             </button>

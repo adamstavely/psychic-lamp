@@ -6,7 +6,9 @@ import {
   ProjectAnswer,
   ProjectsOverview,
   ProjectSummary,
+  ProjectSource,
   Recipient,
+  SourceCatalog,
   SourceSearchResult,
 } from '@donovan/contracts';
 import { z } from 'zod';
@@ -155,6 +157,66 @@ describe('/api/projects', () => {
     const none = Project.parse((await http.get('/api/projects/fraud-rollout').auth(token, bearer)).body);
     expect(none.sources.every((s) => !s.selected)).toBe(true);
     expect(none.guide).toEqual([]);
+  });
+
+  it('adds sources by hand: an upload, a link, a connector, a dataset and pasted text', async () => {
+    const token = await t.token();
+    const catalog = SourceCatalog.parse(
+      (await http.get('/api/projects/source-catalog').auth(token, bearer).expect(200)).body,
+    );
+    expect(catalog.connectors.length).toBeGreaterThan(0);
+    expect(catalog.datasets.length).toBeGreaterThan(0);
+    const add = async (body: object) =>
+      ProjectSource.parse(
+        (await http.post('/api/projects/sku-onboarding/sources/new').auth(token, bearer).send(body).expect(201)).body,
+      );
+    const upload = await add({ from: 'upload', name: 'attribute-map.csv', size: 2048, content: 'gs1,ours\n' });
+    expect(upload).toMatchObject({
+      kind: 'sheet',
+      title: 'attribute-map.csv',
+      meta: 'CSV · 2 KB · uploaded',
+      selected: true,
+    });
+    expect(await add({ from: 'link', url: 'https://www.gs1.org/standards/gdsn' })).toMatchObject({
+      kind: 'web',
+      title: 'gs1.org/standards/gdsn',
+      meta: 'Web · gs1.org',
+    });
+    expect(await add({ from: 'connector', id: catalog.connectors[0]!.id })).toMatchObject({ kind: 'connector' });
+    expect(await add({ from: 'dataset', id: catalog.datasets[0]!.id })).toMatchObject({ kind: 'dataset' });
+    const paste = await add({ from: 'paste', text: 'Pack size goes in the net content field, not the title.' });
+    expect(paste).toMatchObject({ kind: 'doc', meta: 'Text · 11 words · pasted' });
+    expect(paste.title).toMatch(/^Pack size goes in the net content field/);
+
+    const p = Project.parse((await http.get('/api/projects/sku-onboarding').auth(token, bearer).expect(200)).body);
+    expect(p.sources.slice(-5).map((s) => s.kind)).toEqual(['sheet', 'web', 'connector', 'dataset', 'doc']);
+    expect(new Set(p.sources.map((s) => s.id)).size).toBe(p.sources.length);
+
+    await http
+      .post('/api/projects/sku-onboarding/sources/new')
+      .auth(token, bearer)
+      .send({ from: 'link', url: 'ftp://example.com/x' })
+      .expect(400);
+    await http
+      .post('/api/projects/sku-onboarding/sources/new')
+      .auth(token, bearer)
+      .send({ from: 'connector', id: 'nope' })
+      .expect(400);
+  });
+
+  it('searches connectors and datasets', async () => {
+    const token = await t.token();
+    const r = SourceSearchResult.parse(
+      (
+        await http
+          .post('/api/projects/fraud-rollout/source-search')
+          .auth(token, bearer)
+          .send({ query: 'support tickets', scope: 'connectors' })
+          .expect(200)
+      ).body,
+    );
+    expect(r.results.length).toBeGreaterThan(0);
+    expect(r.results.every((x) => x.kind === 'connector' || x.kind === 'dataset')).toBe(true);
   });
 
   it('makes a Studio output as an artifact filed under the project', async () => {

@@ -17,6 +17,9 @@ import {
   ProjectsOverview,
   ProjectSummary,
   SourceSelection,
+  NewSource,
+  ProjectSource,
+  SourceCatalog,
 } from '@donovan/contracts';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put } from '@nestjs/common';
 import { z } from 'zod';
@@ -53,6 +56,12 @@ export class ProjectsController {
   @ApiOkResponse({ standardSchema: z.array(Recipient) })
   async directory(@Claims() claims: TokenClaims): Promise<Recipient[]> {
     return this.projects.directory(await this.users.idFor(claims));
+  }
+
+  @Get('source-catalog')
+  @ApiOkResponse({ standardSchema: SourceCatalog })
+  catalog(): SourceCatalog {
+    return this.projects.catalog();
   }
 
   @Get('libraries/:libraryId')
@@ -96,6 +105,16 @@ export class ProjectsController {
     @Body({ schema: AddSources }) body: AddSources,
   ): Promise<void> {
     await this.projects.addSources(await this.users.idFor(claims), id, body);
+  }
+
+  @Post(':id/sources/new')
+  @ApiOkResponse({ standardSchema: ProjectSource })
+  async addSource(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: ProjectId }) id: string,
+    @Body({ schema: NewSource }) body: NewSource,
+  ): Promise<ProjectSource> {
+    return this.projects.addSource(await this.users.idFor(claims), id, body);
   }
 
   @Post(':id/ask')
