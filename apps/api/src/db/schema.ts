@@ -1,5 +1,17 @@
-import type { Preferences } from '@donovan/contracts';
-import { jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import type { Block, Preferences, Route, SessionIntent } from '@donovan/contracts';
+import {
+  boolean,
+  foreignKey,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid().primaryKey().defaultRandom(),
@@ -33,4 +45,59 @@ export const briefState = pgTable(
     at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.kind, t.key] })],
+);
+
+/** Canned content copied to a person on first use (their chats, artifacts, projects), so each set seeds once. */
+export const userSeeds = pgTable(
+  'user_seeds',
+  {
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text().notNull(),
+    at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.name] })],
+);
+
+/** A chat belongs to one person; its id is unique for them (seeded chats keep the prototype's, e.g. "fraud"). */
+export const chats = pgTable(
+  'chats',
+  {
+    ownerId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    id: text().notNull(),
+    title: text().notNull(),
+    project: text(),
+    sensitivity: text({ enum: ['Public', 'Internal', 'Confidential', 'Restricted'] }).notNull(),
+    pinned: boolean().notNull().default(false),
+    calibrated: boolean().notNull().default(false),
+    intent: jsonb().$type<SessionIntent>(),
+    /** Deleted from the list; kept so Undo can bring it back. */
+    archivedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.ownerId, t.id] }), index('chats_owner_updated').on(t.ownerId, t.updatedAt)],
+);
+
+export type MessageBody = { text: string } | { routing: Route[]; blocks: Block[]; durationMs: number };
+
+export const messages = pgTable(
+  'messages',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: uuid().notNull(),
+    chatId: text().notNull(),
+    seq: integer().notNull(),
+    role: text({ enum: ['user', 'assistant'] }).notNull(),
+    body: jsonb().$type<MessageBody>().notNull(),
+    vote: text({ enum: ['up', 'down'] }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique('messages_chat_seq').on(t.ownerId, t.chatId, t.seq),
+    foreignKey({ columns: [t.ownerId, t.chatId], foreignColumns: [chats.ownerId, chats.id] }).onDelete('cascade'),
+  ],
 );

@@ -1,7 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const port = 4620;
-const desktop = { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } };
+// Reduced motion: axe measures contrast as it is, and entrance fades would catch text mid-animation.
+const desktop = {
+  ...devices['Desktop Chrome'],
+  viewport: { width: 1440, height: 900 },
+  reducedMotion: 'reduce' as const,
+};
 
 // Runs against the real stack: the API (built) on 3870 and Keycloak, Postgres and Elasticsearch from docker compose.
 export default defineConfig({

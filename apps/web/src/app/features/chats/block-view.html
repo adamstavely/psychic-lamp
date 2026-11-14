@@ -1,0 +1,93 @@
+@let b = block();
+@switch (b.type) {
+  @case ('text') {
+    <p class="prose">{{ b.text }}</p>
+  }
+  @case ('list') {
+    <ol class="prose list">
+      @for (item of b.items; track $index) {
+        <li>{{ item }}</li>
+      }
+    </ol>
+  }
+  @case ('tool') {
+    <tc-tool-call-card
+      [name]="b.name"
+      [summary]="b.server + ' · ' + b.summary + ' · ' + b.sensitivity"
+      [status]="toolStatus(b.status)"
+      [args]="b.args"
+      [result]="b.result"
+      [duration]="b.status === 'pending' ? undefined : (b.durationMs ?? undefined)"
+      [error]="b.status === 'denied' ? 'Denied' : undefined"
+    />
+    @if (b.status === 'pending') {
+      <p class="waiting" role="note">
+        <strong>Waiting for your approval.</strong> {{ b.name }} is a write tool, so it runs only after you review it.
+      </p>
+    }
+  }
+  @case ('skill') {
+    <aside class="skill" [attr.aria-label]="'Skill applied: ' + b.name">
+      <p class="skill-name">
+        <strong>{{ b.name }}</strong> <span>{{ b.version }} · skill applied</span>
+      </p>
+      <p>{{ b.note }}</p>
+    </aside>
+  }
+  @case ('claims') {
+    @if (claims(); as c) {
+      <tc-claim-answer [claims]="c.claims" [sources]="c.sources" />
+    }
+  }
+  @case ('table') {
+    @if (table(); as t) {
+      <tc-data-table readonly heading="Table" [columns]="t.columns" [rows]="t.rows" />
+    }
+  }
+  @case ('chart') {
+    <figure class="chart">
+      <figcaption>{{ b.title }}</figcaption>
+      @for (bar of b.bars; track bar.label) {
+        <tc-meter-row
+          compact
+          [label]="bar.label"
+          [value]="bar.value"
+          [max]="100"
+          [valueText]="bar.display"
+          [warnAt]="2"
+          [dangerAt]="2"
+        />
+      }
+    </figure>
+  }
+  @case ('code') {
+    <tc-code-block [code]="b.text" [language]="b.language" />
+  }
+  @case ('artifact') {
+    <a class="artifact" [routerLink]="['/artifacts', b.artifactId]">
+      <span class="artifact-kind">{{ b.kind }}</span>
+      <span class="artifact-text">
+        <span class="artifact-name">{{ b.name }}</span>
+        <span class="artifact-meta">{{ b.meta }}</span>
+      </span>
+      <span class="artifact-open"
+        >Open<span class="sr-only"> {{ b.name }}</span></span
+      >
+    </a>
+  }
+  @case ('steps') {
+    <tc-agent-plan status="done" [heading]="b.title" [steps]="plan()" />
+  }
+  @case ('workflow') {
+    @if (tracker(); as t) {
+      <tc-status-tracker
+        noun=""
+        [heading]="b.name"
+        [description]="b.status"
+        [steps]="t.steps"
+        [statuses]="t.statuses"
+        orientation="horizontal"
+      />
+    }
+  }
+}

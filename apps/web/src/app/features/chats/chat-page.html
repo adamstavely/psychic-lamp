@@ -1,0 +1,80 @@
+@if (chat.hasValue()) {
+  @let c = chat.value();
+  <div class="page">
+    <tc-thread-header
+      class="header"
+      [heading]="heading()"
+      [level]="1"
+      [project]="c.project ?? undefined"
+      hideShare
+      (tc-title-change)="rename($event)"
+    />
+
+    <div class="thread">
+      @if (c.intent; as intent) {
+        <section class="intent" aria-labelledby="intent-heading">
+          <h2 id="intent-heading">Session intent</h2>
+          <dl>
+            <div>
+              <dt>Task</dt>
+              <dd>{{ intent.task }}</dd>
+            </div>
+            <div>
+              <dt>Decision this supports</dt>
+              <dd>{{ intent.decision }}</dd>
+            </div>
+            <div>
+              <dt>Consequence of error</dt>
+              <dd>{{ intent.consequence }}</dd>
+            </div>
+          </dl>
+        </section>
+      }
+
+      <ol class="turns" aria-label="Conversation">
+        @for (m of c.messages; track m.id) {
+          @if (isAssistant(m)) {
+            <li class="turn assistant">
+              <h2 class="sr-only">Donovan</h2>
+              <p class="worked">{{ workedLabel(m) }}</p>
+              @if (m.routing.length) {
+                <div class="routing">
+                  <span class="routing-label" id="routed-{{ m.id }}">Routed to</span>
+                  <ul [attr.aria-labelledby]="'routed-' + m.id">
+                    @for (r of m.routing; track $index) {
+                      <li class="chip">
+                        <span class="sr-only">{{ routeKind[r.kind] }}: </span>{{ r.name }}
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+              <div class="blocks">
+                @for (b of m.blocks; track $index) {
+                  <dn-block [block]="b" />
+                }
+              </div>
+              <tc-message-actions label="Answer actions" [actions]="['copy']" [text]="plainText(m)" />
+            </li>
+          } @else {
+            <li class="turn user">
+              <h2 class="sr-only">You</h2>
+              <p>{{ m.text }}</p>
+            </li>
+          }
+        }
+      </ol>
+
+      <p class="disclaimer">
+        AI-generated claims can be wrong, including plausible ones with no basis in the sources. Verify before acting.
+      </p>
+    </div>
+  </div>
+} @else if (chat.error()) {
+  <section class="state" role="alert">
+    <h1>That chat isn't here</h1>
+    <p>It may have been deleted, or the link is wrong. Pick another chat from the list.</p>
+  </section>
+} @else {
+  <p class="state" role="status">Loading the chat…</p>
+}

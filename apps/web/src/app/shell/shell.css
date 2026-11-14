@@ -36,8 +36,24 @@
 
 .rail {
   grid-area: rail;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   border-right: 1px solid var(--tc-border-subtle);
+}
+
+.rail tc-side-nav {
+  flex: none;
+  /* Its own height, not the rail's, so the chat list gets the rest. */
+  height: auto;
+}
+
+.rail-chats {
+  flex: 1;
+  min-height: 0;
+  width: 248px;
+  overflow: auto;
+  border-top: 1px solid var(--tc-border-subtle);
 }
 
 .content {

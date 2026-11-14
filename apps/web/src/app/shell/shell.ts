@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
+import { ChatHistory } from '@adamstavely/trenchcoat/angular/chat-history';
 import { CommandMenu } from '@adamstavely/trenchcoat/angular/command-menu';
 import { HeaderBrand } from '@adamstavely/trenchcoat/angular/header-brand';
 import { HeaderNav } from '@adamstavely/trenchcoat/angular/header-nav';
@@ -9,6 +10,7 @@ import { Notifications } from '@adamstavely/trenchcoat/angular/notifications';
 import { SegmentedControl } from '@adamstavely/trenchcoat/angular/segmented-control';
 import { SideNav } from '@adamstavely/trenchcoat/angular/side-nav';
 import { Toaster } from '@adamstavely/trenchcoat/angular/toaster';
+import type { ChatConversation } from '@adamstavely/trenchcoat/chat-history';
 import type { CommandMenuGroup, CommandMenuRun } from '@adamstavely/trenchcoat/command-menu';
 import type { HeaderNavAccountSelect } from '@adamstavely/trenchcoat/header-nav';
 import type { ProfileMenuItem } from '@adamstavely/trenchcoat/profile-menu';
@@ -17,6 +19,7 @@ import type { SideNavCollapsedChange, SideNavItem, SideNavNavigate } from '@adam
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import { filter, map } from 'rxjs';
 import { IconDirective } from '../core/icon.directive';
+import { ChatsStore } from '../core/chats-store';
 import { brandMark, icon } from '../core/icons';
 import { Session } from '../core/session';
 import { ThemeService } from '../core/theme';
@@ -24,12 +27,18 @@ import { areaFor, ASSIST_AREAS } from './areas';
 
 const SIGN_OUT = 'sign-out';
 
+function chatIdFor(url: string): string | null {
+  const match = /^\/chats\/([a-z0-9-]+)/.exec(url.split(/[?#]/)[0]!);
+  return match && match[1] !== 'new' ? match[1]! : null;
+}
+
 /** The frame around every page: the header bar, the side rail and the main region. */
 @Component({
   selector: 'dn-shell',
   imports: [
     RouterOutlet,
     Button,
+    ChatHistory,
     CommandMenu,
     HeaderBrand,
     HeaderNav,
@@ -46,6 +55,7 @@ const SIGN_OUT = 'sign-out';
 export class Shell {
   protected readonly session = inject(Session);
   protected readonly theme = inject(ThemeService);
+  protected readonly chats = inject(ChatsStore);
   readonly #router = inject(Router);
 
   protected readonly brandIcon = brandMark();
@@ -71,6 +81,48 @@ export class Shell {
     ),
     { initialValue: areaFor(this.#router.url) },
   );
+
+  /** The open chat, from the URL, so the rail's list marks it. */
+  protected readonly currentChat = toSignal(
+    this.#router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => chatIdFor(e.urlAfterRedirects)),
+    ),
+    { initialValue: chatIdFor(this.#router.url) },
+  );
+
+  protected readonly conversations = computed<ChatConversation[]>(() =>
+    this.chats.chats().map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt, pinned: c.pinned })),
+  );
+
+  protected openChat(event: CustomEvent<{ value: string | null }>): void {
+    event.preventDefault();
+    if (event.detail.value) void this.#router.navigate(['/chats', event.detail.value]);
+  }
+
+  /** The list's own edits are applied through the API (and the store), not inside the element. */
+  protected keepConversations(event: Event): void {
+    event.preventDefault();
+  }
+
+  // tc-chat-history's Angular outputs type their details as unknown, so these read them as strings and booleans.
+  protected onPin(event: CustomEvent<{ id: unknown; pinned: unknown }>): void {
+    void this.chats.update(String(event.detail.id), { pinned: event.detail.pinned === true });
+  }
+
+  protected onRename(event: CustomEvent<{ id: unknown; title: unknown }>): void {
+    void this.chats.update(String(event.detail.id), { title: String(event.detail.title) });
+  }
+
+  protected onDelete(event: CustomEvent<{ id: unknown }>): void {
+    const id = String(event.detail.id);
+    void this.chats.archive(id);
+    if (this.currentChat() === id) void this.#router.navigateByUrl('/chats');
+  }
+
+  protected onRestore(event: CustomEvent<{ id: unknown }>): void {
+    void this.chats.restore(String(event.detail.id));
+  }
 
   protected readonly railCollapsed = computed(() => !this.session.preferences().railExpanded);
 
