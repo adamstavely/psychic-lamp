@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Title } from '@angular/platform-browser';
+import { Router } from '@angular/router';
 import { ChatComposer } from '@adamstavely/trenchcoat/angular/chat-composer';
 import { ReflectionGate } from '@adamstavely/trenchcoat/angular/reflection-gate';
 import { MessageActions } from '@adamstavely/trenchcoat/angular/message-actions';
@@ -10,6 +11,7 @@ import { ThreadHeader } from '@adamstavely/trenchcoat/angular/thread-header';
 import type { AssistantMessage, Message, ModelChoice, Route, ToolDecision } from '@donovan/contracts';
 import { ChatsStore } from '../../core/chats-store';
 import { dictate } from '../../core/dictation';
+import { ArtifactPane } from '../artifacts/artifact-pane';
 import { BlockView } from './block-view';
 import { COMPOSER_MODELS, FEEDBACK_REASONS, PENDING_SEND, type PendingSend } from './composer';
 import { allClaims, needsCheckpoint } from './session';
@@ -27,7 +29,7 @@ const ROUTE_KIND: Record<Route['kind'], string> = {
 
 @Component({
   selector: 'dn-chat-page',
-  imports: [BlockView, ChatComposer, MessageActions, ReflectionGate, SessionPanel, ThreadHeader],
+  imports: [ArtifactPane, BlockView, ChatComposer, MessageActions, ReflectionGate, SessionPanel, ThreadHeader],
   providers: [ThreadStore],
   templateUrl: './chat-page.html',
   styleUrl: './chat-page.css',
@@ -36,8 +38,11 @@ const ROUTE_KIND: Record<Route['kind'], string> = {
 export default class ChatPage {
   /** From the route. */
   readonly chatId = input.required<string>();
+  /** From the URL (?artifact=…): an artifact open beside the chat. */
+  readonly artifact = input<string>();
   readonly #store = inject(ChatsStore);
   readonly #title = inject(Title);
+  readonly #router = inject(Router);
 
   protected readonly thread = inject(ThreadStore);
   protected readonly chat = this.thread.chat;
@@ -84,6 +89,14 @@ export default class ChatPage {
     () => this.#panelChoice() ?? (this.chat.hasValue() ? this.chat.value().calibrated : false),
   );
   protected readonly panels = computed(() => (this.panelOpen() ? ['session'] : []));
+  /** The side pane: an open artifact takes it; otherwise the session panel, when open. */
+  protected readonly pane = computed<'artifact' | 'session' | null>(() =>
+    this.artifact() ? 'artifact' : this.panelOpen() ? 'session' : null,
+  );
+
+  protected closeArtifact(): void {
+    void this.#router.navigate([], { queryParams: { artifact: null }, queryParamsHandling: 'merge' });
+  }
 
   protected onPanels(event: CustomEvent<{ panels: unknown }>): void {
     event.preventDefault();

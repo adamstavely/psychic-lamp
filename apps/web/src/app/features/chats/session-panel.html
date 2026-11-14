@@ -109,7 +109,9 @@
           <ul class="rows">
             @for (a of artifacts(); track a.artifactId) {
               <li>
-                <a [routerLink]="['/artifacts', a.artifactId]">{{ a.name }}</a>
+                <a [routerLink]="[]" [queryParams]="{ artifact: a.artifactId }" queryParamsHandling="merge">{{
+                  a.name
+                }}</a>
                 <span class="meta">{{ a.kind }} · {{ a.meta }}</span>
               </li>
             }

@@ -15,22 +15,19 @@ import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
-import { CodeBlock } from '@adamstavely/trenchcoat/angular/code-block';
-import { DataTable } from '@adamstavely/trenchcoat/angular/data-table';
-import { MeterRow } from '@adamstavely/trenchcoat/angular/meter-row';
 import { SegmentedControl } from '@adamstavely/trenchcoat/angular/segmented-control';
 import type { SegmentOption } from '@adamstavely/trenchcoat/segmented-control';
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import type { Artifact, ProjectsOverview } from '@donovan/contracts';
 import { firstValueFrom } from 'rxjs';
 import { relativeDay } from '../brief/format';
-import { tableFor } from '../chats/blocks';
-import { artifactText, blocksAt, downloadName } from './artifact-view';
+import { ArtifactBody } from './artifact-body';
+import { artifactText, downloadName } from './artifact-view';
 
 /** One artifact: its body at the version picked, what changed, and where it came from. */
 @Component({
   selector: 'dn-artifact-page',
-  imports: [FormsModule, RouterLink, Button, CodeBlock, DataTable, MeterRow, SegmentedControl],
+  imports: [FormsModule, RouterLink, Button, ArtifactBody, SegmentedControl],
   templateUrl: './artifact-page.html',
   styleUrl: './artifact-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -61,15 +58,6 @@ export default class ArtifactPage {
   protected readonly versionNote = computed(
     () => this.a()?.versions.find((v) => v.version === this.version())?.note ?? '',
   );
-  protected readonly blocks = computed(() => {
-    const a = this.a();
-    return a?.body.kind === 'Doc' ? blocksAt(a.body.blocks, this.version()) : [];
-  });
-  protected readonly dataTable = computed(() => {
-    const body = this.a()?.body;
-    return body?.kind === 'Data' ? tableFor({ type: 'table', columns: body.columns, rows: body.rows }) : null;
-  });
-  protected readonly tableFor = tableFor;
   protected readonly now = new Date();
 
   constructor() {
@@ -81,10 +69,6 @@ export default class ArtifactPage {
 
   protected when(iso: string): string {
     return relativeDay(iso, this.now);
-  }
-
-  protected barMax(items: { value: number }[]): number {
-    return Math.max(...items.map((i) => i.value));
   }
 
   protected pickVersion(event: CustomEvent<{ value: unknown }>): void {

@@ -1,6 +1,6 @@
 @if (chat.hasValue()) {
   @let c = chat.value();
-  <div class="layout" [class.with-panel]="panelOpen()">
+  <div class="layout" [class.with-panel]="!!pane()">
     <div class="page">
       <tc-thread-header
         class="header"
@@ -113,7 +113,9 @@
       </div>
       <p class="sr-only" role="status" aria-live="polite">{{ thread.status() }}</p>
     </div>
-    @if (panelOpen()) {
+    @if (pane() === 'artifact') {
+      <dn-artifact-pane [artifactId]="artifact()!" (closed)="closeArtifact()" />
+    } @else if (pane() === 'session') {
       <dn-session-panel />
     }
   </div>

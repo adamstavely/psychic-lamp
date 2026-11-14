@@ -78,7 +78,7 @@
     <tc-code-block [code]="b.text" [language]="b.language" />
   }
   @case ('artifact') {
-    <a class="artifact" [routerLink]="['/artifacts', b.artifactId]">
+    <a class="artifact" [routerLink]="[]" [queryParams]="{ artifact: b.artifactId }" queryParamsHandling="merge">
       <span class="artifact-kind">{{ b.kind }}</span>
       <span class="artifact-text">
         <span class="artifact-name">{{ b.name }}</span>
