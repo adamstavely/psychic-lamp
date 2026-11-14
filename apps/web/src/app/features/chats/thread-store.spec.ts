@@ -1,5 +1,6 @@
 import { HttpEventType, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import type { AssistantMessage, UserMessage } from '@donovan/contracts';
 import { ChatsStore } from '../../core/chats-store';
@@ -70,5 +71,120 @@ describe('ThreadStore', () => {
     req.flush({ updated: answer('xa'), reply: answer('ya') });
     await deciding;
     expect(store.messages()).toEqual([]);
+  });
+
+  describe('an answer that stops short', () => {
+    /** Sends, lets the chat load, and returns the stream's request. */
+    const sendIn = (chatId: string, text = 'Hello') => {
+      store.open(chatId);
+      loaded(chatId);
+      const sending = store.send(text, 'auto');
+      const req = http.expectOne(`/api/chats/${chatId}/messages`);
+      return { sending, req };
+    };
+
+    it('is a failure when the stream is empty, however normal the response', async () => {
+      const { sending, req } = sendIn('empty');
+      req.flush('');
+      await expect(sending).rejects.toThrow();
+      expect(store.status()).not.toBe('Donovan answered.');
+      expect(store.streaming()).toBe(false);
+    });
+
+    it('drops the partial answer when the stream ends without done, and shows what the server kept', async () => {
+      const { sending, req } = sendIn('cut');
+      const partial = sse(
+        { type: 'user', message: user('u1', 'Hello') },
+        { type: 'start', id: 'a1', at, routing: [] },
+        { type: 'block', index: 0, block: { type: 'text', text: 'Half an' } },
+      );
+      req.event({ type: HttpEventType.DownloadProgress, loaded: 1, partialText: partial });
+      expect(store.messages().map((m) => m.id)).toEqual(['u1', 'a1']);
+      req.flush(partial);
+      await expect(sending).rejects.toThrow();
+      expect(store.messages()).toEqual([]);
+      // The chat reloads, and its saved turns show.
+      TestBed.tick();
+      http.expectOne('/api/chats/cut').flush({
+        id: 'cut',
+        title: 'cut',
+        messages: [user('u1', 'Hello'), answer('a1')],
+        intent: null,
+        checkpoints: [],
+      });
+      await TestBed.inject(ApplicationRef).whenStable();
+      expect(store.messages()).toEqual([user('u1', 'Hello'), answer('a1')]);
+    });
+
+    it('succeeds only with done', async () => {
+      const { sending, req } = sendIn('whole');
+      req.flush(sse({ type: 'user', message: user('u1', 'Hello') }, { type: 'done', message: answer('a1') }));
+      await sending;
+      expect(store.status()).toBe('Donovan answered.');
+    });
+  });
+
+  describe('sending again after a send that failed', () => {
+    const failOnce = async (chatId: string, text: string) => {
+      const sending = store.send(text, 'auto');
+      const req = http.expectOne(`/api/chats/${chatId}/messages`);
+      req.error(new ProgressEvent('error'));
+      await expect(sending).rejects.toThrow();
+      return req.request.body.requestId as string;
+    };
+    const succeed = async (chatId: string, text: string) => {
+      const sending = store.send(text, 'auto');
+      const req = http.expectOne(`/api/chats/${chatId}/messages`);
+      req.flush(sse({ type: 'done', message: answer(`a-${crypto.randomUUID()}`) }));
+      await sending;
+      return req.request.body.requestId as string;
+    };
+    /** The chat's reload after a failure, with or without the turn the server saved. */
+    const reloadWith = async (chatId: string, ...messages: UserMessage[]) => {
+      TestBed.tick();
+      http
+        .match(`/api/chats/${chatId}`)
+        .forEach((r) => r.flush({ id: chatId, title: chatId, messages, intent: null, checkpoints: [] }));
+      await TestBed.inject(ApplicationRef).whenStable();
+    };
+
+    it('reuses the id, so a send the server did save is not saved twice', async () => {
+      store.open('retry');
+      loaded('retry');
+      const first = await failOnce('retry', 'Ship it');
+      await reloadWith('retry');
+      const second = await succeed('retry', 'Ship it');
+      expect(second).toBe(first);
+      // Finished: the same words sent later are a new message.
+      expect(await succeed('retry', 'Ship it')).not.toBe(first);
+    });
+
+    it('keeps the id across leaving the chat and coming back', async () => {
+      store.open('away');
+      loaded('away');
+      const first = await failOnce('away', 'Ship it');
+      await reloadWith('away');
+      store.open('elsewhere');
+      loaded('elsewhere');
+      store.open('away');
+      loaded('away');
+      expect(await succeed('away', 'Ship it')).toBe(first);
+    });
+
+    it('is a new message once the chat shows the first was saved', async () => {
+      store.open('saved');
+      loaded('saved');
+      const first = await failOnce('saved', 'Ship it');
+      await reloadWith('saved', { ...user('u1', 'Ship it'), requestId: first });
+      expect(await succeed('saved', 'Ship it')).not.toBe(first);
+    });
+
+    it('is a new message when the text is different', async () => {
+      store.open('other');
+      loaded('other');
+      const first = await failOnce('other', 'Ship it');
+      await reloadWith('other');
+      expect(await succeed('other', 'Hold it')).not.toBe(first);
+    });
   });
 });

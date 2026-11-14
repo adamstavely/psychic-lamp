@@ -116,6 +116,8 @@ export const UserMessage = z.object({
   role: z.literal('user'),
   text: z.string(),
   at: Iso,
+  /** The id the app sent it with (SendMessage.requestId), so it can tell a send it wasn't sure of was saved. */
+  requestId: z.string().nullable().optional(),
 });
 export type UserMessage = z.infer<typeof UserMessage>;
 

@@ -497,7 +497,7 @@ function toSummary(row: ChatRow): ChatSummary {
 
 function toMessage(row: MessageRow): Message {
   const at = row.createdAt.toISOString();
-  if ('text' in row.body) return { id: row.id, role: 'user', text: row.body.text, at };
+  if ('text' in row.body) return { id: row.id, role: 'user', text: row.body.text, at, requestId: row.requestId };
   const versions = versionsOf(row.body);
   return {
     id: row.id,
