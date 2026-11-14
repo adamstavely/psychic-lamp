@@ -4,6 +4,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import { DB, type Db } from '../src/db/db.module.js';
 import { chats } from '../src/db/schema.js';
+import { ChatsService } from '../src/chats/chats.service.js';
 import { CHAT_INDEX } from '../src/search/chat-search.js';
 import { SearchBackfill } from '../src/search-api/search-backfill.js';
 import { createTestApp, type TestApp } from './support/test-app.js';
@@ -134,5 +135,40 @@ describe('search reconciliation', () => {
     });
     await reconcile.run();
     expect(await es.exists({ index: CHAT_INDEX, id: docId })).toBe(false);
+  });
+
+  it('never files old content under a newer version, when a change lands while it indexes', async () => {
+    const token = await t.token();
+    const me = (await http.get('/api/me').auth(token, bearer).expect(200)).body as { id: string };
+    const db = t.app.get<Db>(DB);
+    const es = t.app.get(Client);
+    const created = ChatSummary.parse(
+      (await http.post('/api/chats').auth(token, bearer).send({ text: 'Basalt quarry' }).expect(201)).body,
+    );
+    const where = and(eq(chats.ownerId, me.id), eq(chats.id, created.id));
+    // Another change commits just after this re-index has read the chat's content.
+    const service = t.app.get(ChatsService);
+    const get = service.get.bind(service);
+    vi.spyOn(service, 'get').mockImplementationOnce(async (...args) => {
+      const chat = await get(...args);
+      await db
+        .update(chats)
+        .set({ title: 'LATEST TITLE', searchVersion: sql`${chats.searchVersion} + 1` })
+        .where(where);
+      return chat;
+    });
+    await http.patch(`/api/chats/${created.id}`).auth(token, bearer).send({ title: 'OLDER TITLE' }).expect(200);
+    vi.restoreAllMocks();
+
+    const [row] = await db.select({ v: chats.searchVersion, title: chats.title }).from(chats).where(where);
+    expect(row!.title).toBe('LATEST TITLE');
+    const doc = (await es.get<{ title: string; version: number }>({ index: CHAT_INDEX, id: `${me.id}:${created.id}` }))
+      ._source!;
+    // The entry holds the older title, so it must be filed under an older version: that's what reconciliation repairs.
+    expect(doc.title).toBe('OLDER TITLE');
+    expect(doc.version).toBeLessThan(row!.v);
+    await t.app.get(SearchBackfill).run();
+    const repaired = (await es.get<{ title: string }>({ index: CHAT_INDEX, id: `${me.id}:${created.id}` }))._source!;
+    expect(repaired.title).toBe('LATEST TITLE');
   });
 });

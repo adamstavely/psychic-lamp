@@ -41,13 +41,17 @@ export class ChatsService {
    * Keeps the chat's search entry in step with its title and turns, at the chat's current searchVersion. The version
    * is bumped in the same transaction as the change (see bumpSearch), so if this index fails, reconciliation sees the
    * entry is behind and redoes it.
+   *
+   * The version is read before the content, never after: content that changes in between is then newer than the
+   * version it's filed under, which reconciliation repairs; the other way round, old content would claim the new
+   * version and look current for good.
    */
   private async reindex(userId: string, id: string): Promise<void> {
-    const chat = await this.get(userId, id);
     const [row] = await this.db
       .select({ version: chats.searchVersion })
       .from(chats)
       .where(and(eq(chats.ownerId, userId), eq(chats.id, id)));
+    const chat = await this.get(userId, id);
     await this.chatSearch.index([
       { ownerId: userId, id, title: chat.title, text: chatText(chat.messages), version: row?.version ?? 0 },
     ]);
@@ -208,6 +212,7 @@ export class ChatsService {
     await this.get(userId, chatId);
     const reply = pickReply(body.text, body.model);
     const sent = await this.db.transaction(async (tx) => {
+      await lockChat(tx, userId, chatId);
       const seq = await nextSeq(tx, userId, chatId);
       // A retry of a send that was saved (its response lost on the way back) returns that turn again.
       if (body.requestId) {
@@ -254,6 +259,8 @@ export class ChatsService {
   async decide(userId: string, chatId: string, toolId: string, body: ToolDecision): Promise<ToolDecisionResult> {
     await this.get(userId, chatId);
     const decided = await this.db.transaction(async (tx) => {
+      // Before reading the tool's status: two decisions on one tool take turns, and the second sees the first's.
+      await lockChat(tx, userId, chatId);
       const rows = await tx
         .select()
         .from(messages)
@@ -319,6 +326,8 @@ export class ChatsService {
   async regenerate(userId: string, chatId: string, messageId: string, model: ModelChoice): Promise<AssistantMessage> {
     await this.get(userId, chatId);
     const regenerated = await this.db.transaction(async (tx) => {
+      // Before reading the versions: concurrent regenerations each add theirs instead of replacing the others'.
+      await lockChat(tx, userId, chatId);
       const [row] = await tx
         .select()
         .from(messages)
@@ -352,21 +361,23 @@ export class ChatsService {
 
   /** Shows an earlier (or later) version of an answer. */
   async showVersion(userId: string, chatId: string, messageId: string, version: number): Promise<void> {
-    const [row] = await this.db
-      .select()
-      .from(messages)
-      .where(
-        and(
-          eq(messages.ownerId, userId),
-          eq(messages.chatId, chatId),
-          eq(messages.id, messageId),
-          eq(messages.role, 'assistant'),
-        ),
-      );
-    if (!row || 'text' in row.body) throw new NotFoundException('No answer with that id in this chat');
-    const versions = versionsOf(row.body);
-    if (version > versions.length) throw new NotFoundException(`This answer has ${versions.length} versions`);
     await this.db.transaction(async (tx) => {
+      // Read under the lock, so a regeneration or decision in between isn't written over.
+      await lockChat(tx, userId, chatId);
+      const [row] = await tx
+        .select()
+        .from(messages)
+        .where(
+          and(
+            eq(messages.ownerId, userId),
+            eq(messages.chatId, chatId),
+            eq(messages.id, messageId),
+            eq(messages.role, 'assistant'),
+          ),
+        );
+      if (!row || 'text' in row.body) throw new NotFoundException('No answer with that id in this chat');
+      const versions = versionsOf(row.body);
+      if (version > versions.length) throw new NotFoundException(`This answer has ${versions.length} versions`);
       await tx
         .update(messages)
         .set({ body: showing(versions, version) })
@@ -424,16 +435,21 @@ async function bumpSearch(tx: Tx, userId: string, chatId: string): Promise<void>
 }
 
 /**
- * The next free position in a chat. It locks the chat's row first, so concurrent writers to one chat (two sends, a send
- * and an approval) take turns instead of claiming the same position and failing; the lock lasts until the transaction
- * ends, so call this before the transaction's other writes.
+ * Locks the chat's row until the transaction ends. Every transaction that changes a chat's turns takes it first, before
+ * reading anything it will change, so concurrent writers to one chat (two sends, two decisions on one tool, two
+ * regenerations of one answer) take turns and each sees the last one's work, rather than claiming the same position
+ * or writing over it. Taking this one lock first, always, also means they can't deadlock on each other.
  */
-async function nextSeq(tx: Tx, userId: string, chatId: string): Promise<number> {
+async function lockChat(tx: Tx, userId: string, chatId: string): Promise<void> {
   await tx
     .select({ id: chats.id })
     .from(chats)
     .where(and(eq(chats.ownerId, userId), eq(chats.id, chatId)))
     .for('update');
+}
+
+/** The next free position in a chat; call it under lockChat. */
+async function nextSeq(tx: Tx, userId: string, chatId: string): Promise<number> {
   const [r] = await tx
     .select({ max: sql<number | null>`max(${messages.seq})` })
     .from(messages)
