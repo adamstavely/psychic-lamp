@@ -1,50 +1,259 @@
 .page {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--tc-space-6);
+  gap: var(--tc-space-8);
   max-width: 88rem;
   margin-inline: auto;
-  padding: var(--tc-space-6) var(--tc-space-8) var(--tc-space-8);
+  padding: var(--tc-space-8) var(--tc-space-10) var(--tc-space-12);
 }
 
-.head,
-.head-tools {
+.head {
   display: flex;
   flex-wrap: wrap;
-  min-width: 0;
   align-items: center;
-  justify-content: space-between;
   gap: var(--tc-space-3);
 }
 
-.head-tools input {
-  flex: 1 1 12rem;
-  min-width: 0;
-}
-
 h1 {
+  flex: 1;
+  min-width: 10rem;
   margin: 0;
   font-size: var(--tc-font-size-2xl);
+  font-weight: 700;
+}
+
+/* A rounded search field with its icon inside, as in the prototype */
+.find {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+  width: min(280px, 100%);
+  height: 36px;
+  padding: 0 var(--tc-space-3-5, 14px);
+  border: 1px solid var(--tc-border-strong);
+  border-radius: 18px;
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-secondary);
+}
+
+.find:focus-within {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+.find input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
 }
 
 h2 {
   margin: 0 0 var(--tc-space-3);
   font-size: var(--tc-font-size-md);
+  font-weight: 600;
 }
 
-h3 {
-  margin: 0;
-  font-size: var(--tc-font-size-md);
-}
-
-.sub,
-.meta {
+.sub {
+  margin-inline-start: var(--tc-space-2);
   color: var(--tc-text-secondary);
   font-size: var(--tc-font-size-sm);
   font-weight: 400;
 }
 
-input[type='search'],
+.meta {
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr));
+  gap: var(--tc-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A card is one link: its name stretches over the whole card (the name stays the link's accessible name) */
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 164px;
+  padding: var(--tc-space-4) var(--tc-space-4-5, 18px);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-xl, 12px);
+  background: var(--tc-surface-raised);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  transition:
+    box-shadow var(--tc-duration-fast) var(--tc-ease-standard),
+    border-color var(--tc-duration-fast) var(--tc-ease-standard);
+}
+
+.card:hover {
+  border-color: var(--tc-border-strong);
+  box-shadow: var(--tc-card-shadow-hover);
+}
+
+.card .name {
+  margin-top: auto;
+  padding-top: var(--tc-space-5);
+  overflow: hidden;
+  color: var(--tc-text-primary);
+  font-size: var(--tc-font-size-md);
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card .name::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.card .name:focus-visible {
+  outline: none;
+}
+
+.card:has(.name:focus-visible) {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+.card .meta {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-1-5);
+  margin-top: var(--tc-space-1);
+}
+
+.card .meta > :first-child {
+  flex: 1;
+}
+
+/* Org libraries: tinted covers, cycling through four hues */
+.org .name {
+  font-size: var(--tc-font-size-lg);
+  white-space: normal;
+  text-wrap: pretty;
+}
+
+.org[data-tint='0'] {
+  --tint-bg: var(--tc-status-info-bg);
+  --tint-fg: var(--tc-status-info-fg);
+}
+.org[data-tint='1'] {
+  --tint-bg: var(--tc-status-danger-bg);
+  --tint-fg: var(--tc-status-danger-fg);
+}
+.org[data-tint='2'] {
+  --tint-bg: var(--tc-status-success-bg);
+  --tint-fg: var(--tc-status-success-fg);
+}
+.org[data-tint='3'] {
+  --tint-bg: var(--tc-status-warning-bg);
+  --tint-fg: var(--tc-status-warning-fg);
+}
+
+.org {
+  background: var(--tint-bg);
+}
+
+.team {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+  min-width: 0;
+  font-size: var(--tc-font-size-sm);
+}
+
+.avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  /* Status text on a surface, the pairing Trench Coat checks in both themes (its tints are translucent) */
+  border: 1.5px solid var(--tint-fg);
+  background: var(--tc-surface-raised);
+  color: var(--tint-fg);
+  font-size: var(--tc-font-size-xs);
+  font-weight: 700;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.glyph {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-accent-subtle);
+  color: var(--tc-accent-text);
+}
+
+/* Sensitivity in words, outlined in a colour that matches it */
+.sens {
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  border-radius: var(--tc-radius-sm);
+  font-size: var(--tc-font-size-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.card.new {
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tc-space-2-5, 10px);
+  border: 1.5px dashed var(--tc-border-strong);
+  background: transparent;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.card.new:hover {
+  border-color: var(--tc-accent);
+  color: var(--tc-accent-text);
+  box-shadow: none;
+}
+
+.card.new:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+.plus {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--tc-accent-subtle);
+  color: var(--tc-accent-text);
+}
+
 .dialog input:not([type='checkbox']),
 .dialog select {
   min-height: 32px;
@@ -56,92 +265,10 @@ input[type='search'],
   font: inherit;
 }
 
-input:focus-visible,
-select:focus-visible,
-.card:focus-visible {
+.dialog input:focus-visible,
+.dialog select:focus-visible {
   outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
   outline-offset: 2px;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr));
-  gap: var(--tc-space-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.card {
-  display: grid;
-  align-content: start;
-  gap: var(--tc-space-2);
-  height: 100%;
-  min-height: 8rem;
-  padding: var(--tc-space-4);
-  border: 1px solid var(--tc-border-subtle);
-  border-radius: var(--tc-radius-lg);
-  background: var(--tc-surface-raised);
-  color: inherit;
-  font: inherit;
-  text-align: start;
-  text-decoration: none;
-}
-
-a.card:hover,
-button.card:hover {
-  border-color: var(--tc-border-strong);
-}
-
-.card.new {
-  place-content: center;
-  justify-items: center;
-  border-style: dashed;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.plus {
-  font-size: var(--tc-font-size-xl);
-}
-
-.org {
-  background: var(--tc-surface-well);
-}
-
-.team {
-  display: flex;
-  align-items: center;
-  gap: var(--tc-space-2);
-  font-size: var(--tc-font-size-sm);
-}
-
-.avatar {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--tc-surface-inverse);
-  color: var(--tc-text-on-inverse);
-  font-size: var(--tc-font-size-xs);
-  font-weight: 600;
-}
-
-.tags {
-  display: flex;
-  gap: var(--tc-space-1);
-}
-
-.tag {
-  padding: 0 var(--tc-space-1);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-radius-sm);
-  font-size: var(--tc-font-size-xs);
-}
-
-.name {
-  font-weight: 600;
 }
 
 .dialog {
@@ -196,8 +323,5 @@ button.card:hover {
 @media (max-width: 720px) {
   .page {
     padding-inline: var(--tc-space-4);
-  }
-  .head {
-    flex-wrap: wrap;
   }
 }

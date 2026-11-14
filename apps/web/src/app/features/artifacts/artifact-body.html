@@ -1,14 +1,19 @@
 @let body = a().body;
 @switch (body.kind) {
   @case ('Doc') {
-    @for (b of blocks(); track $index) {
+    @for (b of blocks(); track $index; let i = $index) {
       <div class="block" [class.new]="b.isNew">
-        @if (b.isNew) {
+        @if (b.isNew && b.type !== 'heading' && !blocks()[i - 1]?.isNew) {
           <span class="new-tag">New in v{{ version() }}</span>
         }
         @switch (b.type) {
           @case ('heading') {
-            <h2>{{ b.text }}</h2>
+            <h2>
+              {{ b.text }}
+              @if (b.isNew) {
+                <span class="new-tag">New in v{{ version() }}</span>
+              }
+            </h2>
           }
           @case ('paragraph') {
             <p>{{ b.text }}</p>
@@ -21,8 +26,26 @@
             </ul>
           }
           @case ('table') {
-            @let t = tableFor({ type: 'table', columns: b.columns, rows: b.rows });
-            <tc-data-table readonly [selectable]="false" heading="Table" [columns]="t.columns" [rows]="t.rows" />
+            <div class="table-wrap" tabindex="0" role="region" [attr.aria-label]="'Table: ' + b.columns.join(', ')">
+              <table>
+                <thead>
+                  <tr>
+                    @for (c of b.columns; track $index) {
+                      <th scope="col">{{ c }}</th>
+                    }
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (r of b.rows; track $index) {
+                    <tr>
+                      @for (cell of r; track $index) {
+                        <td>{{ cell }}</td>
+                      }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
             @if (b.flag; as f) {
               <p class="flag">
                 Over the guardrail: {{ b.rows[f[0]]![0] }}, {{ b.columns[f[1]] }} ({{ b.rows[f[0]]![f[1]] }}).
@@ -86,10 +109,30 @@
     }
   }
   @case ('Data') {
-    @if (body.kind === 'Data' && dataTable(); as t) {
-      <tc-data-table readonly [selectable]="false" [heading]="a().name" [columns]="t.columns" [rows]="t.rows" />
-      <h2>Raw {{ body.format.toUpperCase() }}</h2>
-      <tc-code-block [code]="body.raw" [language]="body.format" />
+    @if (body.kind === 'Data') {
+      <p class="data-meta">
+        {{ body.rows.length }} rows · {{ body.columns.length }} columns · {{ body.format.toUpperCase() }}
+      </p>
+      <div class="table-wrap mono" tabindex="0" role="region" [attr.aria-label]="a().name">
+        <table>
+          <thead>
+            <tr>
+              @for (c of body.columns; track $index) {
+                <th scope="col">{{ c }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of body.rows; track $index) {
+              <tr>
+                @for (cell of r; track $index) {
+                  <td>{{ cell }}</td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     }
   }
 }

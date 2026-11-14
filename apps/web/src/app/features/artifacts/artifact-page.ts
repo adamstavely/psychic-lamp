@@ -18,16 +18,18 @@ import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { SegmentedControl } from '@adamstavely/trenchcoat/angular/segmented-control';
 import type { SegmentOption } from '@adamstavely/trenchcoat/segmented-control';
 import { toast } from '@adamstavely/trenchcoat/toaster';
-import type { Artifact, ProjectsOverview } from '@donovan/contracts';
+import type { Artifact, ArtifactKind, ProjectsOverview } from '@donovan/contracts';
 import { firstValueFrom } from 'rxjs';
-import { relativeDay } from '../brief/format';
+import { IconDirective } from '../../core/icon.directive';
+import type { IconName } from '../../core/icons';
+import { initials, relativeDay } from '../brief/format';
 import { ArtifactBody } from './artifact-body';
 import { artifactText, downloadName } from './artifact-view';
 
 /** One artifact: its body at the version picked, what changed, and where it came from. */
 @Component({
   selector: 'dn-artifact-page',
-  imports: [FormsModule, RouterLink, Button, ArtifactBody, SegmentedControl],
+  imports: [FormsModule, RouterLink, Button, ArtifactBody, IconDirective, SegmentedControl],
   templateUrl: './artifact-page.html',
   styleUrl: './artifact-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -59,6 +61,43 @@ export default class ArtifactPage {
     () => this.a()?.versions.find((v) => v.version === this.version())?.note ?? '',
   );
   protected readonly now = new Date();
+  protected readonly initials = initials;
+  /** Newest first, as the details list them. */
+  protected readonly reversedVersions = computed(() => [...(this.a()?.versions ?? [])].reverse());
+  protected readonly versionAt = computed(
+    () => this.a()?.versions.find((v) => v.version === this.version())?.at ?? this.a()?.updatedAt ?? '',
+  );
+  /** Rendered, or the text it's made of (Markdown, the notebook's source, the raw CSV or JSON). */
+  protected readonly mode = signal<'preview' | 'source'>('preview');
+  protected readonly modes = computed<SegmentOption[]>(() => {
+    const body = this.a()?.body;
+    const source = !body
+      ? 'Source'
+      : body.kind === 'Doc'
+        ? 'Markdown'
+        : body.kind === 'Data'
+          ? body.format.toUpperCase()
+          : 'Source';
+    return [
+      { value: 'preview', label: 'Preview' },
+      { value: 'source', label: source },
+    ];
+  });
+  protected readonly source = computed(() => {
+    const a = this.a();
+    return a ? artifactText(a.body, this.version()) : '';
+  });
+  /** How big it is, in its own terms: a doc's sections, a notebook's cells, a table's rows. */
+  protected readonly size = computed(() => {
+    const body = this.a()?.body;
+    if (!body) return '';
+    if (body.kind === 'Doc') {
+      const n = body.blocks.filter((b) => b.type === 'heading').length;
+      return `${n} ${n === 1 ? 'section' : 'sections'}`;
+    }
+    if (body.kind === 'Code') return `${body.cells.length} cells`;
+    return `${body.rows.length} rows`;
+  });
 
   constructor() {
     effect(() => {
@@ -73,6 +112,14 @@ export default class ArtifactPage {
 
   protected pickVersion(event: CustomEvent<{ value: unknown }>): void {
     this.version.set(Number(event.detail.value));
+  }
+
+  protected pickMode(event: CustomEvent<{ value: unknown }>): void {
+    this.mode.set(event.detail.value === 'source' ? 'source' : 'preview');
+  }
+
+  protected kindIcon(kind: ArtifactKind): IconName {
+    return kind === 'Data' ? 'table' : kind === 'Code' ? 'code' : 'doc';
   }
 
   protected openSaveToProject(a: Artifact): void {

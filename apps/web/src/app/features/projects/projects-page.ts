@@ -4,14 +4,17 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { toast } from '@adamstavely/trenchcoat/toaster';
-import type { OrgLibrary, ProjectsOverview, ProjectSummary, Sensitivity } from '@donovan/contracts';
+import type { ProjectsOverview, ProjectSummary, Sensitivity } from '@donovan/contracts';
 import { firstValueFrom } from 'rxjs';
-import { initials, relativeDay } from '../brief/format';
+import { IconDirective } from '../../core/icon.directive';
+import { initials } from '../brief/format';
 
-/** Libraries shared across the organisation, and the person's own projects; start a new one or copy a library. */
+const DATE = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+/** Libraries shared across the organisation, and the person's own projects; start a new one (a library opens to copy). */
 @Component({
   selector: 'dn-projects-page',
-  imports: [FormsModule, RouterLink, Button],
+  imports: [FormsModule, RouterLink, Button, IconDirective],
   templateUrl: './projects-page.html',
   styleUrl: './projects-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -22,7 +25,6 @@ export default class ProjectsPage {
 
   protected readonly overview = httpResource<ProjectsOverview>(() => '/api/projects');
   protected readonly filter = signal('');
-  protected readonly now = new Date();
   protected readonly initials = initials;
 
   protected readonly mine = computed(() => {
@@ -41,8 +43,8 @@ export default class ProjectsPage {
   protected readonly creating = signal(false);
   protected readonly error = signal('');
 
-  protected when(iso: string): string {
-    return relativeDay(iso, this.now);
+  protected date(iso: string): string {
+    return DATE.format(new Date(iso));
   }
 
   protected openNew(): void {
@@ -62,10 +64,6 @@ export default class ProjectsPage {
     }
     await this.start({ ...this.draft, name: this.draft.name.trim() });
     this.closeNew();
-  }
-
-  protected copy(library: OrgLibrary): Promise<void> {
-    return this.start({ name: library.name, sensitivity: 'Internal', calibrated: false, fromLibrary: library.id });
   }
 
   private async start(body: object): Promise<void> {

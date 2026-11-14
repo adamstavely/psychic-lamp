@@ -1,89 +1,155 @@
 @if (a(); as a) {
   <div class="page">
-    <article class="doc" aria-labelledby="artifact-heading">
-      <header class="doc-head">
-        <p class="eyebrow"><a routerLink="/artifacts">Artifacts</a> <span aria-hidden="true">/</span> {{ a.kind }}</p>
-        <h1 id="artifact-heading">{{ a.name }}</h1>
-        <div class="doc-tools">
-          @if (a.versions.length > 1) {
-            <tc-segmented-control
-              size="sm"
-              aria-label="Version"
-              [options]="versionOptions()"
-              [value]="'' + version()"
-              (tc-value-change)="pickVersion($event)"
-            />
-          }
-          <p class="meta">v{{ version() }} · {{ versionNote() }}</p>
-          <span class="actions">
-            <tc-button variant="secondary" size="sm" label="Copy" (click)="copy(a)" />
-            <tc-button variant="secondary" size="sm" label="Download" (click)="download(a)" />
-            <tc-button variant="secondary" size="sm" label="Save to project" (click)="openSaveToProject(a)" />
-            @if (a.chat; as chat) {
-              <a class="continue" [routerLink]="['/chats', chat.id]">Continue in chat</a>
-            }
-          </span>
-        </div>
-      </header>
-
-      <div class="body">
-        <dn-artifact-body [a]="a" [version]="version()" />
+    <header class="bar">
+      <a class="back" routerLink="/artifacts"><span dnIcon="back" [iconSize]="14"></span>Artifacts</a>
+      <span class="tile" [dnIcon]="kindIcon(a.body.kind)"></span>
+      <div class="title">
+        <p class="name">{{ a.name }}</p>
+        <p class="meta">
+          v{{ version() }}{{ version() === a.version ? ' (latest)' : '' }} · {{ a.kind }} · {{ size() }}
+        </p>
       </div>
-    </article>
-
-    <aside class="details" aria-labelledby="details-heading">
-      <h2 id="details-heading">Details</h2>
-      <dl class="facts">
-        <div>
-          <dt>Sensitivity</dt>
-          <dd>{{ a.sensitivity }}</dd>
-        </div>
-        <div>
-          <dt>Owner</dt>
-          <dd>{{ a.owner }}</dd>
-        </div>
-        <div>
-          <dt>Created in</dt>
-          <dd>
-            @if (a.chat; as chat) {
-              <a [routerLink]="['/chats', chat.id]">{{ chat.title }}</a>
-            } @else {
-              Uploaded
-            }
-          </dd>
-        </div>
-        @if (a.project) {
-          <div>
-            <dt>Project</dt>
-            <dd>{{ a.project }}</dd>
-          </div>
-        }
-      </dl>
-      <h3>Versions</h3>
-      <ol class="list">
-        @for (v of a.versions; track v.version) {
-          <li>
-            <strong>v{{ v.version }}</strong> · {{ when(v.at) }} · {{ v.note }}
-          </li>
-        }
-      </ol>
-      <h3>Sources used</h3>
-      <ul class="list">
-        @for (s of a.sources; track s) {
-          <li>{{ s }}</li>
-        }
-      </ul>
-      <h3>Shared with</h3>
-      @if (a.sharedWith.length) {
-        <ul class="list">
-          @for (p of a.sharedWith; track p) {
-            <li>{{ p }}</li>
-          }
-        </ul>
-      } @else {
-        <p class="meta">Only you</p>
+      @if (a.versions.length > 1) {
+        <tc-segmented-control
+          size="sm"
+          variant="tray"
+          aria-label="Version"
+          [options]="versionOptions()"
+          [value]="'' + version()"
+          (tc-value-change)="pickVersion($event)"
+        />
       }
-    </aside>
+      <tc-segmented-control
+        size="sm"
+        variant="tray"
+        aria-label="View"
+        [options]="modes()"
+        [value]="mode()"
+        (tc-value-change)="pickMode($event)"
+      />
+      <button type="button" class="square" aria-label="Copy" title="Copy" (click)="copy(a)">
+        <span dnIcon="copy" [iconSize]="15"></span>
+      </button>
+      <button type="button" class="square" aria-label="Download" title="Download" (click)="download(a)">
+        <span dnIcon="download" [iconSize]="15"></span>
+      </button>
+      <button type="button" class="outline" (click)="openSaveToProject(a)">Save to project</button>
+      @if (a.chat; as chat) {
+        <a class="solid" [routerLink]="['/chats', chat.id]"
+          ><span dnIcon="chat" [iconSize]="14"></span>Continue in chat</a
+        >
+      }
+    </header>
+
+    <div class="layout">
+      <div class="canvas">
+        <article class="doc" aria-labelledby="artifact-heading">
+          <h1 id="artifact-heading">{{ a.name }}</h1>
+          <p class="byline">
+            {{ a.chat ? 'Drafted by Donovan for ' + a.owner : 'Uploaded by ' + a.owner }} · v{{ version() }} ·
+            {{ when(versionAt()) }}
+          </p>
+          @if (mode() === 'source') {
+            <pre class="source"><code>{{ source() }}</code></pre>
+          } @else {
+            <dn-artifact-body [a]="a" [version]="version()" />
+          }
+        </article>
+      </div>
+
+      <aside class="details" aria-label="About this artifact">
+        <section aria-labelledby="details-h">
+          <h2 id="details-h">Details</h2>
+          <dl class="facts">
+            <div>
+              <dt>Type</dt>
+              <dd>{{ a.kind }}</dd>
+            </div>
+            <div>
+              <dt>Owner</dt>
+              <dd>{{ a.owner }}</dd>
+            </div>
+            @if (a.project) {
+              <div>
+                <dt>Project</dt>
+                <dd>{{ a.project }}</dd>
+              </div>
+            }
+            <div>
+              <dt>Updated</dt>
+              <dd>{{ when(a.updatedAt) }}</dd>
+            </div>
+            <div>
+              <dt>Sensitivity</dt>
+              <dd class="sens dn-sens" [attr.data-level]="a.sensitivity">
+                <span dnIcon="lock" [iconSize]="13"></span>{{ a.sensitivity }}
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        <section aria-labelledby="created-h">
+          <h2 id="created-h">Created in</h2>
+          @if (a.chat; as chat) {
+            <a class="origin" [routerLink]="['/chats', chat.id]"
+              ><span dnIcon="chat" [iconSize]="15"></span><span class="t">{{ chat.title }}</span
+              ><span dnIcon="external" [iconSize]="13"></span
+            ></a>
+          } @else {
+            <p class="meta">Uploaded</p>
+          }
+        </section>
+
+        <section aria-labelledby="versions-h">
+          <h2 id="versions-h">Versions</h2>
+          <ol class="versions">
+            @for (v of reversedVersions(); track v.version) {
+              <li>
+                <button
+                  type="button"
+                  class="version"
+                  [attr.aria-current]="v.version === version() ? 'true' : null"
+                  (click)="version.set(v.version)"
+                >
+                  <span class="dot" aria-hidden="true"></span>
+                  <span
+                    ><span class="v"
+                      >v{{ v.version }} <span class="meta">· {{ when(v.at) }}</span></span
+                    ><span class="note">{{ v.note }}</span></span
+                  >
+                </button>
+              </li>
+            }
+          </ol>
+        </section>
+
+        <section aria-labelledby="sources-h">
+          <h2 id="sources-h">Sources used</h2>
+          <ul class="links">
+            @for (s of a.sources; track s) {
+              <li><span dnIcon="link" [iconSize]="14"></span>{{ s }}</li>
+            } @empty {
+              <li class="meta">None</li>
+            }
+          </ul>
+        </section>
+
+        <section aria-labelledby="shared-h">
+          <h2 id="shared-h">Shared with</h2>
+          @if (a.sharedWith.length) {
+            <ul class="people">
+              @for (p of a.sharedWith; track p) {
+                <li [title]="p">
+                  <span aria-hidden="true">{{ initials(p) }}</span><span class="sr-only">{{ p }}</span>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="meta">Only you</p>
+          }
+        </section>
+      </aside>
+    </div>
   </div>
   <dialog #projectDialog class="dialog" aria-labelledby="save-project-h">
     <form (submit)="$event.preventDefault(); saveToProject(a)">

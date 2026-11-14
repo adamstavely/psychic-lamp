@@ -1,24 +1,25 @@
 <div class="page">
   <header class="head">
-    <div>
+    <div class="intro">
       <h1>Artifacts</h1>
       <p class="lede">Files and documents Donovan produced in your chats, and files you've added.</p>
     </div>
     <label class="upload">
       <input #file type="file" class="sr-only" accept=".md,.markdown,.txt,.csv,.json" (change)="upload(file)" />
-      <span class="upload-btn">Upload</span>
+      <span class="upload-btn"><span dnIcon="plus"></span>Upload</span>
     </label>
   </header>
 
   <div class="tools">
-    <tc-segmented-control
-      size="sm"
-      aria-label="Show"
-      [options]="filters()"
-      [value]="filter()"
-      (tc-value-change)="pick($event)"
-    />
+    <div class="chips" role="group" aria-label="Show">
+      @for (f of filters(); track f.value) {
+        <button type="button" class="chip" [attr.aria-pressed]="filter() === f.value" (click)="filter.set(f.value)">
+          {{ f.label }}<span class="n">{{ f.count }}</span>
+        </button>
+      }
+    </div>
     <form class="search" role="search" (ngSubmit)="runSearch()">
+      <span dnIcon="search"></span>
       <label for="artifact-search" class="sr-only">Search artifacts</label>
       <input
         id="artifact-search"
@@ -28,9 +29,8 @@
         placeholder="Search names and contents"
         autocomplete="off"
       />
-      <tc-button variant="secondary" size="sm" label="Search" (click)="runSearch()" />
       @if (search()) {
-        <tc-button variant="ghost" size="sm" label="Clear" (click)="clearSearch()" />
+        <button type="button" class="clear" (click)="clearSearch()">Clear</button>
       }
     </form>
   </div>
@@ -50,16 +50,22 @@
 
   <ul class="grid">
     @for (a of shown(); track a.id) {
-      <li>
-        <a class="card" [routerLink]="['/artifacts', a.id]">
-          <span class="preview" aria-hidden="true">{{ a.preview }}</span>
-          <span class="meta-row">
-            <span class="kind">{{ a.kind }} · v{{ a.version }}</span>
-            <span class="sens">{{ a.sensitivity }}</span>
+      <li class="card">
+        <span class="preview" aria-hidden="true">
+          <span class="sheet" [class.mono]="a.kind !== 'Doc'">
+            <span class="sheet-title">{{ a.name }}</span>
+            <span class="sheet-text">{{ a.preview }}</span>
           </span>
-          <span class="name">{{ a.name }}</span>
+        </span>
+        <span class="body">
+          <span class="meta-row">
+            <span class="kind" [dnIcon]="kindIcon(a.kind)" [iconSize]="14"></span>
+            <span class="meta">{{ a.kind }} · v{{ a.version }}</span>
+            <span class="sens dn-sens" [attr.data-level]="a.sensitivity">{{ a.sensitivity }}</span>
+          </span>
+          <a class="name" [routerLink]="['/artifacts', a.id]">{{ a.name }}</a>
           <span class="meta">{{ a.chat?.title ?? 'Uploaded' }} · {{ when(a.updatedAt) }}</span>
-        </a>
+        </span>
       </li>
     }
   </ul>

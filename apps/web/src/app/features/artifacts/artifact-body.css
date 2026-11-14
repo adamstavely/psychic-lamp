@@ -1,13 +1,21 @@
 :host {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--tc-space-3);
-  line-height: 1.6;
+  gap: var(--tc-space-2);
+  color: var(--tc-text-primary);
+  font-size: var(--tc-font-size-md);
+  line-height: 1.7;
 }
 
 h2 {
-  margin: var(--tc-space-3) 0 0;
-  font-size: var(--tc-font-size-lg);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tc-space-2);
+  margin: var(--tc-space-5) 0 0;
+  font-size: var(--tc-font-size-md);
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 p,
@@ -15,15 +23,24 @@ ul {
   margin: 0;
 }
 
-.block.new {
-  padding-left: var(--tc-space-3);
-  border-left: 3px solid var(--tc-status-info-solid);
+ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 20px;
+  line-height: 1.6;
 }
 
+/* What the version added: a small badge by the section's heading */
 .new-tag {
-  color: var(--tc-status-info-fg);
-  font-size: var(--tc-font-size-xs);
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--tc-radius-sm);
+  background: var(--tc-accent-subtle);
+  color: var(--tc-accent-text);
+  font-size: 11px;
   font-weight: 600;
+  line-height: 1.5;
 }
 
 .flag {
@@ -31,21 +48,74 @@ ul {
   font-size: var(--tc-font-size-sm);
 }
 
+/* Tables: a plain bordered grid, as the prototype draws them; wide ones scroll in their own box */
+.table-wrap {
+  margin-top: var(--tc-space-2);
+  overflow-x: auto;
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+}
+
+.table-wrap:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--tc-font-size-sm);
+  line-height: 1.45;
+}
+
+th {
+  padding: var(--tc-space-2) var(--tc-space-3);
+  background: var(--tc-surface-sunken);
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+  font-weight: 600;
+  text-align: start;
+}
+
+td {
+  padding: var(--tc-space-2) var(--tc-space-3);
+  border-top: 1px solid var(--tc-border-subtle);
+  overflow-wrap: anywhere;
+}
+
+.mono table {
+  font-family: var(--tc-font-mono);
+}
+
+.data-meta {
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+}
+
 .bars {
   display: grid;
-  gap: var(--tc-space-1);
-  margin: 0;
+  gap: var(--tc-space-2);
+  margin: var(--tc-space-2) 0 0;
 }
 
 .facts {
   display: grid;
-  gap: var(--tc-space-2);
-  margin: 0;
+  gap: 6px;
+  margin: var(--tc-space-3) 0 0;
+  padding: var(--tc-space-3) 14px;
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+  font-size: var(--tc-font-size-sm);
+}
+
+.facts div {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: var(--tc-space-3);
 }
 
 .facts dt {
   color: var(--tc-text-secondary);
-  font-size: var(--tc-font-size-xs);
 }
 
 .facts dd {
@@ -53,24 +123,35 @@ ul {
 }
 
 .callout {
-  padding: var(--tc-space-3);
+  margin-top: var(--tc-space-3);
+  padding: var(--tc-space-3) 14px;
   border: 1px solid var(--tc-status-info-border);
   border-radius: var(--tc-radius-md);
   background: var(--tc-status-info-bg);
+  font-size: var(--tc-font-size-sm);
+  line-height: 1.55;
+}
+
+.callout strong {
+  display: block;
   color: var(--tc-status-info-fg);
 }
 
 .callout[data-tone='warning'] {
   border-color: var(--tc-status-warning-border);
   background: var(--tc-status-warning-bg);
+}
+
+.callout[data-tone='warning'] strong {
   color: var(--tc-status-warning-fg);
 }
 
 .output {
   margin: 0;
-  padding: var(--tc-space-3);
+  padding: var(--tc-space-2-5, 10px) 14px;
+  border: 1px solid var(--tc-border-subtle);
   border-radius: var(--tc-radius-md);
-  background: var(--tc-surface-well);
+  background: var(--tc-surface-sunken);
   font-family: var(--tc-font-mono);
   font-size: var(--tc-font-size-sm);
   overflow-x: auto;
