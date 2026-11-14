@@ -21,6 +21,20 @@ export default tseslint.config(
       '@angular-eslint/component-selector': ['error', { type: 'element', prefix: 'dn', style: 'kebab-case' }],
       '@angular-eslint/prefer-on-push-component-change-detection': 'error',
       '@angular-eslint/prefer-signals': 'error',
+      // Zod stays out of the browser bundle: types from the contracts, plain values from its zod-free entry.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@donovan/contracts',
+              allowTypeImports: true,
+              message: 'Import types only here; runtime values come from @donovan/contracts/defaults.',
+            },
+            { name: 'zod', message: 'Zod is for the API and the contracts package, not the web app.' },
+          ],
+        },
+      ],
     },
   },
   {

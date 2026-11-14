@@ -64,11 +64,16 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm install -g npm@11.21.2
+      # Postgres, Elasticsearch and Keycloak (with the donovan realm), as in local development.
+      - run: docker compose up -d --wait
       - run: npm ci
-      - run: npm run build -w @donovan/contracts
+      - run: npm run build -w @donovan/contracts && npm run build -w api
+      - run: cp apps/api/.env.example apps/api/.env
       - run: npx playwright install --with-deps chromium
         working-directory: apps/web
       - run: npm run e2e
+      - if: failure()
+        run: docker compose logs keycloak --tail 100
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
