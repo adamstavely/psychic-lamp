@@ -4,7 +4,10 @@ import type {
   Chat,
   ChatPatch,
   ChatSummary,
+  ClaimReview,
   Message,
+  NewCheckpoint,
+  ProvenanceManifest,
   NewChat,
   SendMessage,
   ToolDecision,
@@ -12,12 +15,13 @@ import type {
   UserMessage,
   Vote,
 } from '@donovan/contracts';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module.js';
-import { chats, messages } from '../db/schema.js';
+import { chats, checkpoints, claimReviews, messages } from '../db/schema.js';
 import { SeedService } from '../seed/seed.service.js';
+import { contextFor } from './context.js';
 import { decisionReply, pickReply, type Reply } from './replies.js';
 
 type ChatRow = typeof chats.$inferSelect;
@@ -48,12 +52,104 @@ export class ChatsService {
       .from(chats)
       .where(and(eq(chats.ownerId, userId), eq(chats.id, id), isNull(chats.archivedAt)));
     if (!row) throw new NotFoundException('No chat with that id');
-    const turns = await this.db
-      .select()
-      .from(messages)
-      .where(and(eq(messages.ownerId, userId), eq(messages.chatId, id)))
-      .orderBy(asc(messages.seq));
-    return { ...toSummary(row), intent: row.intent ?? null, messages: turns.map(toMessage) };
+    const [turns, reviews, checks] = await Promise.all([
+      this.db
+        .select()
+        .from(messages)
+        .where(and(eq(messages.ownerId, userId), eq(messages.chatId, id)))
+        .orderBy(asc(messages.seq)),
+      this.db
+        .select()
+        .from(claimReviews)
+        .where(and(eq(claimReviews.ownerId, userId), eq(claimReviews.chatId, id))),
+      this.db
+        .select()
+        .from(checkpoints)
+        .where(and(eq(checkpoints.ownerId, userId), eq(checkpoints.chatId, id)))
+        .orderBy(asc(checkpoints.at)),
+    ]);
+    const verdicts = new Map(reviews.map((r) => [r.claimId, r.review]));
+    const thread = turns.map(toMessage).map((m) => withReviews(m, verdicts));
+    return {
+      ...toSummary(row),
+      intent: row.intent ?? null,
+      messages: thread,
+      context: contextFor({ calibrated: row.calibrated, project: row.project }, thread),
+      checkpoints: checks.map((c) => ({ claimId: c.claimId, method: c.method, at: c.at.toISOString() })),
+    };
+  }
+
+  /** Confirms or disputes a claim, or (null) clears the verdict. */
+  async reviewClaim(userId: string, chatId: string, claimId: string, body: ClaimReview): Promise<void> {
+    await this.assertClaim(userId, chatId, claimId);
+    const where = and(
+      eq(claimReviews.ownerId, userId),
+      eq(claimReviews.chatId, chatId),
+      eq(claimReviews.claimId, claimId),
+    );
+    if (body.review === null) await this.db.delete(claimReviews).where(where);
+    else
+      await this.db
+        .insert(claimReviews)
+        .values({ ownerId: userId, chatId, claimId, review: body.review })
+        .onConflictDoUpdate({
+          target: [claimReviews.ownerId, claimReviews.chatId, claimReviews.claimId],
+          set: { review: body.review, at: new Date() },
+        });
+  }
+
+  async addCheckpoint(userId: string, chatId: string, body: NewCheckpoint): Promise<void> {
+    await this.assertClaim(userId, chatId, body.claimId);
+    await this.db.insert(checkpoints).values({ ownerId: userId, chatId, claimId: body.claimId, method: body.method });
+  }
+
+  /** The chat as a provenance record: its settings, routing, sources, claims with verdicts, and a hash of the turns. */
+  async export(userId: string, chatId: string, exportedBy: string): Promise<ProvenanceManifest> {
+    const chat = await this.get(userId, chatId);
+    const answers = chat.messages.filter((m) => m.role === 'assistant');
+    const routing = uniqueBy(
+      answers.flatMap((m) => m.routing),
+      (r) => `${r.kind}:${r.name}`,
+    );
+    const tools = answers.flatMap((m) => m.blocks.filter((b) => b.type === 'tool'));
+    const claimSources = answers.flatMap((m) => m.blocks.flatMap((b) => (b.type === 'claims' ? b.items : [])));
+    const sources = [
+      ...tools.map((t) => ({ id: `tool:${t.id}`, label: `${t.name} · ${t.server}`, detail: t.summary })),
+      ...claimSources.flatMap((c) =>
+        c.source ? [{ id: `source:${c.id}`, label: c.source.title, detail: c.source.publisher }] : [],
+      ),
+    ];
+    const { context: _context, messages: turns, checkpoints: checks, ...summary } = chat;
+    return {
+      format: 'donovan.provenance/v1',
+      exportedAt: new Date().toISOString(),
+      exportedBy,
+      chat: summary,
+      settings: [
+        { label: 'Model', value: chat.context.model },
+        { label: 'Mode', value: chat.calibrated ? 'Calibrated' : 'Standard' },
+        { label: 'Sensitivity', value: chat.sensitivity },
+        {
+          label: 'Context window',
+          value: `${chat.context.parts.reduce((n, p) => n + p.tokens, 0).toLocaleString('en-US')} of ${chat.context.limit.toLocaleString('en-US')} tokens`,
+        },
+      ],
+      routing,
+      sources,
+      claims: claimSources,
+      checkpoints: checks,
+      messages: turns,
+      contentHash: `sha256:${createHash('sha256').update(JSON.stringify(turns)).digest('hex')}`,
+    };
+  }
+
+  private async assertClaim(userId: string, chatId: string, claimId: string): Promise<void> {
+    const chat = await this.get(userId, chatId);
+    const found = chat.messages.some(
+      (m) =>
+        m.role === 'assistant' && m.blocks.some((b) => b.type === 'claims' && b.items.some((c) => c.id === claimId)),
+    );
+    if (!found) throw new NotFoundException('No claim with that id in this chat');
   }
 
   async update(userId: string, id: string, patch: ChatPatch): Promise<ChatSummary> {
@@ -229,6 +325,21 @@ export function titleFrom(text: string): string {
   if (first.length <= 60) return first;
   const cut = first.slice(0, 60);
   return `${cut.slice(0, cut.lastIndexOf(' ') > 30 ? cut.lastIndexOf(' ') : 60).trimEnd()}…`;
+}
+
+function withReviews(m: Message, verdicts: Map<string, 'confirmed' | 'disputed'>): Message {
+  if (m.role !== 'assistant' || verdicts.size === 0) return m;
+  return {
+    ...m,
+    blocks: m.blocks.map((b) =>
+      b.type === 'claims' ? { ...b, items: b.items.map((c) => ({ ...c, review: verdicts.get(c.id) ?? null })) } : b,
+    ),
+  };
+}
+
+function uniqueBy<T>(items: T[], key: (t: T) => string): T[] {
+  const seen = new Set<string>();
+  return items.filter((t) => !seen.has(key(t)) && !!seen.add(key(t)));
 }
 
 function toSummary(row: ChatRow): ChatSummary {

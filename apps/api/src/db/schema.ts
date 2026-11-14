@@ -104,3 +104,35 @@ export const messages = pgTable(
     foreignKey({ columns: [t.ownerId, t.chatId], foreignColumns: [chats.ownerId, chats.id] }).onDelete('cascade'),
   ],
 );
+
+/** The owner's verdict on a claim in a Calibrated answer. */
+export const claimReviews = pgTable(
+  'claim_reviews',
+  {
+    ownerId: uuid().notNull(),
+    chatId: text().notNull(),
+    claimId: text().notNull(),
+    review: text({ enum: ['confirmed', 'disputed'] }).notNull(),
+    at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.ownerId, t.chatId, t.claimId] }),
+    foreignKey({ columns: [t.ownerId, t.chatId], foreignColumns: [chats.ownerId, chats.id] }).onDelete('cascade'),
+  ],
+);
+
+/** "I'll verify claim c4 by …": recorded at a Calibrated session's verification checkpoint. */
+export const checkpoints = pgTable(
+  'checkpoints',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: uuid().notNull(),
+    chatId: text().notNull(),
+    claimId: text().notNull(),
+    method: text().notNull(),
+    at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({ columns: [t.ownerId, t.chatId], foreignColumns: [chats.ownerId, chats.id] }).onDelete('cascade'),
+  ],
+);

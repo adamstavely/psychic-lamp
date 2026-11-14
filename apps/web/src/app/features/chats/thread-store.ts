@@ -4,7 +4,10 @@ import type {
   AssistantMessage,
   Block,
   Chat,
+  ClaimReview,
   Message,
+  NewCheckpoint,
+  ProvenanceManifest,
   ModelChoice,
   StreamEvent,
   ToolDecision,
@@ -37,12 +40,30 @@ export class ThreadStore {
     const loaded = this.chat.hasValue() ? this.chat.value().messages : [];
     const local = this.#local();
     const replaced = new Map(local.map((m) => [m.id, m]));
-    return [...loaded.map((m) => replaced.get(m.id) ?? m), ...local.filter((m) => !loaded.some((l) => l.id === m.id))];
+    const reviews = this.#reviews();
+    const merged = [
+      ...loaded.map((m) => replaced.get(m.id) ?? m),
+      ...local.filter((m) => !loaded.some((l) => l.id === m.id)),
+    ];
+    if (Object.keys(reviews).length === 0) return merged;
+    return merged.map((m) =>
+      m.role !== 'assistant'
+        ? m
+        : {
+            ...m,
+            blocks: m.blocks.map((b) =>
+              b.type === 'claims'
+                ? { ...b, items: b.items.map((c) => (c.id in reviews ? { ...c, review: reviews[c.id] ?? null } : c)) }
+                : b,
+            ),
+          },
+    );
   });
 
   open(chatId: string): void {
     if (chatId === this.chatId()) return;
     this.#local.set([]);
+    this.#reviews.set({});
     this.chatId.set(chatId);
   }
 
@@ -80,6 +101,49 @@ export class ThreadStore {
     this.status.set(
       decision.decision === 'approve' ? 'Approved. Donovan ran the tool.' : "Denied. The tool didn't run.",
     );
+  }
+
+  /** Claim verdicts made here, laid over the loaded ones until the chat reloads. */
+  readonly #reviews = signal<Record<string, ClaimReview['review']>>({});
+  readonly reviews = computed(() => this.#reviews());
+
+  async reviewClaim(claimId: string, review: ClaimReview['review']): Promise<void> {
+    const before = this.#reviews();
+    this.#reviews.set({ ...before, [claimId]: review });
+    try {
+      await firstValueFrom(
+        this.#http.put<void>(
+          `/api/chats/${encodeURIComponent(this.chatId())}/claims/${encodeURIComponent(claimId)}/review`,
+          {
+            review,
+          },
+        ),
+      );
+      this.status.set(review ? `Claim ${review}.` : 'Verdict cleared.');
+    } catch {
+      this.#reviews.set(before);
+      toast.error("Couldn't save your verdict", { description: 'Try again in a moment.' });
+    }
+  }
+
+  async addCheckpoint(body: NewCheckpoint): Promise<void> {
+    await firstValueFrom(this.#http.post<void>(`/api/chats/${encodeURIComponent(this.chatId())}/checkpoints`, body));
+    this.chat.reload();
+  }
+
+  /** Downloads the chat's provenance record as a JSON file. */
+  async exportProvenance(): Promise<void> {
+    const manifest = await firstValueFrom(
+      this.#http.get<ProvenanceManifest>(`/api/chats/${encodeURIComponent(this.chatId())}/export`),
+    );
+    const url = URL.createObjectURL(new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' }));
+    const a = Object.assign(document.createElement('a'), {
+      href: url,
+      download: `donovan-${this.chatId()}-provenance.json`,
+    });
+    a.click();
+    URL.revokeObjectURL(url);
+    this.status.set('Provenance record downloaded.');
   }
 
   async vote(message: AssistantMessage, body: Vote): Promise<void> {

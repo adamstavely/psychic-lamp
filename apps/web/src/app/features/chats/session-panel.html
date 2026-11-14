@@ -1,0 +1,167 @@
+@if (chat(); as c) {
+  <aside class="panel" aria-labelledby="session-panel-heading">
+    <h2 id="session-panel-heading" class="sr-only">Session panel</h2>
+    <tc-segmented-control
+      kind="tabs"
+      variant="underline"
+      size="sm"
+      fullWidth
+      [options]="tabs()"
+      [value]="tab()"
+      (tc-value-change)="pick($event)"
+    />
+
+    @switch (tab()) {
+      @case ('session') {
+        <div id="panel-session" role="tabpanel" aria-label="Session" class="body">
+          <div>
+            <h3 id="intent-h">Session intent</h3>
+            @if (c.intent; as intent) {
+              <dl class="facts">
+                <div>
+                  <dt>Task</dt>
+                  <dd>{{ intent.task }}</dd>
+                </div>
+                <div>
+                  <dt>Decision this supports</dt>
+                  <dd>{{ intent.decision }}</dd>
+                </div>
+                <div>
+                  <dt>Consequence of error</dt>
+                  <dd>{{ intent.consequence }}</dd>
+                </div>
+              </dl>
+            } @else {
+              <p class="empty">No session intent. Turn on Calibrated mode in the project to set one.</p>
+            }
+          </div>
+
+          <div>
+            <h3 id="claims-h">Claims</h3>
+            <p class="meta">
+              {{ summary().confirmed }} confirmed · {{ summary().disputed }} disputed ·
+              {{ summary().unresolved }} unresolved
+            </p>
+            @if (claims().length === 0) {
+              <p class="empty">
+                No claims in this chat yet. Calibrated answers mark each claim as Grounded, Model knowledge or Inferred.
+              </p>
+            }
+            <ul class="claims">
+              @for (claim of claims(); track claim.id) {
+                <li class="claim" [attr.data-review]="claim.review">
+                  <p class="claim-tags">
+                    <span class="tag">{{ claimKind[claim.kind] }}</span>
+                    <span class="tag">{{ claim.confidence }} confidence</span>
+                    <span class="tag status">{{
+                      claim.review === 'confirmed'
+                        ? 'Confirmed'
+                        : claim.review === 'disputed'
+                          ? 'Disputed'
+                          : 'Unresolved'
+                    }}</span>
+                  </p>
+                  <p class="claim-text">{{ claim.text }}</p>
+                  <p class="meta">{{ claim.topic }}</p>
+                  @if (claim.source; as s) {
+                    <figure class="source">
+                      <figcaption>
+                        <strong>{{ s.title }}</strong> · {{ s.publisher }} · {{ s.match }}
+                      </figcaption>
+                      <blockquote>{{ s.passage }}</blockquote>
+                    </figure>
+                  }
+                  @if (claim.note) {
+                    <p class="note"><strong>Note:</strong> {{ claim.note }}</p>
+                  }
+                  @if (claim.cutoff) {
+                    <p class="meta">Knowledge cutoff: {{ claim.cutoff }}</p>
+                  }
+                  <div class="verdict" role="group" [attr.aria-label]="'Your verdict on: ' + claim.topic">
+                    <button
+                      type="button"
+                      class="verdict-btn"
+                      [attr.aria-pressed]="claim.review === 'confirmed'"
+                      (click)="review(claim, 'confirmed')"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      type="button"
+                      class="verdict-btn"
+                      [attr.aria-pressed]="claim.review === 'disputed'"
+                      (click)="review(claim, 'disputed')"
+                    >
+                      Dispute
+                    </button>
+                  </div>
+                </li>
+              }
+            </ul>
+          </div>
+        </div>
+      }
+      @case ('artifacts') {
+        <div id="panel-artifacts" role="tabpanel" aria-label="Artifacts" class="body">
+          @if (artifacts().length === 0) {
+            <p class="empty">No artifacts created in this chat yet.</p>
+          }
+          <ul class="rows">
+            @for (a of artifacts(); track a.artifactId) {
+              <li>
+                <a [routerLink]="['/artifacts', a.artifactId]">{{ a.name }}</a>
+                <span class="meta">{{ a.kind }} · {{ a.meta }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+      @case ('sources') {
+        <div id="panel-sources" role="tabpanel" aria-label="Sources" class="body">
+          <ul class="rows">
+            @for (r of sources(); track r.kind + r.name) {
+              <li>
+                <span>{{ r.name }}</span>
+                <span class="meta">{{ kindLabel[r.kind] }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+      @case ('metadata') {
+        <div id="panel-metadata" role="tabpanel" aria-label="Metadata" class="body">
+          <dl class="facts">
+            <div>
+              <dt>Chat</dt>
+              <dd>{{ c.title }}</dd>
+            </div>
+            <div>
+              <dt>Project</dt>
+              <dd>{{ c.project ?? 'None' }}</dd>
+            </div>
+            <div>
+              <dt>Sensitivity</dt>
+              <dd>{{ c.sensitivity }}</dd>
+            </div>
+            <div>
+              <dt>Mode</dt>
+              <dd>{{ c.calibrated ? 'Calibrated' : 'Standard' }}</dd>
+            </div>
+            <div>
+              <dt>Routing</dt>
+              <dd>{{ routing() || 'Nothing yet' }}</dd>
+            </div>
+          </dl>
+          <tc-context-window
+            heading="Context window"
+            [model]="c.context.model"
+            [limit]="c.context.limit"
+            [parts]="contextParts()"
+          />
+          <p class="meta">Recorded with every export so a reviewer can reproduce this session.</p>
+          <tc-button variant="primary" label="Export with provenance" (click)="exportProvenance()" />
+        </div>
+      }
+    }
+  </aside>
+}

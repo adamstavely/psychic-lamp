@@ -1,94 +1,117 @@
 @if (chat.hasValue()) {
   @let c = chat.value();
-  <div class="page">
-    <tc-thread-header
-      class="header"
-      [heading]="heading()"
-      [level]="1"
-      [project]="c.project ?? undefined"
-      hideShare
-      (tc-title-change)="rename($event)"
-    />
-
-    <div class="thread">
-      @if (c.intent; as intent) {
-        <section class="intent" aria-labelledby="intent-heading">
-          <h2 id="intent-heading">Session intent</h2>
-          <dl>
-            <div>
-              <dt>Task</dt>
-              <dd>{{ intent.task }}</dd>
-            </div>
-            <div>
-              <dt>Decision this supports</dt>
-              <dd>{{ intent.decision }}</dd>
-            </div>
-            <div>
-              <dt>Consequence of error</dt>
-              <dd>{{ intent.consequence }}</dd>
-            </div>
-          </dl>
-        </section>
-      }
-
-      <ol class="turns" aria-label="Conversation">
-        @for (m of thread.messages(); track m.id) {
-          @if (isAssistant(m)) {
-            <li class="turn assistant">
-              <h2 class="sr-only">Donovan</h2>
-              <p class="worked">{{ workedLabel(m) }}</p>
-              @if (m.routing.length) {
-                <div class="routing">
-                  <span class="routing-label" id="routed-{{ m.id }}">Routed to</span>
-                  <ul [attr.aria-labelledby]="'routed-' + m.id">
-                    @for (r of m.routing; track $index) {
-                      <li class="chip">
-                        <span class="sr-only">{{ routeKind[r.kind] }}: </span>{{ r.name }}
-                      </li>
-                    }
-                  </ul>
-                </div>
-              }
-              <div class="blocks">
-                @for (b of m.blocks; track $index) {
-                  <dn-block [block]="b" [decide]="decide" />
-                }
-              </div>
-              @if (!(thread.streaming() && $last)) {
-                <tc-message-actions
-                  label="Answer actions"
-                  [actions]="['copy', 'feedback']"
-                  [text]="plainText(m)"
-                  [feedback]="m.vote"
-                  [reasons]="reasons"
-                  (tc-feedback)="onFeedback(m, $event)"
-                />
-              }
-            </li>
-          } @else {
-            <li class="turn user">
-              <h2 class="sr-only">You</h2>
-              <p>{{ m.text }}</p>
-            </li>
-          }
-        }
-      </ol>
-    </div>
-
-    <div class="composer">
-      <tc-chat-composer
-        placeholder="Reply…"
-        [models]="models"
-        model="auto"
-        hideConnectApps
-        hideProject
-        hideApproval
-        [onDictate]="dictate"
-        [onSend]="send"
-        disclaimer="AI-generated claims can be wrong, including plausible ones with no basis in the sources. Verify before acting."
+  <div class="layout" [class.with-panel]="panelOpen()">
+    <div class="page">
+      <tc-thread-header
+        class="header"
+        [heading]="heading()"
+        [level]="1"
+        [project]="c.project ?? undefined"
+        hideShare
+        [toggles]="toggles"
+        [panels]="panels()"
+        (tc-title-change)="rename($event)"
+        (tc-panels-change)="onPanels($event)"
       />
+
+      <div class="thread">
+        @if (c.intent; as intent) {
+          <section class="intent" aria-labelledby="intent-heading">
+            <h2 id="intent-heading">Session intent</h2>
+            <dl>
+              <div>
+                <dt>Task</dt>
+                <dd>{{ intent.task }}</dd>
+              </div>
+              <div>
+                <dt>Decision this supports</dt>
+                <dd>{{ intent.decision }}</dd>
+              </div>
+              <div>
+                <dt>Consequence of error</dt>
+                <dd>{{ intent.consequence }}</dd>
+              </div>
+            </dl>
+          </section>
+        }
+
+        <ol class="turns" aria-label="Conversation">
+          @for (m of thread.messages(); track m.id) {
+            @if (isAssistant(m)) {
+              <li class="turn assistant">
+                <h2 class="sr-only">Donovan</h2>
+                <p class="worked">{{ workedLabel(m) }}</p>
+                @if (m.routing.length) {
+                  <div class="routing">
+                    <span class="routing-label" id="routed-{{ m.id }}">Routed to</span>
+                    <ul [attr.aria-labelledby]="'routed-' + m.id">
+                      @for (r of m.routing; track $index) {
+                        <li class="chip">
+                          <span class="sr-only">{{ routeKind[r.kind] }}: </span>{{ r.name }}
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+                <div class="blocks">
+                  @for (b of m.blocks; track $index) {
+                    <dn-block [block]="b" [decide]="decide" />
+                  }
+                </div>
+                @if (!(thread.streaming() && $last)) {
+                  <tc-message-actions
+                    label="Answer actions"
+                    [actions]="['copy', 'feedback']"
+                    [text]="plainText(m)"
+                    [feedback]="m.vote"
+                    [reasons]="reasons"
+                    (tc-feedback)="onFeedback(m, $event)"
+                  />
+                }
+              </li>
+            } @else {
+              <li class="turn user">
+                <h2 class="sr-only">You</h2>
+                <p>{{ m.text }}</p>
+              </li>
+            }
+          }
+        </ol>
+
+        @if (askCheckpoint()) {
+          <tc-reflection-gate
+            class="checkpoint"
+            mode="checkpoint"
+            heading="Verification checkpoint · 2 exchanges"
+            description="Before continuing, name one claim you will verify independently before acting on this analysis."
+            [claims]="checkpointClaims()"
+            (tc-submit)="onCheckpoint($event)"
+          />
+        } @else if (c.checkpoints.length) {
+          <p class="checkpoint-done" role="note">
+            You'll verify {{ c.checkpoints[0]!.claimId }}: {{ c.checkpoints[0]!.method }}
+          </p>
+        }
+      </div>
+
+      <div class="composer">
+        <tc-chat-composer
+          placeholder="Reply…"
+          [models]="models"
+          model="auto"
+          hideConnectApps
+          hideProject
+          hideApproval
+          [onDictate]="dictate"
+          [onSend]="send"
+          disclaimer="AI-generated claims can be wrong, including plausible ones with no basis in the sources. Verify before acting."
+        />
+      </div>
+      <p class="sr-only" role="status" aria-live="polite">{{ thread.status() }}</p>
     </div>
-    <p class="sr-only" role="status" aria-live="polite">{{ thread.status() }}</p>
+    @if (panelOpen()) {
+      <dn-session-panel />
+    }
   </div>
 } @else if (chat.error()) {
   <section class="state" role="alert">

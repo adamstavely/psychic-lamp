@@ -2,6 +2,9 @@ import {
   type Chat,
   ChatPatch,
   type ChatSummary,
+  ClaimReview,
+  NewCheckpoint,
+  type ProvenanceManifest,
   NewChat,
   SendMessage,
   ToolDecision,
@@ -14,6 +17,7 @@ import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { Claims } from '../auth/claims.decorator.js';
 import type { Claims as TokenClaims } from '../auth/claims.js';
+import { identityFrom } from '../users/identity.js';
 import { UsersService } from '../users/users.service.js';
 import type { Env } from '../config/env.js';
 import { ChatsService } from './chats.service.js';
@@ -63,6 +67,35 @@ export class ChatsController {
       res.write(sse(event));
     }
     res.end();
+  }
+
+  @Put(':id/claims/:claimId/review')
+  @HttpCode(204)
+  async reviewClaim(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: ChatId }) id: string,
+    @Param('claimId', { schema: ToolId }) claimId: string,
+    @Body({ schema: ClaimReview }) body: ClaimReview,
+  ): Promise<void> {
+    await this.chats.reviewClaim(await this.users.idFor(claims), id, claimId, body);
+  }
+
+  @Post(':id/checkpoints')
+  @HttpCode(204)
+  async addCheckpoint(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: ChatId }) id: string,
+    @Body({ schema: NewCheckpoint }) body: NewCheckpoint,
+  ): Promise<void> {
+    await this.chats.addCheckpoint(await this.users.idFor(claims), id, body);
+  }
+
+  @Get(':id/export')
+  async export(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: ChatId }) id: string,
+  ): Promise<ProvenanceManifest> {
+    return this.chats.export(await this.users.idFor(claims), id, identityFrom(claims).name);
   }
 
   @Post(':id/tools/:toolId/decision')

@@ -154,9 +154,20 @@ export const ChatSummary = z.object({
 });
 export type ChatSummary = z.infer<typeof ChatSummary>;
 
+/** One part of what the last answer was given to read, in tokens. */
+export const ContextPart = z.object({ label: z.string(), tokens: z.number().int().nonnegative() });
+export type ContextPart = z.infer<typeof ContextPart>;
+
+/** A Calibrated session's answer to "which claim will you verify, and how?" */
+export const Checkpoint = z.object({ claimId: z.string(), method: z.string(), at: Iso });
+export type Checkpoint = z.infer<typeof Checkpoint>;
+
 export const Chat = ChatSummary.extend({
   intent: SessionIntent.nullable(),
   messages: z.array(Message),
+  /** The context window behind the latest answer. */
+  context: z.object({ model: z.string(), limit: z.number().int().positive(), parts: z.array(ContextPart) }),
+  checkpoints: z.array(Checkpoint),
 });
 export type Chat = z.infer<typeof Chat>;
 
@@ -215,3 +226,29 @@ export const Vote = z.strictObject({
   reason: z.string().max(200).optional(),
 });
 export type Vote = z.infer<typeof Vote>;
+
+export const ClaimReview = z.strictObject({ review: z.enum(['confirmed', 'disputed']).nullable() });
+export type ClaimReview = z.infer<typeof ClaimReview>;
+
+export const NewCheckpoint = z.strictObject({
+  claimId: z.string().min(1).max(64),
+  method: z.string().trim().min(3, 'Say how you will check it').max(500),
+});
+export type NewCheckpoint = z.infer<typeof NewCheckpoint>;
+
+/** Everything a reviewer needs to see how an answer was produced: settings, routing, sources and the reader's checks. */
+export const ProvenanceManifest = z.object({
+  format: z.literal('donovan.provenance/v1'),
+  exportedAt: Iso,
+  exportedBy: z.string(),
+  chat: ChatSummary.extend({ intent: SessionIntent.nullable() }),
+  settings: z.array(z.object({ label: z.string(), value: z.string() })),
+  routing: z.array(Route),
+  sources: z.array(z.object({ id: z.string(), label: z.string(), detail: z.string() })),
+  claims: z.array(Claim),
+  checkpoints: z.array(Checkpoint),
+  messages: z.array(Message),
+  /** sha256 of the messages as exported, so a copy can be checked against the original. */
+  contentHash: z.string(),
+});
+export type ProvenanceManifest = z.infer<typeof ProvenanceManifest>;
