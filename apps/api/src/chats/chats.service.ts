@@ -455,6 +455,7 @@ function toSummary(row: ChatRow): ChatSummary {
   return {
     id: row.id,
     title: row.title,
+    projectId: row.projectId,
     project: row.project,
     sensitivity: row.sensitivity,
     pinned: row.pinned,

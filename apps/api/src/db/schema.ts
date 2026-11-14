@@ -78,6 +78,8 @@ export const chats = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     id: text().notNull(),
     title: text().notNull(),
+    /** The project it's filed under (one of the owner's), and that project's name, for display only. */
+    projectId: text(),
     project: text(),
     sensitivity: text({ enum: ['Public', 'Internal', 'Confidential', 'Restricted'] }).notNull(),
     pinned: boolean().notNull().default(false),
@@ -90,7 +92,11 @@ export const chats = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.ownerId, t.id] }), index('chats_owner_updated').on(t.ownerId, t.updatedAt)],
+  (t) => [
+    primaryKey({ columns: [t.ownerId, t.id] }),
+    index('chats_owner_updated').on(t.ownerId, t.updatedAt),
+    foreignKey({ columns: [t.ownerId, t.projectId], foreignColumns: [projects.ownerId, projects.id] }),
+  ],
 );
 
 export interface AnswerBody {
@@ -169,6 +175,8 @@ export const artifacts = pgTable(
     kind: text({ enum: ['Doc', 'Code', 'Data'] }).notNull(),
     sensitivity: text({ enum: ['Public', 'Internal', 'Confidential', 'Restricted'] }).notNull(),
     chatId: text(),
+    /** The project it's filed under (one of the owner's), and that project's name, for display only. */
+    projectId: text(),
     project: text(),
     sharedWith: jsonb().$type<string[]>().notNull().default([]),
     versions: jsonb().$type<ArtifactVersion[]>().notNull(),
@@ -177,7 +185,12 @@ export const artifacts = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.ownerId, t.id] }), index('artifacts_owner_updated').on(t.ownerId, t.updatedAt)],
+  (t) => [
+    primaryKey({ columns: [t.ownerId, t.id] }),
+    index('artifacts_owner_updated').on(t.ownerId, t.updatedAt),
+    index('artifacts_owner_project').on(t.ownerId, t.projectId),
+    foreignKey({ columns: [t.ownerId, t.projectId], foreignColumns: [projects.ownerId, projects.id] }),
+  ],
 );
 
 export const projects = pgTable(

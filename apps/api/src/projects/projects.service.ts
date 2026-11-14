@@ -129,7 +129,7 @@ export class ProjectsService {
         .select()
         .from(projectShares)
         .where(and(eq(projectShares.ownerId, userId), eq(projectShares.projectId, id))),
-      this.artifactsService.inProject(userId, row.name),
+      this.artifactsService.inProject(userId, row.id),
       this.db
         .select()
         .from(projectAnswers)
@@ -160,7 +160,7 @@ export class ProjectsService {
       suggestions: (canned?.suggestions ?? [])
         .map((s, i) => ({ id: `x${i + 1}`, ...s }))
         .filter((s) => !added.has(s.title)),
-      chats: chatList.filter((c) => c.project === row.name),
+      chats: chatList.filter((c) => c.projectId === row.id),
       workflows: canned?.workflows ?? [],
       thread: thread.map(toAnswer),
     };
@@ -209,16 +209,17 @@ export class ProjectsService {
         .set({ ...patch, updatedAt: new Date() })
         .where(and(eq(projects.ownerId, userId), eq(projects.id, id)))
         .returning();
-      if (patch.name && patch.name !== before.name)
+      // The name shown on what's filed under this project (by id: another project with the same name is untouched).
+      if (patch.name && patch.name !== before.name) {
         await tx
           .update(chats)
           .set({ project: patch.name, updatedAt: sql`${chats.updatedAt}` })
-          .where(and(eq(chats.ownerId, userId), eq(chats.project, before.name)));
-      if (patch.name && patch.name !== before.name)
+          .where(and(eq(chats.ownerId, userId), eq(chats.projectId, id)));
         await tx
           .update(artifacts)
           .set({ project: patch.name })
-          .where(and(eq(artifacts.ownerId, userId), eq(artifacts.project, before.name)));
+          .where(and(eq(artifacts.ownerId, userId), eq(artifacts.projectId, id)));
+      }
       const [{ n }] = await tx
         .select({ n: count() })
         .from(projectSources)
@@ -529,7 +530,7 @@ export class ProjectsService {
     const made = await this.artifactsService.create(userId, {
       name: `${label} — ${project.name}`,
       sensitivity: project.sensitivity,
-      project: project.name,
+      project: { id: project.id, name: project.name },
       sources: selected.map((s) => s.title),
       note: `Made by the ${label} tool from ${selected.length} sources`,
       body: bodyFor[body.tool],

@@ -158,6 +158,8 @@ export type SessionIntent = z.infer<typeof SessionIntent>;
 export const ChatSummary = z.object({
   id: z.string(),
   title: z.string(),
+  /** The project it's filed under, by id, and that project's name (for display). */
+  projectId: z.string().nullable(),
   project: z.string().nullable(),
   sensitivity: Sensitivity,
   pinned: z.boolean(),

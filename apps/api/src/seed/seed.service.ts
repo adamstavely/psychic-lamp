@@ -10,6 +10,10 @@ type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 const MINUTE = 60_000;
 
+/** A canned chat's or artifact's project (named in the fixtures), by id: the seeded project with that name. */
+const SEEDED_PROJECT = new Map(SEED_PROJECTS.map((p) => [p.name, p.id]));
+const projectIdFor = (name: string | null) => (name ? (SEEDED_PROJECT.get(name) ?? null) : null);
+
 /** Copies the canned content to a person the first time they need it, once per set, safely under concurrency. */
 @Injectable()
 export class SeedService {
@@ -18,7 +22,9 @@ export class SeedService {
     private readonly chatSearch: ChatSearch,
   ) {}
 
-  ensureChats(userId: string, now = new Date()): Promise<boolean> {
+  async ensureChats(userId: string, now = new Date()): Promise<boolean> {
+    // Chats are filed under projects (by id), so those come first.
+    await this.ensureProjects(userId, now);
     return this.once(userId, 'chats', async (tx) => {
       for (const chat of SEED_CHATS) {
         const updatedAt = new Date(now.getTime() - chat.minutesAgo * MINUTE);
@@ -26,7 +32,8 @@ export class SeedService {
           ownerId: userId,
           id: chat.id,
           title: chat.title,
-          project: chat.project,
+          projectId: projectIdFor(chat.project),
+          project: projectIdFor(chat.project) ? chat.project : null,
           sensitivity: chat.sensitivity,
           pinned: chat.pinned,
           calibrated: chat.calibrated,
@@ -79,11 +86,12 @@ export class SeedService {
    * Copies the canned artifacts. `afterInsert` runs inside the same transaction (to index them for search), so a request
    * that arrives meanwhile waits until they're both stored and searchable.
    */
-  ensureArtifacts(
+  async ensureArtifacts(
     userId: string,
     afterInsert: (rows: (typeof artifacts.$inferSelect)[]) => Promise<void> = async () => undefined,
     now = new Date(),
   ): Promise<boolean> {
+    await this.ensureProjects(userId, now);
     return this.once(userId, 'artifacts', async (tx) => {
       const rows = await tx
         .insert(artifacts)
@@ -102,7 +110,8 @@ export class SeedService {
               kind: a.body.kind,
               sensitivity: a.sensitivity,
               chatId: a.chatId,
-              project: a.project,
+              projectId: projectIdFor(a.project),
+              project: projectIdFor(a.project) ? a.project : null,
               sharedWith: a.sharedWith,
               versions,
               sources: a.sources,
