@@ -8,7 +8,15 @@ import { identityFrom, initialsOf } from './identity.js';
 
 @Injectable()
 export class UsersService {
+  /** Subject → user id, so routes that only need the id don't write the user row on every request. */
+  readonly #ids = new Map<string, string>();
+
   constructor(@Inject(DB) private readonly db: Db) {}
+
+  /** The caller's user id, creating their row the first time this process sees them. */
+  async idFor(claims: Claims): Promise<string> {
+    return this.#ids.get(claims.sub) ?? (await this.me(claims)).id;
+  }
 
   /** The caller's user row, created on first sign-in and kept in step with their token's name and email. */
   async me(claims: Claims): Promise<Me> {

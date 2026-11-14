@@ -1,0 +1,211 @@
+<div class="page">
+  @if (store.brief.hasValue()) {
+    @let brief = store.brief.value();
+    <header class="intro">
+      <p class="eyebrow">
+        <span class="eyebrow-name">Daily Brief</span>
+        <span>{{ date }}</span>
+        <span aria-hidden="true">·</span>
+        <span>{{ since(brief) }}</span>
+      </p>
+      <h1>{{ heading() }} {{ needsLine() }}</h1>
+    </header>
+
+    <section class="card read" aria-labelledby="read-heading">
+      <h2 id="read-heading" class="card-label">
+        <span dnIcon="sparkle" [iconSize]="14"></span> Donovan's read on your queue
+      </h2>
+      @for (p of brief.read; track $index) {
+        <p>{{ p }}</p>
+      }
+    </section>
+
+    <ul class="chips" aria-label="At a glance">
+      <li>
+        <button type="button" class="chip" (click)="focusSection('needs-heading')">
+          <strong>{{ store.openNeeds().length }}</strong> need you
+        </button>
+      </li>
+      <li>
+        <button type="button" class="chip" (click)="focusSection('memos-heading')">
+          <strong>{{ store.unreadMemos().length }}</strong> unread memos
+        </button>
+      </li>
+      <li>
+        <button type="button" class="chip" (click)="focusSection('searches-heading')">
+          <strong>{{ store.newResults() }}</strong> new search results
+        </button>
+      </li>
+      <li>
+        <button type="button" class="chip" (click)="focusSection('today-heading')">
+          <strong>{{ brief.meetings.length }}</strong> meetings today
+        </button>
+      </li>
+    </ul>
+
+    <section class="card" aria-labelledby="changed-heading">
+      <h2 id="changed-heading" tabindex="-1">
+        Changed since yesterday <span class="count">{{ brief.accounts.length }} accounts with updates</span>
+      </h2>
+      <tc-stories
+        label="Accounts with updates"
+        [entries]="storyEntries()"
+        [seen]="storySeen()"
+        (tc-seen-change)="onSeen($event)"
+        (tc-action)="onStoryAction($event)"
+      />
+    </section>
+
+    <div class="columns">
+      <section class="card" aria-labelledby="needs-heading">
+        <h2 id="needs-heading" tabindex="-1">
+          Needs you <span class="count">{{ store.openNeeds().length }} open</span>
+        </h2>
+        <ul class="list">
+          @for (need of brief.needs; track need.id) {
+            <li class="need" [class.done]="need.done">
+              <tc-checkbox
+                [label]="need.title"
+                [description]="need.meta"
+                [value]="need.done"
+                (tc-value-change)="toggleNeed(need, $event)"
+              />
+              <div class="need-side">
+                <span class="tag">{{ needTag[need.kind] }}</span>
+                @if (need.dueAt && !need.done) {
+                  <span class="tag urgent">Before {{ clockTime(need.dueAt) }}</span>
+                }
+                @if (need.action.href) {
+                  <a class="action" [routerLink]="need.action.href">
+                    {{ need.action.label }}<span class="sr-only">: {{ need.title }}</span>
+                  </a>
+                } @else {
+                  <span class="later">In Build, coming soon</span>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+      </section>
+
+      <section class="card" aria-labelledby="memos-heading">
+        <div class="card-head">
+          <h2 id="memos-heading" tabindex="-1">
+            New memos <span class="count">{{ store.unreadMemos().length }} unread</span>
+          </h2>
+          <tc-button
+            variant="ghost"
+            size="sm"
+            label="Mark all read"
+            [disabled]="store.unreadMemos().length === 0"
+            (click)="markAllRead(brief.memos)"
+          />
+        </div>
+        <ul class="list">
+          @for (memo of brief.memos; track memo.id) {
+            <li class="memo" [class.unread]="!memo.read">
+              <span class="avatar" aria-hidden="true">{{ initials(memo.from) }}</span>
+              <div class="memo-body">
+                <p class="memo-meta">
+                  <span class="memo-from">{{ memo.from }}</span> <span>{{ memo.role }}</span>
+                  <span class="memo-time">{{ when(memo.at) }}</span>
+                  @if (!memo.read) {
+                    <span class="unread-mark">Unread</span>
+                  }
+                </p>
+                <h3>{{ memo.subject }}</h3>
+                <p class="preview">{{ memo.preview }}</p>
+                <a class="action" routerLink="/chats/new" [queryParams]="{ q: replyPrompt(memo) }">
+                  Draft a reply with Donovan<span class="sr-only"> to {{ memo.from }}</span>
+                </a>
+              </div>
+            </li>
+          }
+        </ul>
+      </section>
+
+      <div class="stack">
+        <section class="card" aria-labelledby="today-heading">
+          <h2 id="today-heading" tabindex="-1">
+            Today <span class="count">{{ brief.meetings.length }} meetings</span>
+          </h2>
+          <ul class="list">
+            @for (m of brief.meetings; track m.id) {
+              <li class="meeting" [class.important]="m.important">
+                <p class="meeting-title">
+                  {{ m.title }}
+                  @if (m.important) {
+                    <span class="tag urgent">Key meeting</span>
+                  }
+                </p>
+                <p class="meeting-meta">
+                  <time [attr.datetime]="m.start">{{ clockTime(m.start) }}</time>–<time [attr.datetime]="m.end">{{
+                    clockTime(m.end)
+                  }}</time>
+                  · {{ m.where }}
+                </p>
+              </li>
+            }
+          </ul>
+        </section>
+
+        <section class="card" aria-labelledby="resume-heading">
+          <h2 id="resume-heading">Pick up where you left off</h2>
+          <ul class="list">
+            @for (r of brief.resume; track r.id) {
+              <li>
+                <a class="resume" [routerLink]="r.href">
+                  <span dnIcon="chat" aria-hidden="true"></span>
+                  <span>
+                    <span class="resume-title">{{ r.title }}</span>
+                    <span class="resume-meta">{{ r.meta }}</span>
+                  </span>
+                </a>
+              </li>
+            }
+          </ul>
+        </section>
+      </div>
+    </div>
+
+    <section class="card" aria-labelledby="searches-heading">
+      <h2 id="searches-heading" tabindex="-1">
+        New results from your saved searches <span class="count">{{ store.newResults() }} new</span>
+      </h2>
+      <ul class="searches">
+        @for (s of brief.searches; track s.id) {
+          <li class="search">
+            <p class="search-query">
+              <code>{{ s.query }}</code>
+            </p>
+            <p class="search-meta">{{ s.scope }} · {{ when(s.at) }}</p>
+            <p>{{ s.top }}</p>
+            <p class="tag">{{ s.newCount }} new</p>
+          </li>
+        }
+      </ul>
+    </section>
+
+    <form class="ask" (ngSubmit)="ask()">
+      <label for="brief-ask" class="sr-only">Ask about your brief</label>
+      <input
+        id="brief-ask"
+        name="question"
+        [(ngModel)]="question"
+        autocomplete="off"
+        [placeholder]="askPlaceholder()"
+      />
+      <tc-button variant="primary" size="md" hideLabel label="Ask Donovan" (click)="ask()">
+        <span slot="icon" dnIcon="sparkle"></span>
+      </tc-button>
+    </form>
+  } @else if (store.brief.error()) {
+    <section class="state" role="alert">
+      <h1>Your brief didn't load</h1>
+      <p>Something went wrong fetching it. Try again in a moment.</p>
+      <tc-button variant="secondary" label="Try again" (click)="store.brief.reload()" />
+    </section>
+  } @else {
+    <p class="state" role="status">Loading your Daily Brief…</p>
+  }
+</div>

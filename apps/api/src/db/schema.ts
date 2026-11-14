@@ -1,5 +1,5 @@
 import type { Preferences } from '@donovan/contracts';
-import { jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid().primaryKey().defaultRandom(),
@@ -20,3 +20,17 @@ export const userPreferences = pgTable('user_preferences', {
   values: jsonb().$type<Partial<Preferences>>().notNull().default({}),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
+
+/** One row per thing a person has dealt with in their brief: a need done, a memo read, an update seen. */
+export const briefState = pgTable(
+  'brief_state',
+  {
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text({ enum: ['need_done', 'memo_read', 'update_seen'] }).notNull(),
+    key: text().notNull(),
+    at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.kind, t.key] })],
+);

@@ -17,7 +17,7 @@ export const routes: Routes = [
     canActivate: [autoLoginPartialRoutesGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'brief' },
-      { path: 'brief', title: 'Daily Brief', loadComponent: placeholder, data: { heading: 'Daily Brief' } },
+      { path: 'brief', title: 'Daily Brief', loadComponent: () => import('./features/brief/brief-page') },
       { path: 'chats', title: 'Chats', loadComponent: placeholder, data: { heading: 'Chats' } },
       { path: 'chats/new', title: 'New chat', loadComponent: placeholder, data: { heading: 'New chat' } },
       { path: 'projects', title: 'Projects', loadComponent: placeholder, data: { heading: 'Projects' } },
