@@ -1,0 +1,339 @@
+.page {
+  display: grid;
+  gap: var(--tc-space-4);
+  max-width: 88rem;
+  margin-inline: auto;
+  padding: var(--tc-space-6) var(--tc-space-8) var(--tc-space-8);
+}
+
+.eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tc-space-2);
+  margin: 0 0 var(--tc-space-1);
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-sm);
+}
+
+.eyebrow-name {
+  color: var(--tc-accent-text);
+  font-weight: 600;
+}
+
+h1 {
+  margin: 0;
+  font-size: var(--tc-font-size-2xl);
+  line-height: 1.25;
+}
+
+h2 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--tc-space-2);
+  margin: 0 0 var(--tc-space-3);
+  font-size: var(--tc-font-size-md);
+}
+
+h2:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+h3 {
+  margin: 0;
+  font-size: var(--tc-font-size-sm);
+}
+
+.count {
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-sm);
+  font-weight: 400;
+}
+
+.card {
+  padding: var(--tc-space-4) var(--tc-space-5);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+}
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.card-label {
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-sm);
+  font-weight: 500;
+}
+
+.read p {
+  margin: 0 0 var(--tc-space-2);
+  line-height: 1.6;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tc-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  min-height: 32px;
+  padding: 0 var(--tc-space-3);
+  border: 1px solid var(--tc-border-default);
+  border-radius: 999px;
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-secondary);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
+  cursor: pointer;
+}
+
+.chip strong {
+  color: var(--tc-text-primary);
+}
+
+.chip:hover {
+  background: var(--tc-surface-well);
+}
+
+.chip:focus-visible,
+.action:focus-visible,
+.resume:focus-visible,
+.ask input:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--tc-space-4);
+  align-items: start;
+}
+
+.stack {
+  display: grid;
+  gap: var(--tc-space-4);
+}
+
+.list {
+  display: grid;
+  gap: var(--tc-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.need {
+  display: grid;
+  gap: var(--tc-space-2);
+  padding-bottom: var(--tc-space-3);
+  border-bottom: 1px solid var(--tc-border-subtle);
+}
+
+.need:last-child {
+  border-bottom: 0;
+}
+
+.need-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tc-space-2);
+  padding-left: var(--tc-space-6);
+}
+
+.need.done tc-checkbox {
+  opacity: 0.7;
+}
+
+.tag {
+  display: inline-block;
+  margin: 0;
+  padding: 1px var(--tc-space-2);
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-sm);
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+  font-weight: 500;
+}
+
+/* Urgent tags say so in words ("Before 2:00 PM", "Key meeting"); the colour only backs it up. */
+.tag.urgent {
+  border-color: var(--tc-status-warning-border);
+  background: var(--tc-status-warning-bg);
+  color: var(--tc-status-warning-fg);
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  margin-left: auto;
+  color: var(--tc-accent-text);
+  font-size: var(--tc-font-size-sm);
+  font-weight: 600;
+}
+
+.later {
+  margin-left: auto;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+}
+
+.memo {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--tc-space-3);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--tc-surface-well);
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+  font-weight: 600;
+}
+
+.memo-body > p {
+  margin: 0 0 var(--tc-space-1);
+}
+
+.memo-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tc-space-2);
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+}
+
+.memo-from {
+  color: var(--tc-text-primary);
+  font-weight: 600;
+}
+
+.memo-time {
+  margin-left: auto;
+}
+
+.unread-mark {
+  color: var(--tc-accent-text);
+  font-weight: 600;
+}
+
+.preview {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-sm);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.meeting {
+  padding-left: var(--tc-space-3);
+  border-left: 3px solid var(--tc-border-default);
+}
+
+.meeting.important {
+  border-left-color: var(--tc-status-warning-solid);
+}
+
+.meeting p {
+  margin: 0;
+}
+
+.meeting-title {
+  font-size: var(--tc-font-size-sm);
+  font-weight: 600;
+}
+
+.meeting-meta,
+.resume-meta,
+.search-meta {
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+}
+
+.resume {
+  display: flex;
+  gap: var(--tc-space-2);
+  min-height: 24px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.resume:hover .resume-title {
+  text-decoration: underline;
+}
+
+.resume-title,
+.resume-meta {
+  display: block;
+}
+
+.resume-title {
+  font-size: var(--tc-font-size-sm);
+  font-weight: 600;
+}
+
+.searches {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--tc-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.search p {
+  margin: 0 0 var(--tc-space-1);
+  font-size: var(--tc-font-size-sm);
+}
+
+.search-query code {
+  font-family: var(--tc-font-mono);
+  font-weight: 600;
+}
+
+.ask {
+  position: sticky;
+  bottom: var(--tc-space-4);
+  display: flex;
+  gap: var(--tc-space-2);
+  padding: var(--tc-space-2);
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+  box-shadow: var(--tc-shadow-overlay);
+}
+
+.ask input {
+  flex: 1;
+  min-height: 32px;
+  padding: 0 var(--tc-space-2);
+  border: 0;
+  border-radius: var(--tc-radius-md);
+  background: transparent;
+  color: var(--tc-text-primary);
+  font: inherit;
+}
+
+.ask input::placeholder {
+  color: var(--tc-text-secondary);
+}
+
+.state {
+  padding: var(--tc-space-8);
+}

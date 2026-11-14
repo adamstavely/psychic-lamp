@@ -12,7 +12,7 @@ test.describe('the frame around every page', () => {
     await expect(page).toHaveTitle('Daily Brief · Donovan');
     await expect(page.getByRole('banner')).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Assist' })).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1, name: 'Daily Brief' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Alex');
     await expect(page.getByRole('button', { name: /Account: Alex Morgan/ })).toBeVisible();
     await expectNoAxeViolations(page);
   });

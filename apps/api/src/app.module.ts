@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module.js';
+import { BriefModule } from './brief/brief.module.js';
 import { Env } from './config/env.js';
 import { DbModule } from './db/db.module.js';
 import { HealthController } from './health/health.controller.js';
@@ -14,6 +15,7 @@ import { UsersModule } from './users/users.module.js';
     SearchModule,
     AuthModule,
     UsersModule,
+    BriefModule,
   ],
   controllers: [HealthController],
 })
