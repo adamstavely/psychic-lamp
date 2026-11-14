@@ -135,6 +135,23 @@ describe('sending, approving and voting', () => {
     expect(chat.messages.at(-1)!.id).toBe(result.reply.id);
   });
 
+  it('takes one of two decisions made at once on a waiting tool, and refuses the other', async () => {
+    // A fresh person (and seeded chat) each round: the race is about timing, so give it several chances.
+    for (const second of ['approve', 'deny', 'approve', 'deny', 'approve'] as const) {
+      const token = await t.token();
+      const before = Chat.parse((await http.get('/api/chats/fraud').auth(token, bearer).expect(200)).body);
+      const results = await Promise.all(
+        [{ decision: 'approve' }, { decision: second }].map((body) =>
+          http.post('/api/chats/fraud/tools/t3/decision').auth(token, bearer).send(body),
+        ),
+      );
+      expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
+      const after = Chat.parse((await http.get('/api/chats/fraud').auth(token, bearer).expect(200)).body);
+      // One reply to one decision.
+      expect(after.messages).toHaveLength(before.messages.length + 1);
+    }
+  });
+
   it('denies a write tool, and knows unknown ones', async () => {
     const token = await t.token();
     const result = ToolDecisionResult.parse(
@@ -213,6 +230,41 @@ describe('regenerating an answer', () => {
       .auth(token, bearer)
       .send({ version: 9 })
       .expect(404);
+  });
+
+  it('keeps every version when regenerations arrive together', async () => {
+    const token = await t.token();
+    const chat = Chat.parse((await http.get('/api/chats/churn').auth(token, bearer)).body);
+    const answer = chat.messages.find((m) => m.role === 'assistant')!;
+    const results = await Promise.all(
+      Array.from({ length: 6 }, () =>
+        http.post(`/api/chats/churn/messages/${answer.id}/regenerate`).auth(token, bearer).send({}),
+      ),
+    );
+    expect(results.map((r) => r.status)).toEqual(Array(6).fill(200));
+    const again = Chat.parse((await http.get('/api/chats/churn').auth(token, bearer)).body);
+    const after = again.messages.find((m) => m.id === answer.id);
+    if (after?.role !== 'assistant') throw new Error('no answer');
+    expect(after.versions).toHaveLength(7);
+  });
+
+  it('loses no version when one is shown while others are made', async () => {
+    const token = await t.token();
+    const chat = Chat.parse((await http.get('/api/chats/churn').auth(token, bearer)).body);
+    const answer = chat.messages.find((m) => m.role === 'assistant')!;
+    const url = `/api/chats/churn/messages/${answer.id}`;
+    const results = await Promise.all([
+      http.post(`${url}/regenerate`).auth(token, bearer).send({}),
+      http.put(`${url}/version`).auth(token, bearer).send({ version: 1 }),
+      http.post(`${url}/regenerate`).auth(token, bearer).send({}),
+      http.put(`${url}/version`).auth(token, bearer).send({ version: 1 }),
+      http.post(`${url}/regenerate`).auth(token, bearer).send({}),
+    ]);
+    expect(results.map((r) => r.status)).toEqual([200, 204, 200, 204, 200]);
+    const again = Chat.parse((await http.get('/api/chats/churn').auth(token, bearer)).body);
+    const after = again.messages.find((m) => m.id === answer.id);
+    if (after?.role !== 'assistant') throw new Error('no answer');
+    expect(after.versions).toHaveLength(4);
   });
 
   it('keeps a decision in the version it was made in', async () => {
