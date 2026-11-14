@@ -20,6 +20,12 @@ import { ChatsStore } from '../../core/chats-store';
 import { streamMessage, streamPost } from './answer-stream';
 
 /**
+ * Sends whose outcome isn't known yet, by chat: the text and the id it went with. Kept outside the store, which lasts
+ * only as long as a chat page, so leaving the chat and coming back to send again still reuses the id.
+ */
+const pendingSends = new Map<string, { text: string; requestId: string }>();
+
+/**
  * One open chat: its turns, the answer being written, and the person's decisions and votes.
  *
  * Opening another chat (or leaving the page) cancels what the last one had in flight, and anything that still comes
@@ -94,35 +100,67 @@ export class ThreadStore implements OnDestroy {
     return generation === this.#generation;
   }
 
+  /**
+   * Sends a message and streams the answer in. Each send has an id the server saves it under, so a send it already has
+   * isn't saved twice. Until a send is known to have finished, its id is kept (pendingSends): sending the same text
+   * in the same chat again, as Send again or the composer does after a failure, reuses it. Once the chat shows the
+   * turn, or the send finishes, it's forgotten, and the same text sent later is a new message.
+   */
   async send(text: string, model: ModelChoice): Promise<void> {
     const generation = this.#generation;
+    const chatId = this.chatId();
     this.streaming.set(true);
     this.status.set('Donovan is answering…');
     let answer: AssistantMessage | null = null;
-    // One id per message: a retry of the same send is recognised and not saved twice.
-    const requestId = crypto.randomUUID();
+    const turns: string[] = [];
+    const pending = pendingSends.get(chatId);
+    const retry = pending?.text === text && !this.#saved(pending.requestId) ? pending : null;
+    const requestId = retry?.requestId ?? crypto.randomUUID();
+    pendingSends.set(chatId, { text, requestId });
     try {
       await lastValueFrom(
-        streamMessage(this.#http, this.chatId(), { text, model, requestId }).pipe(
+        streamMessage(this.#http, chatId, { text, model, requestId }).pipe(
           takeUntil(this.#cancel),
           tap((e) => {
-            if (this.#current(generation)) answer = this.apply(e, answer);
+            if (!this.#current(generation)) return;
+            if (e.type === 'user' || e.type === 'start') turns.push(e.type === 'user' ? e.message.id : e.id);
+            answer = this.apply(e, answer);
           }),
         ),
         { defaultValue: null },
       );
       this.#chats.list.reload();
-      if (this.#current(generation)) this.status.set('Donovan answered.');
+      // Left for another chat before the end: the outcome isn't known, so the id stays for a retry.
+      if (!this.#current(generation)) return;
+      pendingSends.delete(chatId);
+      this.status.set('Donovan answered.');
     } catch {
       if (!this.#current(generation)) return;
       this.status.set('');
-      toast.error("Donovan couldn't answer that", {
-        description: 'Your message may not have been saved. Try sending it again.',
+      // What arrived may be part of an answer; show what the server kept instead.
+      this.#forget(turns);
+      this.chat.reload();
+      this.#chats.list.reload();
+      toast.error("Donovan couldn't finish answering", {
+        description: "Your message may have been saved. Send it again: it won't be saved twice.",
+        action: { label: 'Send again', onClick: () => void this.send(text, model).catch(() => undefined) },
       });
       throw new Error('send failed');
     } finally {
       if (this.#current(generation)) this.streaming.set(false);
     }
+  }
+
+  /** Whether the loaded chat has the turn sent with this id. */
+  #saved(requestId: string): boolean {
+    return (
+      this.chat.hasValue() && this.chat.value().messages.some((m) => m.role === 'user' && m.requestId === requestId)
+    );
+  }
+
+  /** Drops turns laid over the loaded chat, so the loaded (server's) versions show. */
+  #forget(ids: string[]): void {
+    if (ids.length) this.#local.update((list) => list.filter((m) => !ids.includes(m.id)));
   }
 
   /** Streams a new version of an answer into it; the version switcher moves to it. */
@@ -146,7 +184,9 @@ export class ThreadStore implements OnDestroy {
       if (this.#current(generation)) this.status.set(`Version ${message.versions.length + 1} of the answer is ready.`);
     } catch {
       if (!this.#current(generation)) return;
-      this.upsert(message);
+      // A new version may or may not have been saved: show what the server has.
+      this.#forget([message.id]);
+      this.chat.reload();
       this.status.set('');
       throw new Error('regenerate failed');
     } finally {

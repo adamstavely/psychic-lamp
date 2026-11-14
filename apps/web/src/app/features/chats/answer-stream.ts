@@ -1,6 +1,6 @@
 import { HttpClient, HttpEventType } from '@angular/common/http';
 import type { SendMessage, StreamEvent } from '@donovan/contracts';
-import { Observable, filter, map, mergeMap } from 'rxjs';
+import { EMPTY, Observable, concatWith, defer, filter, map, mergeMap, tap, throwError } from 'rxjs';
 
 /**
  * Sends a message and emits the answer's events as they arrive. HttpClient (on its fetch backend) reports the body as
@@ -11,26 +11,45 @@ export function streamMessage(http: HttpClient, chatId: string, body: SendMessag
   return streamPost(http, `/api/chats/${encodeURIComponent(chatId)}/messages`, body);
 }
 
-/** Any POST that answers with the stream: a reply, or a regenerated answer. */
+/** A stream that ended without its `done` event: cut off on the way, or the server failed after it began. */
+export class IncompleteAnswer extends Error {
+  constructor() {
+    super('The answer stopped before it finished');
+    this.name = 'IncompleteAnswer';
+  }
+}
+
+/**
+ * Any POST that answers with the stream: a reply, or a regenerated answer. It errors with IncompleteAnswer if the
+ * stream ends without `done`, however normal the ending looked (a 200 that stops early is still a failure). Cancelling
+ * it, by unsubscribing, isn't an ending: nothing is emitted.
+ */
 export function streamPost(http: HttpClient, url: string, body: unknown): Observable<StreamEvent> {
-  const reader = new SseReader();
-  return http
-    .post(url, body, {
-      observe: 'events',
-      responseType: 'text',
-      reportProgress: true,
-    })
-    .pipe(
-      map((e) =>
-        e.type === HttpEventType.DownloadProgress
-          ? (e.partialText ?? '')
-          : e.type === HttpEventType.Response
-            ? (e.body ?? '')
-            : null,
-      ),
-      filter((text): text is string => text !== null),
-      mergeMap((text) => reader.read(text)),
-    );
+  return defer(() => {
+    const reader = new SseReader();
+    let done = false;
+    return http
+      .post(url, body, {
+        observe: 'events',
+        responseType: 'text',
+        reportProgress: true,
+      })
+      .pipe(
+        map((e) =>
+          e.type === HttpEventType.DownloadProgress
+            ? (e.partialText ?? '')
+            : e.type === HttpEventType.Response
+              ? (e.body ?? '')
+              : null,
+        ),
+        filter((text): text is string => text !== null),
+        mergeMap((text) => reader.read(text)),
+        tap((e) => {
+          if (e.type === 'done') done = true;
+        }),
+        concatWith(defer(() => (done ? EMPTY : throwError(() => new IncompleteAnswer())))),
+      );
+  });
 }
 
 /** Turns a growing server-sent-events body into the events not yet returned. */

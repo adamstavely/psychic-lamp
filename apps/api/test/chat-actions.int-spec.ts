@@ -107,7 +107,9 @@ describe('sending, approving and voting', () => {
     const userOf = (text: string) => events(text).find((e) => e.type === 'user') as { message: { id: string } };
     expect(userOf(again.text).message.id).toBe(userOf(first.text).message.id);
     const chat = Chat.parse((await http.get(`/api/chats/${created.id}`).auth(token, bearer).expect(200)).body);
-    expect(chat.messages.filter((m) => m.role === 'user' && m.text === 'Once only')).toHaveLength(1);
+    const saved = chat.messages.filter((m) => m.role === 'user' && m.text === 'Once only');
+    // Under the id it was sent with, so the app can see a send it wasn't sure of did arrive.
+    expect(saved).toEqual([expect.objectContaining({ requestId })]);
   });
 
   it('refuses an empty message', async () => {
