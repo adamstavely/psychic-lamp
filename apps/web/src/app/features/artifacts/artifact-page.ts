@@ -1,5 +1,17 @@
-import { httpResource } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, linkedSignal } from '@angular/core';
+import { HttpClient, httpResource } from '@angular/common/http';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  ElementRef,
+  inject,
+  input,
+  linkedSignal,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
@@ -9,7 +21,8 @@ import { MeterRow } from '@adamstavely/trenchcoat/angular/meter-row';
 import { SegmentedControl } from '@adamstavely/trenchcoat/angular/segmented-control';
 import type { SegmentOption } from '@adamstavely/trenchcoat/segmented-control';
 import { toast } from '@adamstavely/trenchcoat/toaster';
-import type { Artifact } from '@donovan/contracts';
+import type { Artifact, ProjectsOverview } from '@donovan/contracts';
+import { firstValueFrom } from 'rxjs';
 import { relativeDay } from '../brief/format';
 import { tableFor } from '../chats/blocks';
 import { artifactText, blocksAt, downloadName } from './artifact-view';
@@ -17,7 +30,7 @@ import { artifactText, blocksAt, downloadName } from './artifact-view';
 /** One artifact: its body at the version picked, what changed, and where it came from. */
 @Component({
   selector: 'dn-artifact-page',
-  imports: [RouterLink, Button, CodeBlock, DataTable, MeterRow, SegmentedControl],
+  imports: [FormsModule, RouterLink, Button, CodeBlock, DataTable, MeterRow, SegmentedControl],
   templateUrl: './artifact-page.html',
   styleUrl: './artifact-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -26,6 +39,16 @@ export default class ArtifactPage {
   /** From the route. */
   readonly artifactId = input.required<string>();
   readonly #title = inject(Title);
+  readonly #http = inject(HttpClient);
+
+  // Save to project
+  private readonly projectDialog = viewChild.required<ElementRef<HTMLDialogElement>>('projectDialog');
+  readonly #wantProjects = signal(false);
+  protected readonly projects = httpResource<ProjectsOverview>(() =>
+    this.#wantProjects() ? '/api/projects' : undefined,
+  );
+  protected projectChoice = '';
+  protected readonly saving = signal(false);
 
   protected readonly artifact = httpResource<Artifact>(() => `/api/artifacts/${encodeURIComponent(this.artifactId())}`);
   protected readonly a = computed(() => (this.artifact.hasValue() ? this.artifact.value() : null));
@@ -66,6 +89,37 @@ export default class ArtifactPage {
 
   protected pickVersion(event: CustomEvent<{ value: unknown }>): void {
     this.version.set(Number(event.detail.value));
+  }
+
+  protected openSaveToProject(a: Artifact): void {
+    this.#wantProjects.set(true);
+    this.projectChoice = '';
+    if (a.project && this.projects.hasValue())
+      this.projectChoice = this.projects.value().mine.find((p) => p.name === a.project)?.id ?? '';
+    this.projectDialog().nativeElement.showModal();
+  }
+
+  protected closeSaveToProject(): void {
+    this.projectDialog().nativeElement.close();
+  }
+
+  protected async saveToProject(a: Artifact): Promise<void> {
+    this.saving.set(true);
+    try {
+      await firstValueFrom(
+        this.#http.patch(`/api/artifacts/${encodeURIComponent(a.id)}`, { projectId: this.projectChoice || null }),
+      );
+      this.artifact.reload();
+      this.closeSaveToProject();
+      const name = this.projects.hasValue()
+        ? this.projects.value().mine.find((p) => p.id === this.projectChoice)?.name
+        : undefined;
+      toast.success(name ? `Saved to ${name}` : 'Taken out of its project');
+    } catch {
+      toast.error("Couldn't save to the project", { description: 'Try again in a moment.' });
+    } finally {
+      this.saving.set(false);
+    }
   }
 
   protected async copy(a: Artifact): Promise<void> {

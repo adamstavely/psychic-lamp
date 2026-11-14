@@ -18,6 +18,7 @@
           <span class="actions">
             <tc-button variant="secondary" size="sm" label="Copy" (click)="copy(a)" />
             <tc-button variant="secondary" size="sm" label="Download" (click)="download(a)" />
+            <tc-button variant="secondary" size="sm" label="Save to project" (click)="openSaveToProject(a)" />
             @if (a.chat; as chat) {
               <a class="continue" [routerLink]="['/chats', chat.id]">Continue in chat</a>
             }
@@ -183,6 +184,24 @@
       }
     </aside>
   </div>
+  <dialog #projectDialog class="dialog" aria-labelledby="save-project-h">
+    <form (submit)="$event.preventDefault(); saveToProject(a)">
+      <h2 id="save-project-h">Save to project</h2>
+      <label for="project-choice">Project</label>
+      <select id="project-choice" name="project" [(ngModel)]="projectChoice">
+        <option value="">No project</option>
+        @if (projects.hasValue()) {
+          @for (p of projects.value().mine; track p.id) {
+            <option [value]="p.id">{{ p.name }}</option>
+          }
+        }
+      </select>
+      <div class="dialog-actions">
+        <tc-button variant="ghost" label="Cancel" (click)="closeSaveToProject()" />
+        <tc-button variant="primary" label="Save" [loading]="saving()" (click)="saveToProject(a)" />
+      </div>
+    </form>
+  </dialog>
 } @else if (artifact.error()) {
   <section class="state" role="alert">
     <h1>That artifact isn't here</h1>

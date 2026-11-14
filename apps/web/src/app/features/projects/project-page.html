@@ -1,149 +1,298 @@
 @if (p(); as p) {
   <div class="page">
     <header class="head">
-      <p class="eyebrow"><a routerLink="/projects">Projects</a></p>
+      <p class="eyebrow">
+        <a routerLink="/projects">Projects</a>
+        @if (p.readOnly) {
+          <span aria-hidden="true">/</span> Shared with your org
+        }
+      </p>
       <h1>{{ p.name }}</h1>
       <div class="head-row">
         <p class="meta">{{ p.team }} · {{ p.sourceCount }} sources · Updated {{ when(p.updatedAt) }}</p>
         <span class="tag">{{ p.sensitivity }}</span>
-        <tc-switch label="Calibrated" [value]="p.calibrated" (tc-value-change)="setCalibrated($event)" />
-        <tc-button variant="secondary" size="sm" label="Share" (click)="share()" />
-      </div>
-    </header>
-
-    <div class="columns">
-      <section class="col" aria-labelledby="sources-h">
-        <h2 id="sources-h">
-          Sources <span class="meta">{{ selectedCount() }} of {{ p.sources.length }} selected</span>
-        </h2>
-        <ul class="list">
-          @for (s of p.sources; track s.id) {
-            <li>
-              <tc-checkbox
-                [label]="s.title"
-                [description]="s.meta"
-                [value]="s.selected"
-                (tc-value-change)="toggleSource(s, $event)"
-              />
-            </li>
-          } @empty {
-            <li class="meta">No sources yet. Add some below.</li>
-          }
-        </ul>
-        @if (p.suggestions.length) {
-          <h3>Add sources</h3>
-          <ul class="list">
-            @for (x of p.suggestions; track x.id) {
-              <li class="suggestion">
-                <span>
-                  <span class="title">{{ x.title }}</span>
-                  <span class="meta">{{ x.meta }}</span>
-                </span>
-                <tc-button variant="secondary" size="sm" label="Add" (click)="addSources([x.id])" />
-              </li>
-            }
-          </ul>
-          @if (p.suggestions.length > 1) {
-            <tc-button
-              variant="secondary"
-              size="sm"
-              label="Add all"
-              (click)="addSources(p.suggestions.map((s) => s.id))"
-            />
+        @if (p.readOnly) {
+          <span class="tag">Read only</span>
+          <tc-button variant="primary" size="sm" label="Copy to your projects" (click)="copyLibrary(p)" />
+        } @else {
+          <tc-switch label="Calibrated" [value]="p.calibrated" (tc-value-change)="setCalibrated($event)" />
+          <tc-button variant="secondary" size="sm" label="Share" (click)="openShare()" />
+          @if (p.sharedWith.length) {
+            <span class="meta">Shared with {{ p.sharedWith.length }}</span>
           }
         }
+      </div>
+      @if (p.description) {
+        <p class="description">{{ p.description }}</p>
+      }
+    </header>
+
+    <div class="columns" [class.no-sources]="!showSources()" [class.no-studio]="!showStudio() || p.readOnly">
+      <section class="col" [class.folded]="!showSources()" aria-labelledby="sources-h">
+        <div class="col-head">
+          <h2 id="sources-h">
+            Sources
+            @if (showSources()) {
+              <span class="meta">{{ selectedCount() }} of {{ p.sources.length }} selected</span>
+            }
+          </h2>
+          <button
+            type="button"
+            class="fold"
+            [attr.aria-expanded]="showSources()"
+            aria-controls="sources-body"
+            (click)="showSources.set(!showSources())"
+          >
+            {{ showSources() ? 'Hide' : 'Show' }}<span class="sr-only"> sources</span>
+          </button>
+        </div>
+        <div id="sources-body" [hidden]="!showSources()">
+          @if (!p.readOnly && p.sources.length) {
+            <tc-button
+              variant="ghost"
+              size="sm"
+              [label]="allSelected() ? 'Clear selection' : 'Select all sources'"
+              (click)="selectAll(!allSelected())"
+            />
+          }
+          <ul class="list">
+            @for (s of p.sources; track s.id) {
+              <li>
+                @if (p.readOnly) {
+                  <span class="title">{{ s.title }}</span> <span class="meta">{{ s.meta }}</span>
+                } @else {
+                  <tc-checkbox
+                    [label]="s.title"
+                    [description]="s.meta"
+                    [value]="s.selected"
+                    (tc-value-change)="toggleSource(s, $event)"
+                  />
+                }
+              </li>
+            } @empty {
+              <li class="meta">No sources yet. Find some below.</li>
+            }
+          </ul>
+
+          @if (!p.readOnly) {
+            <h3>Add sources</h3>
+            <form class="search" role="search" aria-label="Find sources" (ngSubmit)="search()">
+              <label for="source-q" class="sr-only">What to look for</label>
+              <input
+                id="source-q"
+                name="q"
+                [(ngModel)]="searchQuery"
+                placeholder="What to look for"
+                autocomplete="off"
+              />
+              <tc-segmented-control
+                size="sm"
+                aria-label="Where to look"
+                [options]="searchScopes"
+                [value]="searchScope()"
+                (tc-value-change)="pickScope($event)"
+              />
+              <tc-segmented-control
+                size="sm"
+                aria-label="How hard to look"
+                [options]="searchDepths"
+                [value]="searchDepth()"
+                (tc-value-change)="pickDepth($event)"
+              />
+              <tc-button variant="secondary" size="sm" label="Search" [loading]="searching()" (click)="search()" />
+            </form>
+            @if (found(); as f) {
+              <p class="meta">{{ f.results.length }} found · {{ f.searched }} looked at</p>
+              <ul class="list">
+                @for (x of f.results; track x.title) {
+                  <li class="suggestion">
+                    <span
+                      ><span class="title">{{ x.title }}</span
+                      ><span class="meta">{{ x.meta }}</span></span
+                    >
+                    <tc-button variant="secondary" size="sm" label="Add" (click)="addSources([x])" />
+                  </li>
+                }
+              </ul>
+              @if (f.results.length > 1) {
+                <tc-button variant="secondary" size="sm" label="Add all" (click)="addSources(f.results)" />
+              }
+            } @else if (p.suggestions.length) {
+              <p class="meta">Suggested</p>
+              <ul class="list">
+                @for (x of p.suggestions; track x.id) {
+                  <li class="suggestion">
+                    <span
+                      ><span class="title">{{ x.title }}</span
+                      ><span class="meta">{{ x.meta }}</span></span
+                    >
+                    <tc-button variant="secondary" size="sm" label="Add" (click)="addSources([x])" />
+                  </li>
+                }
+              </ul>
+            }
+          }
+        </div>
       </section>
 
       <section class="col main" aria-labelledby="guide-h">
         <h2 id="guide-h">Project guide</h2>
         @if (p.guide.length) {
-          <tc-cited-answer [segments]="segments(p.guide)" [sources]="citedSources()" />
+          <tc-cited-answer
+            [segments]="segments(p.guide)"
+            [sources]="citedSources()"
+            [actionLabel]="p.readOnly ? '' : 'Save to note'"
+            (tc-action)="saveGuide(p)"
+          />
+          <tc-button variant="ghost" size="sm" label="Copy guide" (click)="copyGuide(p)" />
         } @else {
           <p class="meta">Select sources to get a guide to them.</p>
         }
 
-        <h3>Ask about these sources</h3>
-        <ul class="questions">
-          @for (q of p.questions; track q) {
-            <li>
-              <button type="button" class="question" [disabled]="asking()" (click)="ask(q)">{{ q }}</button>
-            </li>
-          }
-        </ul>
-        <form class="ask" (ngSubmit)="ask(question)">
-          <label for="project-ask" class="sr-only">Ask a question about this project's sources</label>
-          <input
-            id="project-ask"
-            name="q"
-            [(ngModel)]="question"
-            placeholder="Ask about {{ selectedCount() }} sources"
-            autocomplete="off"
-          />
-          <tc-button variant="primary" size="md" label="Ask" [loading]="asking()" (click)="ask(question)" />
-        </form>
-
-        @if (answer(); as a) {
-          <section class="answer" aria-labelledby="answer-h">
-            <h3 id="answer-h">{{ a.question }}</h3>
-            <p class="meta">From {{ a.sourcesRead }} sources</p>
-            <tc-cited-answer
-              [segments]="segments(a.answer)"
-              [sources]="citedSources()"
-              [actionLabel]="'Save to note'"
-              (tc-action)="saveAnswer()"
+        @if (!p.readOnly) {
+          <h3>Ask about these sources</h3>
+          <ul class="questions">
+            @for (q of p.questions; track q) {
+              <li>
+                <button type="button" class="question" [disabled]="asking()" (click)="ask(q)">{{ q }}</button>
+              </li>
+            }
+          </ul>
+          <form class="ask" (ngSubmit)="ask(question)">
+            <label for="project-ask" class="sr-only">Ask a question about this project's sources</label>
+            <input
+              id="project-ask"
+              name="q"
+              [(ngModel)]="question"
+              placeholder="Ask about {{ selectedCount() }} sources"
+              autocomplete="off"
             />
-          </section>
+            <tc-button variant="primary" size="md" label="Ask" [loading]="asking()" (click)="ask(question)" />
+          </form>
+
+          @if (answer(); as a) {
+            <section class="answer" [attr.aria-label]="a.question">
+              <h3>{{ a.question }}</h3>
+              <p class="meta">From {{ a.sourcesRead }} sources</p>
+              <tc-cited-answer
+                [segments]="segments(a.answer)"
+                [sources]="citedSources()"
+                [actionLabel]="'Save to note'"
+                (tc-action)="saveAnswer()"
+              />
+            </section>
+          }
+
+          <h3>Earlier chats in this project</h3>
+          <ul class="list">
+            @for (c of p.chats; track c.id) {
+              <li>
+                <a [routerLink]="['/chats', c.id]">{{ c.title }}</a> <span class="meta">{{ when(c.updatedAt) }}</span>
+              </li>
+            } @empty {
+              <li class="meta">No chats in this project yet.</li>
+            }
+          </ul>
         }
-
-        <h3>Earlier chats in this project</h3>
-        <ul class="list">
-          @for (c of p.chats; track c.id) {
-            <li>
-              <a [routerLink]="['/chats', c.id]">{{ c.title }}</a> <span class="meta">{{ when(c.updatedAt) }}</span>
-            </li>
-          } @empty {
-            <li class="meta">No chats in this project yet.</li>
-          }
-        </ul>
       </section>
 
-      <section class="col" aria-labelledby="studio-h">
-        <h2 id="studio-h">Studio</h2>
-        <h3>Notes</h3>
-        <ul class="list">
-          @for (n of p.notes; track n.id) {
-            <li class="note">
-              <p>{{ n.text }}</p>
-              <span class="meta">{{ when(n.at) }}</span>
-              <tc-button variant="ghost" size="sm" label="Delete note" (click)="deleteNote(n.id)" />
-            </li>
-          } @empty {
-            <li class="meta">Save an answer to keep it here.</li>
-          }
-        </ul>
-        <h3>Outputs</h3>
-        <ul class="list">
-          @for (o of p.outputs; track o.title) {
-            <li>
-              <span class="title">{{ o.title }}</span> <span class="meta">{{ o.meta }}</span>
-            </li>
-          } @empty {
-            <li class="meta">Briefs and tables made from this project show here.</li>
-          }
-        </ul>
-        <h3>Workflows</h3>
-        <ul class="list">
-          @for (w of p.workflows; track w.name) {
-            <li>
-              <span class="title">{{ w.name }}</span> <span class="meta">{{ w.meta }} · In Build, coming soon</span>
-            </li>
-          } @empty {
-            <li class="meta">None attached.</li>
-          }
-        </ul>
-      </section>
+      @if (!p.readOnly) {
+        <section class="col" [class.folded]="!showStudio()" aria-labelledby="studio-h">
+          <div class="col-head">
+            <h2 id="studio-h">Studio</h2>
+            <button
+              type="button"
+              class="fold"
+              [attr.aria-expanded]="showStudio()"
+              aria-controls="studio-body"
+              (click)="showStudio.set(!showStudio())"
+            >
+              {{ showStudio() ? 'Hide' : 'Show' }}<span class="sr-only"> studio</span>
+            </button>
+          </div>
+          <div id="studio-body" [hidden]="!showStudio()">
+            <h3>Make from the selected sources</h3>
+            <ul class="tools">
+              @for (t of tools; track t.tool) {
+                <li>
+                  <tc-button
+                    variant="secondary"
+                    size="sm"
+                    [label]="t.label"
+                    [loading]="making() === t.tool"
+                    [disabled]="!selectedCount() || !!making()"
+                    (click)="make(t.tool)"
+                  />
+                  <span class="meta">{{ t.hint }}</span>
+                </li>
+              }
+            </ul>
+            <h3>Outputs</h3>
+            <ul class="list">
+              @for (o of p.outputs; track o.artifactId) {
+                <li>
+                  <a [routerLink]="['/artifacts', o.artifactId]">{{ o.title }}</a>
+                  <span class="meta">{{ o.meta }}</span>
+                </li>
+              } @empty {
+                <li class="meta">Briefs, tables and artifacts filed under this project show here.</li>
+              }
+            </ul>
+            <h3>Notes</h3>
+            <ul class="list">
+              @for (n of p.notes; track n.id) {
+                <li class="note">
+                  <p>{{ n.text }}</p>
+                  <span class="meta">{{ when(n.at) }}</span>
+                  <tc-button variant="ghost" size="sm" label="Delete note" (click)="deleteNote(n.id)" />
+                </li>
+              } @empty {
+                <li class="meta">Save the guide or an answer to keep it here.</li>
+              }
+            </ul>
+            <h3>Skills and tools</h3>
+            <ul class="chips">
+              @for (a of p.attached; track a) {
+                <li class="tag">{{ a }}</li>
+              } @empty {
+                <li class="meta">None attached.</li>
+              }
+            </ul>
+            <h3>Workflows</h3>
+            <ul class="list">
+              @for (w of p.workflows; track w.name) {
+                <li>
+                  <span class="title">{{ w.name }}</span>
+                  <span class="meta">{{ w.meta }} · Attach and run in Build, coming soon</span>
+                </li>
+              } @empty {
+                <li class="meta">None attached.</li>
+              }
+            </ul>
+          </div>
+        </section>
+      }
     </div>
     <p class="sr-only" role="status">{{ status() }}</p>
+
+    @if (!p.readOnly) {
+      <dialog #shareDialog class="dialog" aria-label="Share {{ p.name }}">
+        <tc-share-panel
+          [heading]="'Share ' + p.name"
+          [resourceName]="p.name"
+          [directory]="directoryPeople()"
+          [access]="access()"
+          [levels]="levels"
+          [defaultLevel]="'viewer'"
+          [sending]="sharing()"
+          [checkEntitlement]="entitled"
+          (tc-share)="share($event)"
+        />
+        <div class="dialog-actions">
+          <tc-button variant="ghost" label="Close" (click)="closeShare()" />
+        </div>
+      </dialog>
+    }
   </div>
 } @else if (project.error()) {
   <section class="state" role="alert">

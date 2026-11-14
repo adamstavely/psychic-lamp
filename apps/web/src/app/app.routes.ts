@@ -21,6 +21,11 @@ export const routes: Routes = [
       { path: 'chats/:chatId', title: 'Chat', loadComponent: () => import('./features/chats/chat-page') },
       { path: 'projects', title: 'Projects', loadComponent: () => import('./features/projects/projects-page') },
       {
+        path: 'projects/libraries/:libraryId',
+        title: 'Library',
+        loadComponent: () => import('./features/projects/project-page'),
+      },
+      {
         path: 'projects/:projectId',
         title: 'Project',
         loadComponent: () => import('./features/projects/project-page'),

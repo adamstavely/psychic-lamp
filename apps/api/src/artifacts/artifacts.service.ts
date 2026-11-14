@@ -1,9 +1,9 @@
-import type { Artifact, ArtifactQuery, ArtifactSummary, ArtifactUpload } from '@donovan/contracts';
+import type { Artifact, ArtifactBody, ArtifactPatch, ArtifactQuery, ArtifactSummary, ArtifactUpload, Sensitivity } from '@donovan/contracts';
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import { randomBytes } from 'node:crypto';
 import { DB, type Db } from '../db/db.module.js';
-import { artifacts, chats } from '../db/schema.js';
+import { artifacts, chats, projects } from '../db/schema.js';
 import { SeedService } from '../seed/seed.service.js';
 import { ArtifactSearch } from './artifact-search.js';
 import { parseUpload, plainText, preview } from './text.js';
@@ -81,6 +81,64 @@ export class ArtifactsService {
       .returning();
     await this.indexQuietly([row!]);
     return toSummary(row!, null);
+  }
+
+  /** Makes an artifact (a Studio tool's output, say) and indexes it for search. */
+  async create(
+    userId: string,
+    a: { name: string; sensitivity: Sensitivity; project: string | null; sources: string[]; note: string; body: ArtifactBody },
+  ): Promise<ArtifactSummary> {
+    await this.ensure(userId);
+    const now = new Date();
+    const id = `${a.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)}-${randomBytes(3).toString('hex')}`;
+    const [row] = await this.db
+      .insert(artifacts)
+      .values({
+        ownerId: userId,
+        id,
+        name: a.name,
+        kind: a.body.kind,
+        sensitivity: a.sensitivity,
+        project: a.project,
+        versions: [{ version: 1, at: now.toISOString(), note: a.note }],
+        sources: a.sources,
+        body: a.body,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    await this.indexQuietly([row!]);
+    return toSummary(row!, null);
+  }
+
+  /** Files an artifact under one of the person's projects, or takes it out. */
+  async setProject(userId: string, id: string, patch: ArtifactPatch): Promise<ArtifactSummary> {
+    await this.ensure(userId);
+    await this.seeds.ensureProjects(userId);
+    let name: string | null = null;
+    if (patch.projectId) {
+      const [p] = await this.db
+        .select({ name: projects.name })
+        .from(projects)
+        .where(and(eq(projects.ownerId, userId), eq(projects.id, patch.projectId)));
+      if (!p) throw new NotFoundException('No project with that id');
+      name = p.name;
+    }
+    const [row] = await this.db
+      .update(artifacts)
+      .set({ project: name })
+      .where(and(eq(artifacts.ownerId, userId), eq(artifacts.id, id)))
+      .returning();
+    if (!row) throw new NotFoundException('No artifact with that id');
+    const [withChat] = await this.rows(userId, eq(artifacts.id, id));
+    return toSummary(row, withChat?.chatTitle ?? null);
+  }
+
+  /** The artifacts filed under a project (by its name), newest first. */
+  async inProject(userId: string, projectName: string): Promise<ArtifactSummary[]> {
+    await this.ensure(userId);
+    const rows = await this.rows(userId, eq(artifacts.project, projectName));
+    return rows.map((r) => toSummary(r.artifact, r.chatTitle));
   }
 
   private async ensure(userId: string): Promise<void> {

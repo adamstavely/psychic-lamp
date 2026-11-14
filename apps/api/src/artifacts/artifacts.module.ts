@@ -9,6 +9,6 @@ import { ArtifactsService } from './artifacts.service.js';
   imports: [UsersModule, SeedModule],
   controllers: [ArtifactsController],
   providers: [ArtifactsService, ArtifactSearch],
-  exports: [ArtifactSearch],
+  exports: [ArtifactSearch, ArtifactsService],
 })
 export class ArtifactsModule {}

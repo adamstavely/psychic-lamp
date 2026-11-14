@@ -18,9 +18,10 @@ export interface SeedProject {
   guide: Cited;
   questions: string[];
   answer: Cited;
-  outputs: { title: string; meta: string }[];
   suggestions: { kind: SourceKind; title: string; meta: string }[];
   workflows: { name: string; meta: string }[];
+  /** Skills, models and servers the project's chats use. */
+  attached: string[];
 }
 
 const DAY = 24 * 60;
@@ -69,15 +70,12 @@ export const SEED_PROJECTS: SeedProject[] = [
       5,
       '.',
     ],
-    outputs: [
-      { title: 'Rollout readiness brief', meta: 'From 6 sources' },
-      { title: 'False-positive rate by cohort', meta: 'From 2 sources' },
-    ],
     suggestions: [
       { kind: 'web', title: 'Card scheme rules for real-time declines (2026 update)', meta: 'Web · 9 min read' },
       { kind: 'pdf', title: 'Internal audit: Sentinel v3.0 post-launch review', meta: 'Shared drive · PDF' },
       { kind: 'slack', title: '#fraud-ml: GNN feature latency', meta: 'Slack · 22 messages' },
     ],
+    attached: ['Fraud Sentinel v3.2', 'Rollout note v1.4', 'Filesystem', 'Slack'],
     workflows: [
       { name: 'Weekly fraud digest', meta: 'Fridays 07:00 · posts to #risk-ops' },
       { name: 'Score drift check', meta: 'On new data in fraud_dw' },
@@ -123,11 +121,11 @@ export const SEED_PROJECTS: SeedProject[] = [
       4,
       '. The defensible position is a qualified second source by late 2026.',
     ],
-    outputs: [],
     suggestions: [
       { kind: 'web', title: 'MP Materials 2027 capacity update', meta: 'Web · investor relations' },
       { kind: 'pdf', title: 'IEA Critical Minerals Outlook 2026', meta: 'PDF · IEA' },
     ],
+    attached: ['Workspace docs · Supply chain', 'Source reliability v1.8', 'Red team hypothesis v2.0'],
     workflows: [],
   },
   {
@@ -170,11 +168,11 @@ export const SEED_PROJECTS: SeedProject[] = [
       4,
       '.',
     ],
-    outputs: [{ title: 'Weekly triage summary', meta: 'From 4 sources' }],
     suggestions: [
       { kind: 'web', title: 'Benchmarks for first-contact resolution in retail', meta: 'Web · industry report' },
       { kind: 'doc', title: 'Returns process redesign notes', meta: 'Shared drive · Doc' },
     ],
+    attached: ['Support Intent XL v4.0', 'Postgres', 'Triage reply v2.0'],
     workflows: [{ name: 'Support ticket triage', meta: 'Runs hourly · 5 steps' }],
   },
   {
@@ -213,19 +211,70 @@ export const SEED_PROJECTS: SeedProject[] = [
       2,
       ', so the workflow can publish but filters on the storefront will miss them.',
     ],
-    outputs: [],
     suggestions: [
       { kind: 'pdf', title: 'Supplier data standard v3', meta: 'Shared drive · PDF' },
       { kind: 'web', title: 'GS1 attribute definitions', meta: 'Web · gs1.org' },
     ],
+    attached: ['SKU onboarding workflow', 'Invoice Extractor v2.1', 'Demand Forecaster v2.5'],
     workflows: [{ name: 'SKU onboarding', meta: '6 steps · ran 2h ago' }],
   },
 ];
 
 /** Libraries published to the whole organisation (fictional). */
 export const ORG_LIBRARIES = [
-  { id: 'q4-planning', name: 'Q4 planning hub', team: 'Strategy Office', sourceCount: 34, daysAgo: 16 },
-  { id: 'model-risk-policy', name: 'Model risk policy library', team: 'Governance', sourceCount: 58, daysAgo: 32 },
-  { id: 'customer-research', name: 'Customer research 2026', team: 'Insights team', sourceCount: 112, daysAgo: 44 },
-  { id: 'data-platform-onboarding', name: 'Onboarding: data platform', team: 'Platform', sourceCount: 21, daysAgo: 86 },
-] as const;
+  {
+    id: 'q4-planning',
+    name: 'Q4 planning hub',
+    team: 'Strategy Office',
+    sourceCount: 34,
+    daysAgo: 16,
+    description: 'Targets, budgets and the planning calendar for Q4.',
+    sources: [
+      { kind: 'doc', title: 'Q4 operating plan', meta: 'Doc · 22 pages' },
+      { kind: 'sheet', title: 'Budget by team, Q4', meta: 'Sheet · 14 tabs' },
+      { kind: 'pdf', title: 'Board pack, October', meta: 'PDF · 38 pages' },
+    ],
+  },
+  {
+    id: 'model-risk-policy',
+    name: 'Model risk policy library',
+    team: 'Governance',
+    sourceCount: 58,
+    daysAgo: 32,
+    description: 'Every policy that applies to models in production, with the tiers they set.',
+    sources: [
+      { kind: 'doc', title: 'Model risk policy v4', meta: 'Doc · 31 pages' },
+      { kind: 'doc', title: 'Tool approval tiers', meta: 'Doc · 9 pages' },
+      { kind: 'pdf', title: 'Supervisory guidance on model risk', meta: 'PDF · 21 pages' },
+    ],
+  },
+  {
+    id: 'customer-research',
+    name: 'Customer research 2026',
+    team: 'Insights team',
+    sourceCount: 112,
+    daysAgo: 44,
+    description: 'Interviews, surveys and usability studies from this year.',
+    sources: [
+      { kind: 'dataset', title: 'Survey responses, H1', meta: 'Dataset · 8.2k rows' },
+      { kind: 'doc', title: 'Interview synthesis, onboarding', meta: 'Doc · 12 pages' },
+      { kind: 'sheet', title: 'Usability findings tracker', meta: 'Sheet · 140 rows' },
+    ],
+  },
+  {
+    id: 'data-platform-onboarding',
+    name: 'Onboarding: data platform',
+    team: 'Platform',
+    sourceCount: 21,
+    daysAgo: 86,
+    description: 'How to get access to, query and publish on the data platform.',
+    sources: [
+      { kind: 'doc', title: 'Getting started with the warehouse', meta: 'Doc · 7 pages' },
+      { kind: 'connector', title: 'Postgres · catalog', meta: 'Live connector · read-only' },
+      { kind: 'web', title: 'Data platform handbook', meta: 'Web · internal wiki' },
+    ],
+  },
+] as const satisfies readonly { id: string; name: string; team: string; sourceCount: number; daysAgo: number; description: string; sources: readonly { kind: SourceKind; title: string; meta: string }[] }[];
+
+/** Teams a project can be shared with (fictional). */
+export const TEAMS = ['Risk ML', 'Risk Ops', 'Support AI', 'Procurement', 'Governance', 'Platform', 'Demand Science', 'Strategy Office', 'Insights team', 'Document Intel'];

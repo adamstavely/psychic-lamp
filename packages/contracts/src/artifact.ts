@@ -99,3 +99,7 @@ export const ArtifactUpload = z.strictObject({
   sensitivity: Sensitivity.default('Internal'),
 });
 export type ArtifactUpload = z.infer<typeof ArtifactUpload>;
+
+/** Files an artifact under a project (by id), or takes it out (null). */
+export const ArtifactPatch = z.strictObject({ projectId: z.string().min(1).max(64).nullable() });
+export type ArtifactPatch = z.infer<typeof ArtifactPatch>;

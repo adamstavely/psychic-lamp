@@ -27,7 +27,9 @@
             ><span class="avatar" aria-hidden="true">{{ initials(l.team) }}</span
             >{{ l.team }}</span
           >
-          <h3>{{ l.name }}</h3>
+          <h3>
+            <a [routerLink]="['/projects/libraries', l.id]">{{ l.name }}</a>
+          </h3>
           <p class="meta">{{ when(l.updatedAt) }} · {{ l.sourceCount }} sources</p>
           <tc-button
             variant="secondary"
