@@ -10,7 +10,30 @@ export interface Reply {
 
 const DEFAULT_MODEL = 'claude-sonnet-4.5';
 
-export function pickReply(text: string, model: ModelChoice): Reply {
+/** Another way to say it, for Regenerate: a different opening, and lists in another order. */
+export function pickReply(text: string, model: ModelChoice, variant = 0): Reply {
+  const reply = baseReply(text, model);
+  if (variant === 0) return reply;
+  const openers = ['Here is another take. ', 'Looking at it again: ', 'A different angle: '];
+  let opened = false;
+  return {
+    ...reply,
+    blocks: reply.blocks.map((b) => {
+      if (b.type === 'text' && !opened) {
+        opened = true;
+        return { ...b, text: openers[(variant - 1) % openers.length]! + b.text };
+      }
+      if (b.type === 'list')
+        return {
+          ...b,
+          items: [...b.items.slice(variant % b.items.length), ...b.items.slice(0, variant % b.items.length)],
+        };
+      return b;
+    }),
+  };
+}
+
+function baseReply(text: string, model: ModelChoice): Reply {
   const chosen: Route = { kind: 'model', name: model === 'auto' ? DEFAULT_MODEL : model };
 
   if (/\b(prep|prepare|meeting|go\/no-go)\b/i.test(text)) {

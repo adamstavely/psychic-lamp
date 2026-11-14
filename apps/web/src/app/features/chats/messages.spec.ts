@@ -7,6 +7,8 @@ const answer = (blocks: AssistantMessage['blocks'], durationMs = 8600): Assistan
   routing: [],
   blocks,
   durationMs,
+  versions: [],
+  version: 1,
   vote: null,
   at: new Date().toISOString(),
 });

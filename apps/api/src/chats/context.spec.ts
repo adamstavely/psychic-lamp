@@ -24,6 +24,8 @@ const messages: Message[] = [
       },
     ],
     durationMs: 1000,
+    versions: [],
+    version: 1,
     vote: null,
     at,
   },

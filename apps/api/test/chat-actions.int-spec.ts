@@ -132,3 +132,59 @@ describe('sending, approving and voting', () => {
     expect(again.messages.find((m) => m.id === answer.id)).toMatchObject({ vote: null });
   });
 });
+
+describe('regenerating an answer', () => {
+  let t: TestApp;
+  let http: ReturnType<typeof request>;
+  const bearer = { type: 'bearer' } as const;
+  beforeAll(async () => {
+    t = await createTestApp();
+    http = request(t.app.getHttpServer());
+  });
+  afterAll(() => t.app.close());
+
+  it('streams a new version, shows it, and can go back to the first', async () => {
+    const token = await t.token();
+    const chat = Chat.parse((await http.get('/api/chats/churn').auth(token, bearer)).body);
+    const answer = chat.messages.find((m) => m.role === 'assistant')!;
+    const res = await http
+      .post(`/api/chats/churn/messages/${answer.id}/regenerate`)
+      .auth(token, bearer)
+      .send({})
+      .expect(200);
+    const stream = events(res.text);
+    expect(stream[0]).toMatchObject({ type: 'start', id: answer.id });
+    const done = stream.at(-1)!;
+    expect(done).toMatchObject({ type: 'done', message: { id: answer.id, version: 2 } });
+    if (done.type !== 'done') throw new Error('no answer');
+    expect(done.message.versions).toHaveLength(2);
+    expect(done.message.blocks).not.toEqual(done.message.versions[0]!.blocks);
+
+    await http
+      .put(`/api/chats/churn/messages/${answer.id}/version`)
+      .auth(token, bearer)
+      .send({ version: 1 })
+      .expect(204);
+    const again = Chat.parse((await http.get('/api/chats/churn').auth(token, bearer)).body);
+    const shown = again.messages.find((m) => m.id === answer.id);
+    expect(shown).toMatchObject({ version: 1 });
+    if (shown?.role !== 'assistant') throw new Error('no answer');
+    expect(shown.blocks).toEqual(shown.versions[0]!.blocks);
+    await http
+      .put(`/api/chats/churn/messages/${answer.id}/version`)
+      .auth(token, bearer)
+      .send({ version: 9 })
+      .expect(404);
+  });
+
+  it('keeps a decision in the version it was made in', async () => {
+    const token = await t.token();
+    await http.post('/api/chats/invoice/tools/v2/decision').auth(token, bearer).send({ decision: 'deny' }).expect(201);
+    const chat = Chat.parse((await http.get('/api/chats/invoice').auth(token, bearer)).body);
+    const withTool = chat.messages.find(
+      (m) => m.role === 'assistant' && m.blocks.some((b) => b.type === 'tool' && b.id === 'v2'),
+    );
+    if (withTool?.role !== 'assistant') throw new Error('no answer');
+    expect(withTool.versions[0]!.blocks.find((b) => b.type === 'tool')).toMatchObject({ status: 'denied' });
+  });
+});

@@ -19,6 +19,8 @@ const answer = (blocks: AssistantMessage['blocks'], routing: AssistantMessage['r
   routing,
   blocks,
   durationMs: 1,
+  versions: [],
+  version: 1,
   vote: null,
   at,
 });

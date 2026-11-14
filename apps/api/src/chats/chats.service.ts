@@ -1,6 +1,7 @@
 import type {
   AssistantMessage,
   Block,
+  ModelChoice,
   Chat,
   ChatPatch,
   ChatSummary,
@@ -19,7 +20,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module.js';
-import { chats, checkpoints, claimReviews, messages } from '../db/schema.js';
+import { type AnswerBody, chats, checkpoints, claimReviews, messages } from '../db/schema.js';
 import { SeedService } from '../seed/seed.service.js';
 import { ChatSearch, chatText } from '../search/chat-search.js';
 import { contextFor } from './context.js';
@@ -236,7 +237,14 @@ export class ChatsService {
       const blocks = row.body.blocks.map((b) => (b === tool ? decided : b));
       const [updated] = await tx
         .update(messages)
-        .set({ body: { ...row.body, blocks } })
+        .set({
+          body: (() => {
+            const versions = versionsOf(row.body);
+            const shown = row.body.shown ?? versions.length;
+            versions[shown - 1] = { ...versions[shown - 1]!, blocks };
+            return showing(versions, shown);
+          })(),
+        })
         .where(eq(messages.id, row.id))
         .returning();
 
@@ -266,6 +274,60 @@ export class ChatsService {
         .where(and(eq(chats.ownerId, userId), eq(chats.id, chatId)));
       return { updated: toMessage(updated!) as AssistantMessage, reply: toMessage(reply!) as AssistantMessage };
     });
+  }
+
+  /** Adds a new version of an answer, from the question before it, and shows it. */
+  async regenerate(userId: string, chatId: string, messageId: string, model: ModelChoice): Promise<AssistantMessage> {
+    await this.get(userId, chatId);
+    return this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(messages)
+        .where(
+          and(
+            eq(messages.ownerId, userId),
+            eq(messages.chatId, chatId),
+            eq(messages.id, messageId),
+            eq(messages.role, 'assistant'),
+          ),
+        );
+      if (!row || 'text' in row.body) throw new NotFoundException('No answer with that id in this chat');
+      const [question] = await tx
+        .select()
+        .from(messages)
+        .where(and(eq(messages.ownerId, userId), eq(messages.chatId, chatId), eq(messages.seq, row.seq - 1)));
+      const asked = question && 'text' in question.body ? question.body.text : '';
+      const versions = versionsOf(row.body);
+      const next = answerBody(pickReply(asked, model, versions.length));
+      const [saved] = await tx
+        .update(messages)
+        .set({ body: showing([...versions, next], versions.length + 1), vote: null, voteReason: null })
+        .where(eq(messages.id, row.id))
+        .returning();
+      return toMessage(saved!) as AssistantMessage;
+    });
+  }
+
+  /** Shows an earlier (or later) version of an answer. */
+  async showVersion(userId: string, chatId: string, messageId: string, version: number): Promise<void> {
+    const [row] = await this.db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.ownerId, userId),
+          eq(messages.chatId, chatId),
+          eq(messages.id, messageId),
+          eq(messages.role, 'assistant'),
+        ),
+      );
+    if (!row || 'text' in row.body) throw new NotFoundException('No answer with that id in this chat');
+    const versions = versionsOf(row.body);
+    if (version > versions.length) throw new NotFoundException(`This answer has ${versions.length} versions`);
+    await this.db
+      .update(messages)
+      .set({ body: showing(versions, version) })
+      .where(eq(messages.id, row.id));
   }
 
   async vote(userId: string, chatId: string, messageId: string, body: Vote): Promise<void> {
@@ -371,13 +433,26 @@ function toSummary(row: ChatRow): ChatSummary {
 function toMessage(row: MessageRow): Message {
   const at = row.createdAt.toISOString();
   if ('text' in row.body) return { id: row.id, role: 'user', text: row.body.text, at };
+  const versions = versionsOf(row.body);
   return {
     id: row.id,
     role: 'assistant',
     routing: row.body.routing,
     blocks: row.body.blocks,
     durationMs: row.body.durationMs,
+    versions,
+    version: row.body.shown ?? versions.length,
     vote: row.vote ?? null,
     at,
   };
+}
+
+/** An answer's versions, oldest first (one, until it has been regenerated). */
+function versionsOf(body: AnswerBody & { versions?: AnswerBody[] }): AnswerBody[] {
+  return body.versions ?? [{ routing: body.routing, blocks: body.blocks, durationMs: body.durationMs }];
+}
+
+/** The body showing version `shown` of `versions`. */
+function showing(versions: AnswerBody[], shown: number): AnswerBody & { versions: AnswerBody[]; shown: number } {
+  return { ...versions[shown - 1]!, versions, shown };
 }

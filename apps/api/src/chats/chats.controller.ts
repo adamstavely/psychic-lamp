@@ -1,12 +1,16 @@
 import {
+  type AssistantMessage,
   type Chat,
+  type UserMessage,
   ChatPatch,
   type ChatSummary,
   ClaimReview,
   NewCheckpoint,
   type ProvenanceManifest,
   NewChat,
+  RegenerateAnswer,
   SendMessage,
+  ShowVersion,
   ToolDecision,
   type ToolDecisionResult,
   Vote,
@@ -53,6 +57,10 @@ export class ChatsController {
   ): Promise<void> {
     // Saved before streaming starts, so leaving mid-answer still leaves a whole thread behind.
     const { user, answer } = await this.chats.send(await this.users.idFor(claims), id, body);
+    await this.stream(answer, req, res, user);
+  }
+
+  private async stream(answer: AssistantMessage, req: Request, res: Response, user?: UserMessage): Promise<void> {
     res.status(200).set({
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
@@ -62,7 +70,7 @@ export class ChatsController {
     res.flushHeaders();
     const left = new AbortController();
     req.on('close', () => left.abort());
-    res.write(sse({ type: 'user', message: user }));
+    if (user) res.write(sse({ type: 'user', message: user }));
     for await (const event of streamAnswer(answer, this.config.get('STREAM_SPEED', { infer: true }), left.signal)) {
       res.write(sse(event));
     }
@@ -96,6 +104,31 @@ export class ChatsController {
     @Param('id', { schema: ChatId }) id: string,
   ): Promise<ProvenanceManifest> {
     return this.chats.export(await this.users.idFor(claims), id, identityFrom(claims).name);
+  }
+
+  /** Streams a new version of an answer, the same way as a reply. */
+  @Post(':id/messages/:messageId/regenerate')
+  async regenerate(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: ChatId }) id: string,
+    @Param('messageId', { schema: z.uuid() }) messageId: string,
+    @Body({ schema: RegenerateAnswer }) body: RegenerateAnswer,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    const answer = await this.chats.regenerate(await this.users.idFor(claims), id, messageId, body.model);
+    await this.stream(answer, req, res);
+  }
+
+  @Put(':id/messages/:messageId/version')
+  @HttpCode(204)
+  async showVersion(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: ChatId }) id: string,
+    @Param('messageId', { schema: z.uuid() }) messageId: string,
+    @Body({ schema: ShowVersion }) body: ShowVersion,
+  ): Promise<void> {
+    await this.chats.showVersion(await this.users.idFor(claims), id, messageId, body.version);
   }
 
   @Post(':id/tools/:toolId/decision')

@@ -65,5 +65,24 @@ test.describe('asking Donovan', () => {
         page.locator('tc-message-actions').first().getByRole('button', { name: 'Bad response' }),
       ).toHaveAttribute('aria-pressed', 'true');
     });
+
+    test('Regenerate adds a version, and the switcher goes back to the first', async ({ page }) => {
+      await signIn(page, 'priya', '/chats/rfc');
+      await resetUser(page);
+      const actions = page.locator('tc-message-actions').last();
+      await actions.getByRole('button', { name: /Regenerate/ }).click();
+      await expect(page.getByRole('status').filter({ hasText: 'Version 2 of the answer is ready.' })).toBeAttached();
+      await expect(
+        page.getByText(/^(Here is another take|Looking at it again|A different angle)/).last(),
+      ).toBeVisible();
+      await page
+        .locator('tc-message-actions')
+        .last()
+        .getByRole('button', { name: /Previous version/i })
+        .click();
+      await expect(page.getByRole('status').filter({ hasText: 'Showing version 1 of 2.' })).toBeAttached();
+      await page.reload();
+      await expect(page.getByText(/^(Here is another take|Looking at it again|A different angle)/)).toHaveCount(0);
+    });
   });
 });

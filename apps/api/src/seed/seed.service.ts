@@ -63,6 +63,8 @@ export class SeedService {
                     routing: m.routing,
                     blocks: m.blocks,
                     durationMs: m.durationMs,
+                    versions: [{ routing: m.routing, blocks: m.blocks, durationMs: m.durationMs }],
+                    version: 1,
                     vote: null,
                     at: '',
                   },
