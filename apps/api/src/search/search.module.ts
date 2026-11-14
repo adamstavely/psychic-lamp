@@ -10,8 +10,16 @@ import { ChatSearch } from './chat-search.js';
     {
       provide: Client,
       inject: [ConfigService],
-      useFactory: (config: ConfigService<Env, true>) =>
-        new Client({ node: config.get('ELASTICSEARCH_URL', { infer: true }) }),
+      useFactory: (config: ConfigService<Env, true>) => {
+        const apiKey = config.get('ELASTICSEARCH_API_KEY', { infer: true });
+        const ca = config.get('ELASTICSEARCH_CA_PEM', { infer: true });
+        return new Client({
+          node: config.get('ELASTICSEARCH_URL', { infer: true }),
+          ...(apiKey ? { auth: { apiKey } } : {}),
+          ...(ca ? { tls: { ca, rejectUnauthorized: true } } : {}),
+          requestTimeout: 10_000,
+        });
+      },
     },
     ChatSearch,
   ],

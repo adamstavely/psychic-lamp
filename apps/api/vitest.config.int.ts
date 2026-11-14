@@ -17,6 +17,8 @@ export default defineConfig({
       OIDC_AUDIENCE: process.env['OIDC_AUDIENCE'] ?? 'donovan-api',
       STREAM_SPEED: '0',
       SEARCH_BACKFILL: 'false',
+      // The concurrency tests send ten answers to one person at once; the per-person stream limit has its own tests.
+      MAX_STREAMS_PER_USER: '20',
     },
   },
 });

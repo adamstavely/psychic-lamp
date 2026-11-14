@@ -8,6 +8,7 @@ import { Env } from './config/env.js';
 import { DbModule } from './db/db.module.js';
 import { HealthController } from './health/health.controller.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
+import { ObservabilityModule } from './observability/observability.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
 import { SearchApiModule } from './search-api/search-api.module.js';
 import { SearchModule } from './search/search.module.js';
@@ -20,6 +21,7 @@ import { UsersModule } from './users/users.module.js';
     DbModule,
     SearchModule,
     AuthModule,
+    ObservabilityModule,
     UsersModule,
     BriefModule,
     ChatsModule,
@@ -33,7 +35,8 @@ import { UsersModule } from './users/users.module.js';
 export class AppModule {
   /** The app, plus the end-to-end test reset when the environment allows it. */
   static forEnvironment(env: NodeJS.ProcessEnv = process.env): DynamicModule {
-    const allowReset = Env.shape.ALLOW_TEST_RESET.parse(env['ALLOW_TEST_RESET']);
+    // Parsed in full, so a production environment that asks for the reset fails here, before anything starts.
+    const allowReset = Env.parse(env).ALLOW_TEST_RESET;
     return { module: AppModule, imports: [ArtifactsModule], controllers: allowReset ? [TestResetController] : [] };
   }
 }

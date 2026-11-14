@@ -14,7 +14,8 @@ async function bootstrap() {
   }
   const app = setUp(await NestFactory.create(AppModule.forEnvironment()));
   const config = app.get<ConfigService<Env, true>>(ConfigService);
-  await runMigrations(config.get('DATABASE_URL', { infer: true }));
+  // Locally the API migrates as it starts; production refuses that and runs `npm run migrate` as a job first.
+  if (config.get('MIGRATE_ON_START', { infer: true })) await runMigrations(config.get('DATABASE_URL', { infer: true }));
   await app.listen(config.get('PORT', { infer: true }));
 }
 await bootstrap();
