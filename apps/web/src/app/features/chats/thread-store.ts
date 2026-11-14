@@ -17,7 +17,7 @@ import type {
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import { firstValueFrom, lastValueFrom, tap } from 'rxjs';
 import { ChatsStore } from '../../core/chats-store';
-import { streamMessage } from './answer-stream';
+import { streamMessage, streamPost } from './answer-stream';
 
 /** One open chat: its turns, the answer being written, and the person's decisions and votes. */
 @Injectable()
@@ -86,6 +86,45 @@ export class ThreadStore {
       throw new Error('send failed');
     } finally {
       this.streaming.set(false);
+    }
+  }
+
+  /** Streams a new version of an answer into it; the version switcher moves to it. */
+  async regenerate(message: AssistantMessage, model: ModelChoice = 'auto'): Promise<void> {
+    this.streaming.set(true);
+    this.status.set('Donovan is answering again…');
+    let answer: AssistantMessage | null = null;
+    try {
+      await lastValueFrom(
+        streamPost(this.#http, `/api/chats/${encodeURIComponent(this.chatId())}/messages/${message.id}/regenerate`, {
+          model,
+        }).pipe(tap((e) => (answer = this.apply(e, answer, message)))),
+        { defaultValue: null },
+      );
+      this.status.set(`Version ${message.versions.length + 1} of the answer is ready.`);
+    } catch {
+      this.upsert(message);
+      this.status.set('');
+      throw new Error('regenerate failed');
+    } finally {
+      this.streaming.set(false);
+    }
+  }
+
+  /** Shows another version of an answer (from 1), and remembers it. */
+  async showVersion(message: AssistantMessage, version: number): Promise<void> {
+    const v = message.versions[version - 1];
+    if (!v) return;
+    this.upsert({ ...message, ...v, version });
+    this.status.set(`Showing version ${version} of ${message.versions.length}.`);
+    try {
+      await firstValueFrom(
+        this.#http.put<void>(`/api/chats/${encodeURIComponent(this.chatId())}/messages/${message.id}/version`, {
+          version,
+        }),
+      );
+    } catch {
+      // Still shown here; it just won't be the one shown next time.
     }
   }
 
@@ -159,22 +198,20 @@ export class ThreadStore {
     }
   }
 
-  /** Folds one stream event into the thread; returns the answer as it now stands. */
-  private apply(e: StreamEvent, answer: AssistantMessage | null): AssistantMessage | null {
+  /**
+   * Folds one stream event into the thread; returns the answer as it now stands. `base`: the answer being regenerated,
+   * whose earlier versions are kept while the new one streams in.
+   */
+  private apply(e: StreamEvent, answer: AssistantMessage | null, base?: AssistantMessage): AssistantMessage | null {
     switch (e.type) {
       case 'user':
         this.upsert(e.message);
         return answer;
       case 'start': {
-        const started: AssistantMessage = {
-          id: e.id,
-          role: 'assistant',
-          routing: e.routing,
-          blocks: [],
-          durationMs: 0,
-          vote: null,
-          at: e.at,
-        };
+        const fresh = { routing: e.routing, blocks: [], durationMs: 0 };
+        const started: AssistantMessage = base
+          ? { ...base, ...fresh, versions: [...base.versions, fresh], version: base.versions.length + 1, vote: null }
+          : { id: e.id, role: 'assistant', ...fresh, versions: [fresh], version: 1, vote: null, at: e.at };
         this.upsert(started);
         return started;
       }

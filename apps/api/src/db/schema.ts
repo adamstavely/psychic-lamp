@@ -84,7 +84,16 @@ export const chats = pgTable(
   (t) => [primaryKey({ columns: [t.ownerId, t.id] }), index('chats_owner_updated').on(t.ownerId, t.updatedAt)],
 );
 
-export type MessageBody = { text: string } | { routing: Route[]; blocks: Block[]; durationMs: number };
+export interface AnswerBody {
+  routing: Route[];
+  blocks: Block[];
+  durationMs: number;
+}
+/**
+ * A turn's content. An answer's top-level routing, blocks and durationMs are the version shown; `versions` (all of
+ * them, oldest first) and `shown` (from 1) appear once it has been regenerated.
+ */
+export type MessageBody = { text: string } | (AnswerBody & { versions?: AnswerBody[]; shown?: number });
 
 export const messages = pgTable(
   'messages',

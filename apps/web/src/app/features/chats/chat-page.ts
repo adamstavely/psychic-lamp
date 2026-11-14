@@ -111,6 +111,25 @@ export default class ChatPage {
   protected readonly decide = (toolId: string, decision: ToolDecision): Promise<void> =>
     this.thread.decide(toolId, decision);
 
+  /** Regenerate, per answer; kept so the bar's handler doesn't change on every check. */
+  readonly #regenerators = new Map<string, () => Promise<void>>();
+  protected regenerator(m: AssistantMessage): () => Promise<void> {
+    let fn = this.#regenerators.get(m.id);
+    if (!fn) {
+      fn = () => {
+        const current = this.thread.messages().find((x) => x.id === m.id);
+        return this.thread.regenerate((current as AssistantMessage | undefined) ?? m);
+      };
+      this.#regenerators.set(m.id, fn);
+    }
+    return fn;
+  }
+
+  protected onVersion(m: AssistantMessage, event: CustomEvent<{ version: unknown }>): void {
+    event.preventDefault();
+    void this.thread.showVersion(m, Number(event.detail.version) + 1);
+  }
+
   protected onFeedback(m: AssistantMessage, event: CustomEvent<{ feedback: unknown; reason?: unknown }>): void {
     const vote = event.detail.feedback === 'up' || event.detail.feedback === 'down' ? event.detail.feedback : null;
     const reason = typeof event.detail.reason === 'string' ? event.detail.reason : undefined;

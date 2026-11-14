@@ -61,7 +61,11 @@
                 @if (!(thread.streaming() && $last)) {
                   <tc-message-actions
                     label="Answer actions"
-                    [actions]="['copy', 'feedback']"
+                    [actions]="['copy', 'regenerate', 'feedback']"
+                    [versions]="m.versions.length"
+                    [version]="m.version - 1"
+                    [onRegenerate]="regenerator(m)"
+                    (tc-version-change)="onVersion(m, $event)"
                     [text]="plainText(m)"
                     [feedback]="m.vote"
                     [reasons]="reasons"

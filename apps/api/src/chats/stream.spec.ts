@@ -22,6 +22,8 @@ const answer: AssistantMessage = {
     { type: 'text', text: 'Two words.' },
   ],
   durationMs: 3000,
+  versions: [],
+  version: 1,
   vote: null,
   at: new Date().toISOString(),
 };

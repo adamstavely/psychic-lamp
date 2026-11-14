@@ -119,9 +119,21 @@ export const UserMessage = z.object({
 });
 export type UserMessage = z.infer<typeof UserMessage>;
 
+/** One way Donovan answered; Regenerate adds another. */
+export const AnswerVersion = z.object({
+  routing: z.array(Route),
+  blocks: z.array(Block),
+  durationMs: z.number().int().nonnegative(),
+});
+export type AnswerVersion = z.infer<typeof AnswerVersion>;
+
 export const AssistantMessage = z.object({
   id: z.string(),
   role: z.literal('assistant'),
+  /** Every version of the answer, oldest first; routing, blocks and durationMs are the one shown. */
+  versions: z.array(AnswerVersion).min(1),
+  /** Which version is shown, from 1. */
+  version: z.number().int().positive(),
   routing: z.array(Route),
   blocks: z.array(Block),
   /** How long the answer took, for "Worked for 8.6s". */
@@ -252,3 +264,9 @@ export const ProvenanceManifest = z.object({
   contentHash: z.string(),
 });
 export type ProvenanceManifest = z.infer<typeof ProvenanceManifest>;
+
+export const RegenerateAnswer = z.strictObject({ model: ModelChoice.default('auto') });
+export type RegenerateAnswer = z.infer<typeof RegenerateAnswer>;
+
+export const ShowVersion = z.strictObject({ version: z.number().int().positive() });
+export type ShowVersion = z.infer<typeof ShowVersion>;
