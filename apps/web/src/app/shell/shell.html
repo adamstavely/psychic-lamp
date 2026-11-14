@@ -25,7 +25,7 @@
     }
 
     <div class="actions">
-      <tc-button variant="primary" size="md" label="New chat" (click)="newChat()">
+      <tc-button variant="primary" size="md" label="New chat" [hideLabel]="compact()" (click)="newChat()">
         <span slot="icon" dnIcon="plus"></span>
       </tc-button>
       <tc-button variant="ghost" size="md" hideLabel [label]="themeLabel()" (click)="toggleTheme()">

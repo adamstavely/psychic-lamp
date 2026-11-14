@@ -114,6 +114,7 @@ export class Shell {
   constructor() {
     inject(DestroyRef).onDestroy(() => this.#searchSub.unsubscribe());
     this.#narrow?.addEventListener('change', (e) => this.narrow.set(e.matches));
+    this.#compact?.addEventListener('change', (e) => this.compact.set(e.matches));
   }
   readonly #router = inject(Router);
 
@@ -187,6 +188,9 @@ export class Shell {
   readonly #narrow = typeof matchMedia === 'function' ? matchMedia('(max-width: 1024px)') : undefined;
   protected readonly narrow = signal(this.#narrow?.matches ?? false);
   protected readonly railCollapsed = computed(() => this.narrow() || !this.session.preferences().railExpanded);
+  /** Phone-width windows and 400% zoom (WCAG 1.4.10 at 320px): New chat keeps its name but shows only its icon. */
+  readonly #compact = typeof matchMedia === 'function' ? matchMedia('(max-width: 600px)') : undefined;
+  protected readonly compact = signal(this.#compact?.matches ?? false);
 
   protected readonly user = computed(() => {
     const me = this.session.me.hasValue() ? this.session.me.value() : undefined;
