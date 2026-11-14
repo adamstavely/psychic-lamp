@@ -54,14 +54,22 @@ The e2e runs use reduced motion, so axe measures colours after entrance fades, n
 | Read-only tables offered selection checkboxes                                                        | 4.1.2         | `selectable` off                                                                |
 | The composer's mic played a sample transcript into real messages                                     | 3.3.x (trust) | Browser speech recognition, which says when none is available                   |
 
-## Fixed in Trench Coat 0.28.1 ([legendary-chainsaw#139](https://github.com/adamstavely/legendary-chainsaw/pull/139))
+## Fixed in Trench Coat
+
+0.28.1 ([legendary-chainsaw#139](https://github.com/adamstavely/legendary-chainsaw/pull/139)):
 
 - Stories tiles were named by an `aria-label` that didn't match their visible text (2.5.3).
 - The Command Menu's popover stayed open after focus left it (2.4.11).
 - The Approval Card's dark-mode shortcut hint was 4.0:1 (1.4.3).
 
-Until 0.28.1 is vendored, `apps/web/e2e/trenchcoat-known.ts` lists each issue with the release that fixes it, and a
-test fails once that release is installed, so the workarounds get removed.
+0.28.2 ([legendary-chainsaw#140](https://github.com/adamstavely/legendary-chainsaw/pull/140)):
+
+- The notifications bell was named by an `aria-label` over its visible count (2.5.3).
+- The bell's unread badge was below 4.5:1 (1.4.3).
+- Angular 22 is in its supported range, so Donovan no longer overrides Trench Coat's Angular peer.
+
+Donovan vendors 0.28.2, so the workarounds are gone. `apps/web/e2e/trenchcoat-known.ts` lists any Trench Coat issue
+still worked around, with the release that fixes it, and a test fails once that release is installed.
 
 ## Open
 

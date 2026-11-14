@@ -300,17 +300,6 @@ export class Shell {
     document.getElementById('main')?.focus();
   }
 
-  /**
-   * Trench Coat 0.28.0's popover search stays open when Tab leaves it, covering what gets focus next (WCAG 2.4.11).
-   * Escape is its own way to close the results, so send that. Remove with KNOWN_TRENCHCOAT_ISSUES.commandMenuFocusOut.
-   */
-  protected closeSearchOnLeave(event: FocusEvent): void {
-    const menu = event.currentTarget as HTMLElement;
-    if (event.relatedTarget instanceof Node && menu.contains(event.relatedTarget)) return;
-    const field = menu.querySelector('[role="combobox"]');
-    field?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  }
-
   protected async newChat(): Promise<void> {
     await this.#router.navigateByUrl('/chats/new');
   }
