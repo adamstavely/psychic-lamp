@@ -2,6 +2,12 @@
 @import '@fontsource-variable/inter';
 @import './theme/donovan.css';
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html,
 body {
   margin: 0;
@@ -9,6 +15,8 @@ body {
 }
 
 body {
+  /* An app shell: the header and rail stay put and each page scrolls inside main, so the document itself never does. */
+  overflow: hidden;
   background: var(--dn-canvas);
   color: var(--tc-text-primary);
   font-family: var(--tc-font-sans);

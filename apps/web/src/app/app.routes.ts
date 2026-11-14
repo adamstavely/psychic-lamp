@@ -1,5 +1,5 @@
 import type { Routes } from '@angular/router';
-import { autoLoginPartialRoutesGuard } from 'angular-auth-oidc-client';
+import { signInGuard } from './core/return-to';
 import { Shell } from './shell/shell';
 
 const placeholder = () => import('./features/placeholder/placeholder-page');
@@ -14,7 +14,7 @@ export const routes: Routes = [
   {
     path: '',
     component: Shell,
-    canActivate: [autoLoginPartialRoutesGuard],
+    canActivate: [signInGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'brief' },
       { path: 'brief', title: 'Daily Brief', loadComponent: () => import('./features/brief/brief-page') },

@@ -3,8 +3,10 @@ import { type ApplicationConfig, provideBrowserGlobalErrorListeners } from '@ang
 import { provideRouter, TitleStrategy, withComponentInputBinding } from '@angular/router';
 import { authInterceptor, LogLevel, provideAuth, withAppInitializerAuthCheck } from 'angular-auth-oidc-client';
 import { routes } from './app.routes';
+import { provideReturnAfterSignIn } from './core/return-to';
 import { RUNTIME_CONFIG, type RuntimeConfig } from './core/runtime-config';
 import { DonovanTitleStrategy } from './core/title-strategy';
+import { unauthorizedInterceptor } from './core/unauthorized.interceptor';
 
 export function appConfig(runtime: RuntimeConfig): ApplicationConfig {
   return {
@@ -12,9 +14,10 @@ export function appConfig(runtime: RuntimeConfig): ApplicationConfig {
       provideBrowserGlobalErrorListeners(),
       { provide: RUNTIME_CONFIG, useValue: runtime },
       provideRouter(routes, withComponentInputBinding()),
+      provideReturnAfterSignIn(),
       { provide: TitleStrategy, useClass: DonovanTitleStrategy },
       // The dev server proxies /api to the API (proxy.conf.json); deployed, the ingress does.
-      provideHttpClient(withFetch(), withInterceptors([authInterceptor()])),
+      provideHttpClient(withFetch(), withInterceptors([authInterceptor(), unauthorizedInterceptor])),
       provideAuth(
         {
           config: {

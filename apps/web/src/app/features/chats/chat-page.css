@@ -1,3 +1,33 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  height: 100%;
+}
+
+.layout.with-panel {
+  grid-template-columns: minmax(0, 1fr) 27rem;
+}
+
+.layout > .page {
+  min-height: 0;
+  overflow: auto;
+}
+
+.checkpoint {
+  display: block;
+  margin-top: var(--tc-space-6);
+}
+
+.checkpoint-done {
+  margin: var(--tc-space-6) 0 0;
+  padding: var(--tc-space-2) var(--tc-space-3);
+  border: 1px solid var(--tc-status-success-border);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-status-success-bg);
+  color: var(--tc-status-success-fg);
+  font-size: var(--tc-font-size-sm);
+}
+
 .page {
   display: flex;
   flex-direction: column;
