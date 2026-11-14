@@ -212,3 +212,23 @@ export const projectNotes = pgTable(
     ),
   ],
 );
+
+/** Who a project is shared with, as the owner set it. */
+export const projectShares = pgTable(
+  'project_shares',
+  {
+    ownerId: uuid().notNull(),
+    projectId: text().notNull(),
+    recipientId: text().notNull(),
+    kind: text({ enum: ['person', 'group'] }).notNull(),
+    name: text().notNull(),
+    detail: text(),
+    level: text({ enum: ['viewer', 'editor'] }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.ownerId, t.projectId, t.recipientId] }),
+    foreignKey({ columns: [t.ownerId, t.projectId], foreignColumns: [projects.ownerId, projects.id] }).onDelete(
+      'cascade',
+    ),
+  ],
+);

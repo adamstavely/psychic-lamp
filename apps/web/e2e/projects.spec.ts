@@ -20,6 +20,26 @@ test.describe('Projects', () => {
     await expectNoAxeViolations(page);
   });
 
+  test('an org library opens read-only, to copy', async ({ page }) => {
+    await signIn(page, 'alex', '/projects');
+    await page.getByRole('link', { name: 'Model risk policy library' }).click();
+    await expect(page).toHaveURL(/\/projects\/libraries\/model-risk-policy$/);
+    await expect(page.getByText('Read only')).toBeVisible();
+    await expect(page.getByRole('checkbox')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Copy to your projects' })).toBeVisible();
+    await expectNoAxeViolations(page);
+  });
+
+  test('the side columns fold away and come back', async ({ page }) => {
+    await signIn(page, 'alex', '/projects/fraud-rollout');
+    const fold = page.getByRole('button', { name: 'Hide sources' });
+    await fold.click();
+    await expect(page.getByRole('button', { name: 'Show sources' })).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByRole('region', { name: /Sources/ }).getByRole('checkbox')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Show sources' }).click();
+    await expect(page.getByRole('region', { name: /Sources/ }).getByRole('checkbox')).toHaveCount(6);
+  });
+
   test.describe('changing state', () => {
     test.skip(({ colorScheme }) => colorScheme !== 'light', 'state-changing; runs once');
     test.describe.configure({ mode: 'serial' });
@@ -58,6 +78,65 @@ test.describe('Projects', () => {
       await expect(page).toHaveURL(/\/projects\/pricing-study-[0-9a-f]{4}$/);
       await expect(page.getByRole('heading', { level: 1, name: 'Pricing study' })).toBeVisible();
       await expect(page.getByText('No sources yet.')).toBeVisible();
+    });
+
+    test('a search finds sources to add, and Select all clears and restores them', async ({ page }) => {
+      await signIn(page, 'kemi', '/projects/fraud-rollout');
+      await resetUser(page);
+      const sources = page.getByRole('region', { name: /Sources/ });
+      await sources.getByRole('textbox', { name: 'What to look for' }).fill('chargebacks');
+      await sources.getByRole('radio', { name: 'Deep' }).click();
+      await sources.getByRole('button', { name: 'Search' }).click();
+      await expect(page.getByRole('status').filter({ hasText: /^Found \d+ of 120 looked at\.$/ })).toBeAttached();
+      await sources.getByRole('button', { name: 'Add all' }).click();
+      await expect(sources.getByRole('checkbox', { name: /Chargebacks: research report/ })).toBeChecked();
+      await sources.getByRole('button', { name: 'Clear selection' }).click();
+      await expect(sources.getByRole('heading', { name: /0 of \d+ selected/ })).toBeVisible();
+      await sources.getByRole('button', { name: 'Select all sources' }).click();
+      await expect(sources.getByRole('heading', { name: /(\d+) of \1 selected/ })).toBeVisible();
+    });
+
+    test('a Studio tool makes an artifact filed under the project', async ({ page }) => {
+      await signIn(page, 'kemi', '/projects/support-triage');
+      await resetUser(page);
+      const studio = page.getByRole('region', { name: 'Studio' });
+      await studio.getByRole('button', { name: 'Source table' }).click();
+      const made = studio.getByRole('link', { name: 'Source table — Support triage' });
+      await expect(made).toBeVisible();
+      await made.click();
+      await expect(page.getByRole('heading', { level: 1, name: 'Source table — Support triage' })).toBeVisible();
+    });
+
+    test('sharing with a team shows on the project', async ({ page }) => {
+      await signIn(page, 'kemi', '/projects/sku-onboarding');
+      await resetUser(page);
+      await page.getByRole('button', { name: 'Share' }).click();
+      const dialog = page.getByRole('dialog', { name: /Share SKU onboarding/ });
+      await expect(dialog).toBeVisible();
+      await expectNoAxeViolations(page);
+      const box = dialog.getByRole('combobox').first();
+      await box.fill('Risk Ops');
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('Enter');
+      await dialog
+        .getByRole('button', { name: /^Share/ })
+        .last()
+        .click();
+      await expect(page.getByText('Shared with 1')).toBeVisible();
+    });
+
+    test('an artifact can be saved to a project from its page', async ({ page }) => {
+      await signIn(page, 'kemi', '/artifacts/churn-compare-csv');
+      await resetUser(page);
+      await page.getByRole('button', { name: 'Save to project' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Save to project' });
+      await dialog.getByRole('combobox', { name: 'Project' }).selectOption({ label: 'Supplier risk' });
+      await dialog.getByRole('button', { name: 'Save' }).click();
+      await expect(page.getByText('Saved to Supplier risk').first()).toBeVisible();
+      await page.goto('/projects/supplier-risk');
+      await expect(
+        page.getByRole('region', { name: 'Studio' }).getByRole('link', { name: 'churn_compare.csv' }),
+      ).toBeVisible();
     });
   });
 });

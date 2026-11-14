@@ -1,5 +1,12 @@
 import {
   AddSources,
+  AllSourcesSelection,
+  type ArtifactSummary,
+  NewOutput,
+  ProjectShares,
+  type Recipient,
+  SourceSearch,
+  type SourceSearchResult,
   NewNote,
   NewProject,
   type Project,
@@ -35,6 +42,16 @@ export class ProjectsController {
   @Post()
   async create(@Claims() claims: TokenClaims, @Body({ schema: NewProject }) body: NewProject): Promise<ProjectSummary> {
     return this.projects.create(await this.users.idFor(claims), body);
+  }
+
+  @Get('directory')
+  async directory(@Claims() claims: TokenClaims): Promise<Recipient[]> {
+    return this.projects.directory(await this.users.idFor(claims));
+  }
+
+  @Get('libraries/:libraryId')
+  library(@Param('libraryId', { schema: ProjectId }) libraryId: string): Project {
+    return this.projects.library(libraryId);
   }
 
   @Get(':id')
@@ -100,5 +117,44 @@ export class ProjectsController {
     @Param('noteId', { schema: z.uuid() }) noteId: string,
   ): Promise<void> {
     await this.projects.deleteNote(await this.users.idFor(claims), id, noteId);
+  }
+
+  @Put(':id/sources/selected')
+  @HttpCode(204)
+  async selectAll(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: ProjectId }) id: string,
+    @Body({ schema: AllSourcesSelection }) body: AllSourcesSelection,
+  ): Promise<void> {
+    await this.projects.selectAll(await this.users.idFor(claims), id, body.selected);
+  }
+
+  @Post(':id/source-search')
+  @HttpCode(200)
+  async searchSources(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: ProjectId }) id: string,
+    @Body({ schema: SourceSearch }) body: SourceSearch,
+  ): Promise<SourceSearchResult> {
+    return this.projects.searchSources(await this.users.idFor(claims), id, body);
+  }
+
+  @Post(':id/outputs')
+  async createOutput(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: ProjectId }) id: string,
+    @Body({ schema: NewOutput }) body: NewOutput,
+  ): Promise<ArtifactSummary> {
+    return this.projects.createOutput(await this.users.idFor(claims), id, body);
+  }
+
+  @Put(':id/shares')
+  @HttpCode(204)
+  async setShares(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: ProjectId }) id: string,
+    @Body({ schema: ProjectShares }) body: ProjectShares,
+  ): Promise<void> {
+    await this.projects.setShares(await this.users.idFor(claims), id, body);
   }
 }

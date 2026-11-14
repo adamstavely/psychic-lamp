@@ -158,6 +158,52 @@ h1 {
   padding: var(--tc-space-8);
 }
 
+/* Save to project */
+.dialog {
+  width: min(28rem, 90vw);
+  padding: var(--tc-space-5);
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-primary);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 40%);
+}
+
+.dialog form {
+  display: grid;
+  gap: var(--tc-space-2);
+}
+
+.dialog h2 {
+  margin: 0 0 var(--tc-space-2);
+  font-size: var(--tc-font-size-lg);
+}
+
+.dialog select {
+  min-height: 32px;
+  padding: 0 var(--tc-space-2);
+  border: 1px solid var(--tc-border-control);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-control);
+  color: var(--tc-text-primary);
+  font: inherit;
+}
+
+.dialog select:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--tc-space-2);
+  margin-top: var(--tc-space-3);
+}
+
 /* Reflow (WCAG 1.4.4, 1.4.10): details move under the document when there isn't room beside it. */
 @media (max-width: 1100px) {
   .page {

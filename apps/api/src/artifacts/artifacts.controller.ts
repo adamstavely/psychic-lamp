@@ -1,5 +1,5 @@
-import { type Artifact, ArtifactQuery, type ArtifactSummary, ArtifactUpload } from '@donovan/contracts';
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { type Artifact, ArtifactPatch, ArtifactQuery, type ArtifactSummary, ArtifactUpload } from '@donovan/contracts';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { Claims } from '../auth/claims.decorator.js';
 import type { Claims as TokenClaims } from '../auth/claims.js';
@@ -35,5 +35,14 @@ export class ArtifactsController {
     @Body({ schema: ArtifactUpload }) body: ArtifactUpload,
   ): Promise<ArtifactSummary> {
     return this.artifacts.upload(await this.users.idFor(claims), body);
+  }
+
+  @Patch(':id')
+  async setProject(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: ArtifactId }) id: string,
+    @Body({ schema: ArtifactPatch }) body: ArtifactPatch,
+  ): Promise<ArtifactSummary> {
+    return this.artifacts.setProject(await this.users.idFor(claims), id, body);
   }
 }
