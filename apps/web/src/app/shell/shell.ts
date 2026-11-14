@@ -14,6 +14,7 @@ import { Toaster } from '@adamstavely/trenchcoat/angular/toaster';
 import type { ChatConversation } from '@adamstavely/trenchcoat/chat-history';
 import type { CommandMenuGroup, CommandMenuRun } from '@adamstavely/trenchcoat/command-menu';
 import type { HeaderNavAccountSelect } from '@adamstavely/trenchcoat/header-nav';
+import type { NotificationCategory, NotificationItem } from '@adamstavely/trenchcoat/notifications';
 import type { ProfileMenuItem } from '@adamstavely/trenchcoat/profile-menu';
 import type { SegmentOption } from '@adamstavely/trenchcoat/segmented-control';
 import type { SideNavCollapsedChange, SideNavItem, SideNavNavigate } from '@adamstavely/trenchcoat/side-nav';
@@ -22,6 +23,7 @@ import type { SearchResults } from '@donovan/contracts';
 import { debounceTime, filter, map, of, Subject, switchMap, catchError } from 'rxjs';
 import { IconDirective } from '../core/icon.directive';
 import { ChatsStore } from '../core/chats-store';
+import { NotificationsStore } from '../core/notifications-store';
 import { brandMark, icon } from '../core/icons';
 import { Session } from '../core/session';
 import { ThemeService } from '../core/theme';
@@ -58,6 +60,56 @@ export class Shell {
   protected readonly session = inject(Session);
   protected readonly theme = inject(ThemeService);
   protected readonly chats = inject(ChatsStore);
+  protected readonly notifications = inject(NotificationsStore);
+
+  protected readonly notificationCategories: NotificationCategory[] = [
+    { id: 'approvals', label: 'Approvals' },
+    { id: 'memos', label: 'Memos' },
+    { id: 'updates', label: 'Updates' },
+  ];
+  protected readonly notificationItems = computed<NotificationItem[]>(() =>
+    this.notifications.items().map((n) => ({
+      id: n.id,
+      title: n.title,
+      ...(n.actor ? { actor: n.actor } : {}),
+      ...(n.body ? { body: n.body } : {}),
+      ...(n.context ? { context: n.context } : {}),
+      time: n.time,
+      read: n.read,
+      category: n.category,
+      ...(n.href ? { href: n.href } : {}),
+      tone: n.category === 'approvals' ? ('warning' as const) : ('neutral' as const),
+      dismissible: true,
+    })),
+  );
+
+  // The bell's events carry their details as unknown through the Angular wrapper; these read what they need.
+  protected onNotificationsOpen(event: CustomEvent<{ open: unknown }>): void {
+    if (event.detail.open === true) this.notifications.feed.reload();
+  }
+
+  protected onNotificationRead(event: CustomEvent<{ ids: unknown; read: unknown }>): void {
+    event.preventDefault();
+    void this.notifications.markRead((event.detail.ids as string[]) ?? [], event.detail.read !== false);
+  }
+
+  protected onNotificationsAllRead(event: CustomEvent<{ ids: unknown }>): void {
+    event.preventDefault();
+    void this.notifications.markRead((event.detail.ids as string[]) ?? []);
+  }
+
+  protected onNotificationDismiss(event: CustomEvent<{ id: unknown }>): void {
+    event.preventDefault();
+    void this.notifications.dismiss(String(event.detail.id));
+  }
+
+  protected onNotificationOpen(event: CustomEvent<{ id: unknown; item: unknown }>): void {
+    event.preventDefault();
+    const id = String(event.detail.id);
+    const href = this.notifications.items().find((n) => n.id === id)?.href;
+    void this.notifications.markRead([id]);
+    if (href) void this.#router.navigateByUrl(href);
+  }
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.#searchSub.unsubscribe());

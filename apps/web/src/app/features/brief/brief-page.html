@@ -20,6 +20,18 @@
       }
     </section>
 
+    <section class="apps" aria-labelledby="apps-heading">
+      <h2 id="apps-heading" class="sr-only">Connected apps</h2>
+      <ul>
+        @for (app of brief.apps; track app.name) {
+          <li class="app">
+            <span class="app-name">{{ app.name }}</span>
+            <span class="app-count">{{ app.unread ? app.unread + ' new' : 'Nothing new' }}</span>
+          </li>
+        }
+      </ul>
+    </section>
+
     <ul class="chips" aria-label="At a glance">
       <li>
         <button type="button" class="chip" (click)="focusSection('needs-heading')">
@@ -115,9 +127,14 @@
                 </p>
                 <h3>{{ memo.subject }}</h3>
                 <p class="preview">{{ memo.preview }}</p>
-                <a class="action" routerLink="/chats/new" [queryParams]="{ q: replyPrompt(memo) }">
-                  Draft a reply with Donovan<span class="sr-only"> to {{ memo.from }}</span>
-                </a>
+                <span class="memo-actions">
+                  <a class="action" routerLink="/chats/new" [queryParams]="{ q: replyPrompt(memo) }">
+                    Draft a reply with Donovan<span class="sr-only"> to {{ memo.from }}</span>
+                  </a>
+                  <a class="action" [href]="mailto(memo)">
+                    Reply in Mail<span class="sr-only"> to {{ memo.from }} (opens your mail app)</span>
+                  </a>
+                </span>
               </div>
             </li>
           }

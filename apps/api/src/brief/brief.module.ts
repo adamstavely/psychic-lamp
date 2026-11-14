@@ -7,5 +7,6 @@ import { BriefService } from './brief.service.js';
   imports: [UsersModule],
   controllers: [BriefController],
   providers: [BriefService],
+  exports: [BriefService],
 })
 export class BriefModule {}

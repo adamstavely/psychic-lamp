@@ -69,6 +69,10 @@ export type BriefAccount = z.infer<typeof BriefAccount>;
 export const BriefResume = z.object({ id: Id, title: z.string(), meta: z.string(), href: z.string() });
 export type BriefResume = z.infer<typeof BriefResume>;
 
+/** Another app Donovan reads from, and how many new things it has. */
+export const BriefApp = z.object({ name: z.string(), unread: z.number().int().nonnegative() });
+export type BriefApp = z.infer<typeof BriefApp>;
+
 export const Brief = z.object({
   /** When the person last signed off: everything here is since then. */
   since: Iso,
@@ -82,6 +86,7 @@ export const Brief = z.object({
   /** Ids of account updates already seen. */
   seenUpdates: z.array(Id),
   resume: z.array(BriefResume),
+  apps: z.array(BriefApp),
 });
 export type Brief = z.infer<typeof Brief>;
 

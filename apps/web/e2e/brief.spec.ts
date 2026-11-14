@@ -1,5 +1,5 @@
 import { expectNoAxeViolations } from './a11y';
-import { api, expect, matchTheme, signIn, test } from './fixtures';
+import { api, expect, matchTheme, resetUser, signIn, test } from './fixtures';
 
 test.describe('Daily Brief', () => {
   test('greets the reader and lays out their morning', async ({ page }) => {
@@ -30,6 +30,13 @@ test.describe('Daily Brief', () => {
     await expect(page.getByRole('heading', { level: 2, name: /^Today/ })).toBeFocused();
   });
 
+  test('shows connected apps, and memos can be answered in Mail', async ({ page }) => {
+    await signIn(page, 'alex');
+    await expect(page.getByRole('region', { name: 'Connected apps' }).getByText('Mail')).toBeVisible();
+    const reply = page.getByRole('link', { name: /Reply in Mail to Mara Lindqvist/ });
+    await expect(reply).toHaveAttribute('href', /^mailto:\?subject=Re%3A%20Fraud%20Sentinel/);
+  });
+
   test('items that live in Build say so instead of offering a dead link', async ({ page }) => {
     await signIn(page, 'alex');
     const need = page.getByRole('listitem').filter({ hasText: 'SKU onboarding paused' });
@@ -49,8 +56,10 @@ test.describe('Daily Brief', () => {
       const before = await page.getByRole('heading', { name: /^Needs you/ }).textContent();
       const open = Number(/(\d+) open/.exec(before ?? '')![1]);
 
+      const saved = page.waitForResponse((r) => r.url().includes('/needs/invoice-eval/done'));
       await page.getByRole('checkbox', { name: /Invoice extractor v2.1 eval/ }).click();
       await expect(page.getByRole('heading', { name: /^Needs you/ })).toContainText(`${open - 1} open`);
+      await saved;
       await page.reload();
       await expect(page.getByRole('checkbox', { name: /Invoice extractor v2.1 eval/ })).toBeChecked();
 
@@ -73,6 +82,16 @@ test.describe('Daily Brief', () => {
       await expect(page.getByRole('heading', { name: /^New memos/ })).toContainText('0 unread');
       await expect(page.getByRole('button', { name: 'Mark all read' })).toBeDisabled();
       await unreadAll();
+    });
+    test('the bell lists a waiting approval, and opening it goes to the chat', async ({ page }) => {
+      await signIn(page, 'devon');
+      await resetUser(page);
+      await page.getByRole('button', { name: /Notifications/ }).click();
+      const item = page.getByText('post_message is waiting for your approval').first();
+      await expect(item).toBeVisible();
+      await expectNoAxeViolations(page);
+      await item.click();
+      await expect(page).toHaveURL(/\/chats\/(fraud|intents)$/);
     });
   });
 

@@ -234,6 +234,14 @@ export function briefFixture(now: Date, timeZone: string): BriefContent {
         updates: [{ id: 'security-1', at: ago(102), text: 'New tool-approval tiers take effect Monday' }],
       },
     ],
+    apps: [
+      { name: 'Mail', unread: 14 },
+      { name: 'Calendar', unread: 3 },
+      { name: 'Teams', unread: 6 },
+      { name: 'ServiceNow', unread: 2 },
+      { name: 'Confluence', unread: 0 },
+      { name: 'Tableau', unread: 0 },
+    ],
     resume: [
       { id: 'fraud', title: 'Q4 fraud model rollout', meta: 'Fraud rollout · 1 write waiting', href: '/chats/fraud' },
       {
