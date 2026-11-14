@@ -67,6 +67,23 @@ test.describe('Projects', () => {
       await expect(page.getByRole('region', { name: 'Studio' }).getByText('Why did returns CSAT drop?')).toBeVisible();
     });
 
+    test('Calibrated answers label their claims, and the chat is kept until cleared', async ({ page }) => {
+      await signIn(page, 'kemi', '/projects/fraud-rollout');
+      await resetUser(page);
+      await page.getByRole('switch', { name: 'Calibrated' }).click();
+      await expect(page.getByText(/Calibrated: claims labelled/)).toBeVisible();
+      await page.getByRole('button', { name: 'Summarize the threshold debate' }).click();
+      const answer = page.getByRole('region', { name: 'Summarize the threshold debate' });
+      await expect(answer.locator('tc-claim-answer')).toBeVisible();
+      await expect(answer.getByRole('complementary', { name: 'Check before acting' })).toContainText(/Before acting/);
+      await expectNoAxeViolations(page);
+
+      await page.reload();
+      await expect(page.getByRole('region', { name: 'Summarize the threshold debate' })).toBeVisible();
+      await page.getByRole('button', { name: 'Clear' }).click();
+      await expect(page.getByRole('region', { name: 'Summarize the threshold debate' })).toHaveCount(0);
+    });
+
     test('a source can be added and deselected', async ({ page }) => {
       await signIn(page, 'kemi', '/projects/sku-onboarding');
       await resetUser(page);

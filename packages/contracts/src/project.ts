@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ChatSummary, Sensitivity } from './chat.js';
+import { ChatSummary, Claim, Sensitivity } from './chat.js';
 import { UPLOAD_LIMIT_BYTES } from './defaults.js';
 
 const Iso = z.iso.datetime({ offset: true });
@@ -117,6 +117,20 @@ export const OUTPUT_TOOLS = ['brief', 'table', 'faq', 'timeline'] as const;
 export const NewOutput = z.strictObject({ tool: z.enum(OUTPUT_TOOLS) });
 export type NewOutput = z.infer<typeof NewOutput>;
 
+/** A question asked in the project and Donovan's answer, kept as the project's chat. */
+export const ProjectAnswer = z.object({
+  id: z.string(),
+  question: z.string(),
+  answer: CitedText,
+  sourcesRead: z.number().int(),
+  at: Iso,
+  /** In a Calibrated project: each statement labelled by where it comes from (null otherwise). */
+  claims: z.array(Claim).nullable(),
+  /** In a Calibrated project: what to check before acting on the answer. */
+  checkpoint: z.string().nullable(),
+});
+export type ProjectAnswer = z.infer<typeof ProjectAnswer>;
+
 export const Project = ProjectSummary.extend({
   /** An organisation library: anyone can read it and copy it; nobody edits it here. */
   readOnly: z.boolean(),
@@ -135,6 +149,8 @@ export const Project = ProjectSummary.extend({
   suggestions: z.array(ProjectSource.omit({ selected: true })),
   chats: z.array(ChatSummary),
   workflows: z.array(z.object({ name: z.string(), meta: z.string() })),
+  /** Questions asked in the project and their answers, oldest first. */
+  thread: z.array(ProjectAnswer),
 });
 export type Project = z.infer<typeof Project>;
 
@@ -164,9 +180,6 @@ export type AddSources = z.infer<typeof AddSources>;
 
 export const ProjectQuestion = z.strictObject({ question: z.string().trim().min(1).max(2000) });
 export type ProjectQuestion = z.infer<typeof ProjectQuestion>;
-
-export const ProjectAnswer = z.object({ question: z.string(), answer: CitedText, sourcesRead: z.number().int() });
-export type ProjectAnswer = z.infer<typeof ProjectAnswer>;
 
 export const NewNote = z.strictObject({ text: z.string().trim().min(1).max(4000) });
 export type NewNote = z.infer<typeof NewNote>;

@@ -751,6 +751,25 @@ input[type='checkbox'] {
   white-space: nowrap;
 }
 
+/* A Calibrated answer's checkpoint: what to verify before acting on it */
+.checkpoint {
+  margin-top: var(--tc-space-3);
+  padding: var(--tc-space-3) 14px;
+  border: 1px solid var(--tc-status-warning-border);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-status-warning-bg);
+  font-size: var(--tc-font-size-sm);
+  line-height: 1.5;
+}
+
+.checkpoint strong {
+  color: var(--tc-status-warning-fg);
+}
+
+.checkpoint p {
+  margin: 2px 0 0;
+}
+
 /* The person's question, on the right */
 .you {
   align-self: flex-end;

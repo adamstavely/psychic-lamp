@@ -1,4 +1,13 @@
-import type { ArtifactBody, ArtifactVersion, Block, Preferences, Route, SessionIntent } from '@donovan/contracts';
+import type {
+  ArtifactBody,
+  ArtifactVersion,
+  Block,
+  CitedText,
+  Claim,
+  Preferences,
+  Route,
+  SessionIntent,
+} from '@donovan/contracts';
 import {
   boolean,
   foreignKey,
@@ -219,6 +228,28 @@ export const projectNotes = pgTable(
     at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    foreignKey({ columns: [t.ownerId, t.projectId], foreignColumns: [projects.ownerId, projects.id] }).onDelete(
+      'cascade',
+    ),
+  ],
+);
+
+/** Questions asked in a project and their answers: the project's chat. */
+export const projectAnswers = pgTable(
+  'project_answers',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    ownerId: uuid().notNull(),
+    projectId: text().notNull(),
+    question: text().notNull(),
+    answer: jsonb().$type<CitedText>().notNull(),
+    sourcesRead: integer().notNull(),
+    claims: jsonb().$type<Claim[]>(),
+    checkpoint: text(),
+    at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('project_answers_project_at').on(t.ownerId, t.projectId, t.at),
     foreignKey({ columns: [t.ownerId, t.projectId], foreignColumns: [projects.ownerId, projects.id] }).onDelete(
       'cascade',
     ),

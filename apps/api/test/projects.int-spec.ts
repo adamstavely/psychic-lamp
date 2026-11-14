@@ -219,6 +219,43 @@ describe('/api/projects', () => {
     expect(r.results.every((x) => x.kind === 'connector' || x.kind === 'dataset')).toBe(true);
   });
 
+  it('keeps the chat, and in Calibrated mode labels each claim and says what to check', async () => {
+    const token = await t.token();
+    const ask = async (question: string) =>
+      ProjectAnswer.parse(
+        (await http.post('/api/projects/fraud-rollout/ask').auth(token, bearer).send({ question }).expect(200)).body,
+      );
+    const plain = await ask('What changes between v3.1 and v3.2?');
+    expect(plain.claims).toBeNull();
+    expect(plain.checkpoint).toBeNull();
+
+    await http.patch('/api/projects/fraud-rollout').auth(token, bearer).send({ calibrated: true }).expect(200);
+    const calibrated = await ask('Summarize the threshold debate');
+    expect(calibrated.claims!.length).toBeGreaterThan(0);
+    expect(calibrated.claims!.every((c) => ['grounded', 'inferred'].includes(c.kind))).toBe(true);
+    expect(calibrated.claims!.filter((c) => c.kind === 'grounded').every((c) => c.source !== null)).toBe(true);
+    expect(calibrated.checkpoint).toMatch(/^Before acting|Spot-check/);
+
+    let p = Project.parse((await http.get('/api/projects/fraud-rollout').auth(token, bearer).expect(200)).body);
+    expect(p.thread.map((a) => a.question)).toEqual([
+      'What changes between v3.1 and v3.2?',
+      'Summarize the threshold debate',
+    ]);
+
+    const brief = ArtifactSummary.parse(
+      (await http.post('/api/projects/fraud-rollout/outputs').auth(token, bearer).send({ tool: 'brief' }).expect(201))
+        .body,
+    );
+    const made = Artifact.parse((await http.get(`/api/artifacts/${brief.id}`).auth(token, bearer).expect(200)).body);
+    expect(
+      made.body.kind === 'Doc' && made.body.blocks.some((b) => b.type === 'heading' && /^Claims/.test(b.text)),
+    ).toBe(true);
+
+    await http.delete('/api/projects/fraud-rollout/thread').auth(token, bearer).expect(204);
+    p = Project.parse((await http.get('/api/projects/fraud-rollout').auth(token, bearer).expect(200)).body);
+    expect(p.thread).toEqual([]);
+  });
+
   it('makes a Studio output as an artifact filed under the project', async () => {
     const token = await t.token();
     const made = ArtifactSummary.parse(

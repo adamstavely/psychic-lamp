@@ -14,6 +14,7 @@ import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
+import { ClaimAnswer } from '@adamstavely/trenchcoat/angular/claim-answer';
 import { SharePanel } from '@adamstavely/trenchcoat/angular/share-panel';
 import { Switch } from '@adamstavely/trenchcoat/angular/switch';
 import type {
@@ -43,6 +44,7 @@ import { firstValueFrom } from 'rxjs';
 import { IconDirective } from '../../core/icon.directive';
 import type { IconName } from '../../core/icons';
 import { clockTime } from '../brief/format';
+import { claimsFor } from '../chats/blocks';
 
 const DATE = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -99,7 +101,7 @@ const LEVELS: ShareLevel[] = [
  */
 @Component({
   selector: 'dn-project-page',
-  imports: [FormsModule, RouterLink, Button, IconDirective, SharePanel, Switch],
+  imports: [FormsModule, RouterLink, Button, ClaimAnswer, IconDirective, SharePanel, Switch],
   templateUrl: './project-page.html',
   styleUrl: './project-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -128,8 +130,6 @@ export default class ProjectPage {
   protected readonly allSelected = computed(
     () => !!this.p()?.sources.length && this.selectedCount() === this.p()!.sources.length,
   );
-  /** Answers asked on this visit, oldest first: a thread under the guide (not kept once the page closes). */
-  protected readonly thread = signal<ProjectAnswer[]>([]);
   protected readonly asking = signal(false);
   protected readonly status = signal('');
   protected question = '';
@@ -367,8 +367,8 @@ export default class ProjectPage {
     this.asking.set(true);
     this.status.set(`Reading ${this.selectedCount()} sources…`);
     try {
-      const answer = await firstValueFrom(this.#http.post<ProjectAnswer>(this.url('ask'), { question: q }));
-      this.thread.update((t) => [...t, answer]);
+      await firstValueFrom(this.#http.post<ProjectAnswer>(this.url('ask'), { question: q }));
+      this.project.reload();
       this.status.set('Answer ready.');
       this.question = '';
     } catch (err) {
@@ -378,6 +378,16 @@ export default class ProjectPage {
     } finally {
       this.asking.set(false);
     }
+  }
+
+  /** A Calibrated answer's claims, as tc-claim-answer takes them. */
+  protected claimView(a: ProjectAnswer): ReturnType<typeof claimsFor> {
+    return claimsFor({ type: 'claims', items: a.claims ?? [] });
+  }
+
+  protected async clearThread(): Promise<void> {
+    await this.change(() => this.#http.delete<void>(this.url('thread')));
+    this.status.set('Chat cleared.');
   }
 
   protected saveAnswer(a: ProjectAnswer): Promise<void> {
