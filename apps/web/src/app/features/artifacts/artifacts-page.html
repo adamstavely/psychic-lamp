@@ -1,0 +1,66 @@
+<div class="page">
+  <header class="head">
+    <div>
+      <h1>Artifacts</h1>
+      <p class="lede">Files and documents Donovan produced in your chats, and files you've added.</p>
+    </div>
+    <label class="upload">
+      <input #file type="file" class="sr-only" accept=".md,.markdown,.txt,.csv,.json" (change)="upload(file)" />
+      <span class="upload-btn">Upload</span>
+    </label>
+  </header>
+
+  <div class="tools">
+    <tc-segmented-control
+      size="sm"
+      aria-label="Show"
+      [options]="filters()"
+      [value]="filter()"
+      (tc-value-change)="pick($event)"
+    />
+    <form class="search" role="search" (ngSubmit)="runSearch()">
+      <label for="artifact-search" class="sr-only">Search artifacts</label>
+      <input
+        id="artifact-search"
+        name="q"
+        type="search"
+        [(ngModel)]="query"
+        placeholder="Search names and contents"
+        autocomplete="off"
+      />
+      <tc-button variant="secondary" size="sm" label="Search" (click)="runSearch()" />
+      @if (search()) {
+        <tc-button variant="ghost" size="sm" label="Clear" (click)="clearSearch()" />
+      }
+    </form>
+  </div>
+  <p class="sr-only" role="status">{{ status() }}</p>
+
+  @if (failed()) {
+    <p role="alert" class="state">Artifacts didn't load. Try again in a moment.</p>
+  } @else if (!loading() && shown().length === 0) {
+    <p class="state">
+      {{
+        search()
+          ? 'Nothing matches that search.'
+          : 'No artifacts yet. Ask Donovan to draft something, or upload a file.'
+      }}
+    </p>
+  }
+
+  <ul class="grid">
+    @for (a of shown(); track a.id) {
+      <li>
+        <a class="card" [routerLink]="['/artifacts', a.id]">
+          <span class="preview" aria-hidden="true">{{ a.preview }}</span>
+          <span class="meta-row">
+            <span class="kind">{{ a.kind }} · v{{ a.version }}</span>
+            <span class="sens">{{ a.sensitivity }}</span>
+          </span>
+          <span class="name">{{ a.name }}</span>
+          <span class="meta">{{ a.chat?.title ?? 'Uploaded' }} · {{ when(a.updatedAt) }}</span>
+        </a>
+      </li>
+    }
+  </ul>
+</div>

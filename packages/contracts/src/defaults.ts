@@ -8,3 +8,6 @@ export const PREFERENCE_DEFAULTS = {
   showGovernance: true,
   briefAutoOpen: true,
 } as const;
+
+/** The largest file the Artifacts upload accepts. */
+export const UPLOAD_LIMIT_BYTES = 512 * 1024;

@@ -55,7 +55,7 @@
   }
   @case ('table') {
     @if (table(); as t) {
-      <tc-data-table readonly heading="Table" [columns]="t.columns" [rows]="t.rows" />
+      <tc-data-table readonly [selectable]="false" heading="Table" [columns]="t.columns" [rows]="t.rows" />
     }
   }
   @case ('chart') {

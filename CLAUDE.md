@@ -11,7 +11,7 @@ npm run start:web    # http://localhost:4200, proxies /api to the API
 ```
 
 Local sign-in is Keycloak at http://localhost:8180 (realm `donovan`, admin console `admin`/`admin`). Test users:
-`alex`/`alex` (Alex Morgan) and `mara`/`mara` (Mara Lindqvist); end-to-end specs that change data also use `devon` and `priya`. Keycloak imports the realm only when it has none: after editing `infra/keycloak/donovan-realm.json`, run `docker compose up -d --force-recreate keycloak`. The API applies database migrations on start; after
+`alex`/`alex` (Alex Morgan) and `mara`/`mara` (Mara Lindqvist); end-to-end specs that change data also use `devon`, `priya` and `sam`, one per spec. Keycloak imports the realm only when it has none: after editing `infra/keycloak/donovan-realm.json`, run `docker compose up -d --force-recreate keycloak`. The API applies database migrations on start; after
 changing `apps/api/src/db/schema.ts`, run `npx drizzle-kit generate --name <change>` in `apps/api` and commit the SQL.
 
 Checks CI runs: `npm run format:check`, `npm run lint`, `npm test`, `npm run build`, `npm run test:int`, `npm run e2e`.

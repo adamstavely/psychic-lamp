@@ -7,6 +7,7 @@ export const USERS = {
   // State-changing specs each get their own user, so parallel files never reset each other's data.
   devon: { username: 'devon', password: 'devon', name: 'Devon Price' },
   priya: { username: 'priya', password: 'priya', name: 'Priya Shah' },
+  sam: { username: 'sam', password: 'sam', name: 'Sam Adeyemi' },
 } as const;
 
 /** Signs in through the local Keycloak, the way a person does, and waits for the app. */
