@@ -6,8 +6,7 @@ import { resolve } from 'node:path';
  * known-issues test fails once it's installed, so a workaround can't outlive its bug.
  */
 export const KNOWN_TRENCHCOAT_ISSUES: Record<string, { fixedIn: string | null; axeRule?: string; selector?: string }> =
-  {
-  };
+  {};
 
 export function installedTrenchcoat(): string {
   const pkg = resolve(process.cwd(), '../../node_modules/@adamstavely/trenchcoat/package.json');
