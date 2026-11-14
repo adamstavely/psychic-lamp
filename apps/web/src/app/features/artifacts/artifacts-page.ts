@@ -2,13 +2,12 @@ import { HttpClient, httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { Button } from '@adamstavely/trenchcoat/angular/button';
-import { SegmentedControl } from '@adamstavely/trenchcoat/angular/segmented-control';
-import type { SegmentOption } from '@adamstavely/trenchcoat/segmented-control';
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import type { ArtifactKind, ArtifactSummary } from '@donovan/contracts';
 import { UPLOAD_LIMIT_BYTES } from '@donovan/contracts/defaults';
 import { firstValueFrom } from 'rxjs';
+import { IconDirective } from '../../core/icon.directive';
+import type { IconName } from '../../core/icons';
 import { relativeDay } from '../brief/format';
 
 type Filter = 'all' | ArtifactKind;
@@ -16,7 +15,7 @@ type Filter = 'all' | ArtifactKind;
 /** Everything Donovan has produced in your chats, and files you've added: filter, search, open, upload. */
 @Component({
   selector: 'dn-artifacts-page',
-  imports: [FormsModule, RouterLink, Button, SegmentedControl],
+  imports: [FormsModule, RouterLink, IconDirective],
   templateUrl: './artifacts-page.html',
   styleUrl: './artifacts-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -50,7 +49,7 @@ export default class ArtifactsPage {
     return f === 'all' ? source : source.filter((a) => a.kind === f);
   });
 
-  protected readonly filters = computed<SegmentOption[]>(() => {
+  protected readonly filters = computed<{ value: Filter; label: string; count: number }[]>(() => {
     const all = this.#all.hasValue() ? this.#all.value() : [];
     const count = (k: ArtifactKind) => all.filter((a) => a.kind === k).length;
     return [
@@ -71,8 +70,8 @@ export default class ArtifactsPage {
     return relativeDay(iso, this.now);
   }
 
-  protected pick(event: CustomEvent<{ value: unknown }>): void {
-    this.filter.set(event.detail.value as Filter);
+  protected kindIcon(kind: ArtifactKind): IconName {
+    return kind === 'Data' ? 'table' : kind === 'Code' ? 'code' : 'doc';
   }
 
   protected runSearch(): void {

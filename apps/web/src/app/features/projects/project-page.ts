@@ -14,13 +14,8 @@ import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
-import { Checkbox } from '@adamstavely/trenchcoat/angular/checkbox';
-import { CitedAnswer } from '@adamstavely/trenchcoat/angular/cited-answer';
-import { SegmentedControl } from '@adamstavely/trenchcoat/angular/segmented-control';
 import { SharePanel } from '@adamstavely/trenchcoat/angular/share-panel';
 import { Switch } from '@adamstavely/trenchcoat/angular/switch';
-import type { CitedSegment, CitedSource } from '@adamstavely/trenchcoat/cited-answer';
-import type { SegmentOption } from '@adamstavely/trenchcoat/segmented-control';
 import type {
   ShareEntitlementCheck,
   ShareGrant,
@@ -31,7 +26,6 @@ import type {
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import type {
   ArtifactSummary,
-  CitedText,
   NewOutput,
   Project,
   ProjectAnswer,
@@ -43,23 +37,37 @@ import type {
   SourceSearchResult,
 } from '@donovan/contracts';
 import { firstValueFrom } from 'rxjs';
-import { relativeDay } from '../brief/format';
+import { IconDirective } from '../../core/icon.directive';
+import type { IconName } from '../../core/icons';
+import { clockTime } from '../brief/format';
 
-const KIND: Record<ProjectSource['kind'], string> = {
-  pdf: 'PDF',
-  sheet: 'Sheet',
-  doc: 'Doc',
-  slack: 'Slack',
-  connector: 'Live connector',
-  web: 'Web',
-  dataset: 'Dataset',
+const DATE = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+const KIND_ICON: Record<ProjectSource['kind'], IconName> = {
+  pdf: 'doc',
+  sheet: 'table',
+  doc: 'doc',
+  slack: 'chat',
+  connector: 'database',
+  web: 'link',
+  dataset: 'database',
 };
 
-const TOOLS: { tool: NewOutput['tool']; label: string; hint: string }[] = [
-  { tool: 'brief', label: 'Brief', hint: 'A one-page summary of the selected sources' },
-  { tool: 'table', label: 'Source table', hint: 'Each source, its kind and detail' },
-  { tool: 'faq', label: 'FAQ', hint: "The project's questions, answered" },
-  { tool: 'timeline', label: 'Timeline', hint: 'What each source adds, in order' },
+const TOOLS: { tool: NewOutput['tool']; label: string; hint: string; icon: IconName }[] = [
+  { tool: 'brief', label: 'Brief', hint: 'A one-page summary of the selected sources', icon: 'list' },
+  { tool: 'table', label: 'Source table', hint: 'Each source, its kind and detail', icon: 'table' },
+  { tool: 'faq', label: 'FAQ', hint: "The project's questions, answered", icon: 'help' },
+  { tool: 'timeline', label: 'Timeline', hint: 'What each source adds, in order', icon: 'clock' },
+];
+
+const SCOPES: { value: SourceSearch['scope']; label: string }[] = [
+  { value: 'all', label: 'Everywhere' },
+  { value: 'workspace', label: 'Workspace' },
+  { value: 'web', label: 'Web' },
+];
+const DEPTHS: { value: SourceSearch['depth']; label: string }[] = [
+  { value: 'quick', label: 'Fast search' },
+  { value: 'deep', label: 'Deep research' },
 ];
 
 const LEVELS: ShareLevel[] = [
@@ -73,7 +81,7 @@ const LEVELS: ShareLevel[] = [
  */
 @Component({
   selector: 'dn-project-page',
-  imports: [FormsModule, RouterLink, Button, Checkbox, CitedAnswer, SegmentedControl, SharePanel, Switch],
+  imports: [FormsModule, RouterLink, Button, IconDirective, SharePanel, Switch],
   templateUrl: './project-page.html',
   styleUrl: './project-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -96,19 +104,14 @@ export default class ProjectPage {
         : undefined,
   );
   protected readonly p = computed(() => (this.project.hasValue() ? this.project.value() : null));
-  protected readonly kind = KIND;
   protected readonly tools = TOOLS;
   protected readonly levels = LEVELS;
-  protected readonly now = new Date();
   protected readonly selectedCount = computed(() => this.p()?.sources.filter((s) => s.selected).length ?? 0);
   protected readonly allSelected = computed(
     () => !!this.p()?.sources.length && this.selectedCount() === this.p()!.sources.length,
   );
-  protected readonly citedSources = computed<CitedSource[]>(
-    () => this.p()?.sources.map((s) => ({ id: s.id, title: s.title, site: s.meta })) ?? [],
-  );
-
-  protected readonly answer = signal<ProjectAnswer | null>(null);
+  /** Answers asked on this visit, oldest first: a thread under the guide (not kept once the page closes). */
+  protected readonly thread = signal<ProjectAnswer[]>([]);
   protected readonly asking = signal(false);
   protected readonly status = signal('');
   protected question = '';
@@ -116,20 +119,16 @@ export default class ProjectPage {
   /** Side columns fold away to give the guide room; the choice lasts while the page is open. */
   protected readonly showSources = signal(true);
   protected readonly showStudio = signal(true);
+  protected readonly showSuggested = signal(false);
+  /** The source a citation chip just pointed at, highlighted for a moment. */
+  protected readonly flashed = signal<string | null>(null);
 
   // Source search
-  protected readonly searchScopes: SegmentOption[] = [
-    { value: 'all', label: 'Everywhere' },
-    { value: 'workspace', label: 'Workspace' },
-    { value: 'web', label: 'Web' },
-  ];
-  protected readonly searchDepths: SegmentOption[] = [
-    { value: 'quick', label: 'Quick' },
-    { value: 'deep', label: 'Deep' },
-  ];
   protected searchQuery = '';
   protected readonly searchScope = signal<SourceSearch['scope']>('all');
   protected readonly searchDepth = signal<SourceSearch['depth']>('quick');
+  protected readonly scopeLabel = computed(() => SCOPES.find((x) => x.value === this.searchScope())!.label);
+  protected readonly depthLabel = computed(() => DEPTHS.find((x) => x.value === this.searchDepth())!.label);
   protected readonly searching = signal(false);
   protected readonly found = signal<SourceSearchResult | null>(null);
 
@@ -162,19 +161,56 @@ export default class ProjectPage {
     });
   }
 
-  protected segments(text: CitedText): CitedSegment[] {
-    return text.map((s) => ({ text: s.text, ...(s.cite.length ? { cite: s.cite } : {}) }));
+  protected date(iso: string): string {
+    return DATE.format(new Date(iso));
   }
 
-  protected when(iso: string): string {
-    return relativeDay(iso, this.now);
+  protected time(iso: string): string {
+    return clockTime(iso);
   }
 
-  protected async toggleSource(source: ProjectSource, event: CustomEvent<{ value: unknown }>): Promise<void> {
-    event.preventDefault();
-    await this.change(() =>
-      this.#http.put<void>(this.url(`sources/${source.id}/selected`), { selected: event.detail.value === true }),
+  protected kindIcon(kind: ProjectSource['kind']): IconName {
+    return KIND_ICON[kind];
+  }
+
+  /** An output's icon from its kind ("Doc · v2", "Data · v1"…). */
+  protected outputIcon(meta: string): IconName {
+    return meta.startsWith('Data') ? 'table' : meta.startsWith('Code') ? 'code' : 'doc';
+  }
+
+  /** A citation's number: its source's place in the list, as the chips in the prose show it. */
+  protected number(sourceId: string): number {
+    return (this.p()?.sources.findIndex((s) => s.id === sourceId) ?? -1) + 1;
+  }
+
+  protected sourceTitle(sourceId: string): string {
+    return this.p()?.sources.find((s) => s.id === sourceId)?.title ?? 'a source';
+  }
+
+  /** A citation chip shows its source: the Sources column opens and the source is scrolled to and highlighted. */
+  protected goToSource(sourceId: string): void {
+    this.showSources.set(true);
+    this.flashed.set(sourceId);
+    this.status.set(`Source ${this.number(sourceId)}: ${this.sourceTitle(sourceId)}`);
+    requestAnimationFrame(() =>
+      document.getElementById(`source-${sourceId}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }),
     );
+    setTimeout(() => this.flashed.set(null), 1600);
+  }
+
+  protected cycleScope(): void {
+    const i = SCOPES.findIndex((x) => x.value === this.searchScope());
+    this.searchScope.set(SCOPES[(i + 1) % SCOPES.length]!.value);
+  }
+
+  protected cycleDepth(): void {
+    const i = DEPTHS.findIndex((x) => x.value === this.searchDepth());
+    this.searchDepth.set(DEPTHS[(i + 1) % DEPTHS.length]!.value);
+  }
+
+  protected async toggleSource(source: ProjectSource, event: Event): Promise<void> {
+    const selected = (event.target as HTMLInputElement).checked;
+    await this.change(() => this.#http.put<void>(this.url(`sources/${source.id}/selected`), { selected }));
   }
 
   protected async selectAll(selected: boolean): Promise<void> {
@@ -221,21 +257,14 @@ export default class ProjectPage {
     }
   }
 
-  protected pickScope(e: CustomEvent<{ value: unknown }>): void {
-    this.searchScope.set(e.detail.value as SourceSearch['scope']);
-  }
-
-  protected pickDepth(e: CustomEvent<{ value: unknown }>): void {
-    this.searchDepth.set(e.detail.value as SourceSearch['depth']);
-  }
-
   protected async ask(question: string): Promise<void> {
     const q = question.trim();
     if (!q) return;
     this.asking.set(true);
     this.status.set(`Reading ${this.selectedCount()} sources…`);
     try {
-      this.answer.set(await firstValueFrom(this.#http.post<ProjectAnswer>(this.url('ask'), { question: q })));
+      const answer = await firstValueFrom(this.#http.post<ProjectAnswer>(this.url('ask'), { question: q }));
+      this.thread.update((t) => [...t, answer]);
       this.status.set('Answer ready.');
       this.question = '';
     } catch (err) {
@@ -247,9 +276,13 @@ export default class ProjectPage {
     }
   }
 
-  protected saveAnswer(): Promise<void> {
-    const a = this.answer();
-    return a ? this.addNote(`${a.question}\n\n${a.answer.map((s) => s.text).join('')}`) : Promise.resolve();
+  protected saveAnswer(a: ProjectAnswer): Promise<void> {
+    return this.addNote(`${a.question}\n\n${a.answer.map((s) => s.text).join('')}`);
+  }
+
+  protected async copyAnswer(a: ProjectAnswer): Promise<void> {
+    await navigator.clipboard.writeText(a.answer.map((s) => s.text).join(''));
+    toast.success('Answer copied');
   }
 
   protected saveGuide(p: Project): Promise<void> {

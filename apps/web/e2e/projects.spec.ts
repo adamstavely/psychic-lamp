@@ -14,8 +14,16 @@ test.describe('Projects', () => {
     await signIn(page, 'alex', '/projects/fraud-rollout');
     await matchTheme(page);
     await expect(page.getByRole('heading', { level: 1, name: 'Fraud rollout' })).toBeVisible();
-    await expect(page.getByRole('region', { name: /Sources/ }).getByRole('checkbox')).toHaveCount(6);
-    await expect(page.locator('tc-cited-answer').first()).toContainText('shadow mode');
+    await expect(
+      page
+        .getByRole('region', { name: /Sources/ })
+        .getByRole('list')
+        .getByRole('checkbox'),
+    ).toHaveCount(6);
+    const guide = page.getByRole('article', { name: 'Fraud rollout' });
+    await expect(guide).toContainText('shadow mode');
+    await guide.getByRole('button', { name: /^Source 2: / }).click();
+    await expect(page.getByRole('status').filter({ hasText: /^Source 2: / })).toBeAttached();
     await expect(page.getByRole('link', { name: 'Q4 fraud model rollout' })).toBeVisible();
     await expectNoAxeViolations(page);
   });
@@ -37,7 +45,12 @@ test.describe('Projects', () => {
     await expect(page.getByRole('button', { name: 'Show sources' })).toHaveAttribute('aria-expanded', 'false');
     await expect(page.getByRole('region', { name: /Sources/ }).getByRole('checkbox')).toHaveCount(0);
     await page.getByRole('button', { name: 'Show sources' }).click();
-    await expect(page.getByRole('region', { name: /Sources/ }).getByRole('checkbox')).toHaveCount(6);
+    await expect(
+      page
+        .getByRole('region', { name: /Sources/ })
+        .getByRole('list')
+        .getByRole('checkbox'),
+    ).toHaveCount(6);
   });
 
   test.describe('changing state', () => {
@@ -58,6 +71,7 @@ test.describe('Projects', () => {
       await signIn(page, 'kemi', '/projects/sku-onboarding');
       await resetUser(page);
       const sources = page.getByRole('region', { name: /Sources/ });
+      await sources.getByRole('button', { name: 'Add sources' }).click();
       await sources
         .getByRole('listitem')
         .filter({ hasText: 'GS1 attribute definitions' })
@@ -85,14 +99,15 @@ test.describe('Projects', () => {
       await resetUser(page);
       const sources = page.getByRole('region', { name: /Sources/ });
       await sources.getByRole('textbox', { name: 'What to look for' }).fill('chargebacks');
-      await sources.getByRole('radio', { name: 'Deep' }).click();
-      await sources.getByRole('button', { name: 'Search' }).click();
+      await sources.getByRole('button', { name: /^How hard to look/ }).click();
+      await expect(sources.getByRole('button', { name: 'How hard to look: Deep research' })).toBeVisible();
+      await sources.getByRole('button', { name: 'Search', exact: true }).click();
       await expect(page.getByRole('status').filter({ hasText: /^Found \d+ of 120 looked at\.$/ })).toBeAttached();
       await sources.getByRole('button', { name: 'Add all' }).click();
       await expect(sources.getByRole('checkbox', { name: /Chargebacks: research report/ })).toBeChecked();
-      await sources.getByRole('button', { name: 'Clear selection' }).click();
+      await sources.getByRole('checkbox', { name: 'Select all sources' }).click();
       await expect(sources.getByRole('heading', { name: /0 of \d+ selected/ })).toBeVisible();
-      await sources.getByRole('button', { name: 'Select all sources' }).click();
+      await sources.getByRole('checkbox', { name: 'Select all sources' }).click();
       await expect(sources.getByRole('heading', { name: /(\d+) of \1 selected/ })).toBeVisible();
     });
 

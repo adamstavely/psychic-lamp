@@ -1,276 +1,464 @@
 @if (p(); as p) {
   <div class="page">
-    <header class="head">
-      <p class="eyebrow">
-        <a routerLink="/projects">Projects</a>
-        @if (p.readOnly) {
-          <span aria-hidden="true">/</span> Shared with your org
-        }
-      </p>
-      <h1>{{ p.name }}</h1>
-      <div class="head-row">
-        <p class="meta">{{ p.team }} · {{ p.sourceCount }} sources · Updated {{ when(p.updatedAt) }}</p>
-        <span class="tag">{{ p.sensitivity }}</span>
-        @if (p.readOnly) {
-          <span class="tag">Read only</span>
-          <tc-button variant="primary" size="sm" label="Copy to your projects" (click)="copyLibrary(p)" />
-        } @else {
-          <tc-switch label="Calibrated" [value]="p.calibrated" (tc-value-change)="setCalibrated($event)" />
-          <tc-button variant="secondary" size="sm" label="Share" (click)="openShare()" />
-          @if (p.sharedWith.length) {
-            <span class="meta">Shared with {{ p.sharedWith.length }}</span>
+    <header class="bar">
+      <a class="icon-btn" routerLink="/projects" aria-label="All projects" title="All projects"
+        ><span dnIcon="back"></span
+      ></a>
+      <span class="glyph" dnIcon="folder"></span>
+      <div class="title">
+        <h1>{{ p.name }}</h1>
+        <p class="meta">
+          {{ p.team }} · {{ p.sourceCount }} sources · Updated {{ date(p.updatedAt) }}
+          @if (p.readOnly) {
+            · Shared with your org
           }
-        }
+        </p>
       </div>
-      @if (p.description) {
-        <p class="description">{{ p.description }}</p>
+      <span class="sens" [attr.data-level]="p.sensitivity">{{ p.sensitivity }}</span>
+      @if (p.readOnly) {
+        <span class="pill-tag">Read only</span>
+        <tc-button variant="primary" size="sm" label="Copy to your projects" (click)="copyLibrary(p)" />
+      } @else {
+        <tc-switch
+          class="pill"
+          label="Calibrated"
+          title="Label every claim and add verification checkpoints"
+          [value]="p.calibrated"
+          (tc-value-change)="setCalibrated($event)"
+        />
+        @if (p.sharedWith.length) {
+          <span class="meta">Shared with {{ p.sharedWith.length }}</span>
+        }
+        <button type="button" class="pill" (click)="openShare()"><span dnIcon="share"></span>Share</button>
       }
     </header>
 
-    <div class="columns" [class.no-sources]="!showSources()" [class.no-studio]="!showStudio() || p.readOnly">
-      <section class="col" [class.folded]="!showSources()" aria-labelledby="sources-h">
-        <div class="col-head">
-          <h2 id="sources-h">
-            Sources
-            @if (showSources()) {
-              <span class="meta">{{ selectedCount() }} of {{ p.sources.length }} selected</span>
+    <div class="columns">
+      @if (showSources()) {
+        <section class="col side" aria-labelledby="sources-h">
+          <div class="col-head">
+            <h2 id="sources-h">
+              Sources <span class="sr-only">{{ selectedCount() }} of {{ p.sources.length }} selected</span>
+            </h2>
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Hide sources"
+              title="Hide sources"
+              aria-expanded="true"
+              aria-controls="sources-body"
+              (click)="showSources.set(false)"
+            >
+              <span dnIcon="panelLeft"></span>
+            </button>
+          </div>
+          <div class="col-body" id="sources-body">
+            @if (!p.readOnly) {
+              <div class="add">
+                <button
+                  type="button"
+                  class="pill wide"
+                  [attr.aria-expanded]="showSuggested()"
+                  aria-controls="suggested"
+                  (click)="showSuggested.set(!showSuggested())"
+                >
+                  <span dnIcon="plus"></span>Add sources
+                </button>
+                @if (showSuggested()) {
+                  <div class="drop" id="suggested">
+                    <p class="drop-head">Suggested for this project</p>
+                    <ul class="rows">
+                      @for (x of p.suggestions; track x.id) {
+                        <li class="row">
+                          <span class="kind" [dnIcon]="kindIcon(x.kind)"></span>
+                          <span class="text"
+                            ><span class="title">{{ x.title }}</span
+                            ><span class="meta">{{ x.meta }}</span></span
+                          >
+                          <button type="button" class="mini" (click)="addSources([x])">
+                            Add<span class="sr-only"> {{ x.title }}</span>
+                          </button>
+                        </li>
+                      } @empty {
+                        <li class="meta">No suggestions right now. Search below.</li>
+                      }
+                    </ul>
+                  </div>
+                }
+
+                <form class="finder" role="search" aria-label="Find sources" (ngSubmit)="search()">
+                  <label for="source-q" class="sr-only">What to look for</label>
+                  <input
+                    id="source-q"
+                    name="q"
+                    [(ngModel)]="searchQuery"
+                    placeholder="Find new sources"
+                    autocomplete="off"
+                  />
+                  <div class="finder-row">
+                    <button
+                      type="button"
+                      class="chip"
+                      [attr.aria-label]="'Where to look: ' + scopeLabel()"
+                      (click)="cycleScope()"
+                    >
+                      <span dnIcon="globe" [iconSize]="13"></span>{{ scopeLabel() }}
+                    </button>
+                    <button
+                      type="button"
+                      class="chip"
+                      [attr.aria-label]="'How hard to look: ' + depthLabel()"
+                      (click)="cycleDepth()"
+                    >
+                      <span dnIcon="sparkle" [iconSize]="13"></span>{{ depthLabel() }}
+                    </button>
+                    <button type="submit" class="round" aria-label="Search" [disabled]="searching()">
+                      <span dnIcon="arrowRight" [iconSize]="14"></span>
+                    </button>
+                  </div>
+                </form>
+                @if (searching()) {
+                  <p class="busy">{{ searchDepth() === 'deep' ? 'Searching deeply…' : 'Searching…' }}</p>
+                }
+                @if (found(); as f) {
+                  <div class="found">
+                    <div class="found-head">
+                      <span>{{ f.results.length }} found · {{ f.searched }} looked at</span>
+                      @if (f.results.length > 1) {
+                        <button type="button" class="link" (click)="addSources(f.results)">Add all</button>
+                      }
+                    </div>
+                    <ul class="rows">
+                      @for (x of f.results; track x.title) {
+                        <li class="row">
+                          <span class="kind" [dnIcon]="kindIcon(x.kind)"></span>
+                          <span class="text"
+                            ><span class="title">{{ x.title }}</span
+                            ><span class="meta">{{ x.meta }}</span></span
+                          >
+                          <button type="button" class="mini" (click)="addSources([x])">
+                            Add<span class="sr-only"> {{ x.title }}</span>
+                          </button>
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+              </div>
+
+              @if (p.sources.length) {
+                <label class="all">
+                  <span>Select all sources</span>
+                  <input
+                    type="checkbox"
+                    [checked]="allSelected()"
+                    [indeterminate]="!!selectedCount() && !allSelected()"
+                    (change)="selectAll(!allSelected())"
+                  />
+                </label>
+              }
             }
-          </h2>
+            <ul class="sources">
+              @for (s of p.sources; track s.id; let i = $index) {
+                <li [id]="'source-' + s.id" [class.flash]="flashed() === s.id">
+                  @if (p.readOnly) {
+                    <div class="row">
+                      <span class="kind" [dnIcon]="kindIcon(s.kind)"></span>
+                      <span class="text"
+                        ><span class="title">{{ s.title }}</span
+                        ><span class="meta">{{ s.meta }}</span></span
+                      >
+                    </div>
+                  } @else {
+                    <label class="row">
+                      <span class="kind" [dnIcon]="kindIcon(s.kind)"></span>
+                      <span class="text"
+                        ><span class="title">{{ s.title }}</span
+                        ><span class="meta">{{ s.meta }}</span></span
+                      >
+                      <input type="checkbox" [checked]="s.selected" (change)="toggleSource(s, $event)" />
+                    </label>
+                  }
+                </li>
+              } @empty {
+                <li class="meta empty">No sources yet. Add some above.</li>
+              }
+            </ul>
+          </div>
+        </section>
+      } @else {
+        <section class="col rail" aria-label="Sources">
           <button
             type="button"
-            class="fold"
-            [attr.aria-expanded]="showSources()"
+            class="icon-btn"
+            aria-label="Show sources"
+            title="Show sources"
+            aria-expanded="false"
             aria-controls="sources-body"
-            (click)="showSources.set(!showSources())"
+            (click)="showSources.set(true)"
           >
-            {{ showSources() ? 'Hide' : 'Show' }}<span class="sr-only"> sources</span>
+            <span dnIcon="panelLeft"></span>
           </button>
-        </div>
-        <div id="sources-body" [hidden]="!showSources()">
-          @if (!p.readOnly && p.sources.length) {
-            <tc-button
-              variant="ghost"
-              size="sm"
-              [label]="allSelected() ? 'Clear selection' : 'Select all sources'"
-              (click)="selectAll(!allSelected())"
-            />
-          }
-          <ul class="list">
-            @for (s of p.sources; track s.id) {
-              <li>
-                @if (p.readOnly) {
-                  <span class="title">{{ s.title }}</span> <span class="meta">{{ s.meta }}</span>
-                } @else {
-                  <tc-checkbox
-                    [label]="s.title"
-                    [description]="s.meta"
-                    [value]="s.selected"
-                    (tc-value-change)="toggleSource(s, $event)"
-                  />
-                }
-              </li>
-            } @empty {
-              <li class="meta">No sources yet. Find some below.</li>
-            }
-          </ul>
-
           @if (!p.readOnly) {
-            <h3>Add sources</h3>
-            <form class="search" role="search" aria-label="Find sources" (ngSubmit)="search()">
-              <label for="source-q" class="sr-only">What to look for</label>
-              <input
-                id="source-q"
-                name="q"
-                [(ngModel)]="searchQuery"
-                placeholder="What to look for"
-                autocomplete="off"
-              />
-              <tc-segmented-control
-                size="sm"
-                aria-label="Where to look"
-                [options]="searchScopes"
-                [value]="searchScope()"
-                (tc-value-change)="pickScope($event)"
-              />
-              <tc-segmented-control
-                size="sm"
-                aria-label="How hard to look"
-                [options]="searchDepths"
-                [value]="searchDepth()"
-                (tc-value-change)="pickDepth($event)"
-              />
-              <tc-button variant="secondary" size="sm" label="Search" [loading]="searching()" (click)="search()" />
-            </form>
-            @if (found(); as f) {
-              <p class="meta">{{ f.results.length }} found · {{ f.searched }} looked at</p>
-              <ul class="list">
-                @for (x of f.results; track x.title) {
-                  <li class="suggestion">
-                    <span
-                      ><span class="title">{{ x.title }}</span
-                      ><span class="meta">{{ x.meta }}</span></span
-                    >
-                    <tc-button variant="secondary" size="sm" label="Add" (click)="addSources([x])" />
-                  </li>
-                }
-              </ul>
-              @if (f.results.length > 1) {
-                <tc-button variant="secondary" size="sm" label="Add all" (click)="addSources(f.results)" />
-              }
-            } @else if (p.suggestions.length) {
-              <p class="meta">Suggested</p>
-              <ul class="list">
-                @for (x of p.suggestions; track x.id) {
-                  <li class="suggestion">
-                    <span
-                      ><span class="title">{{ x.title }}</span
-                      ><span class="meta">{{ x.meta }}</span></span
-                    >
-                    <tc-button variant="secondary" size="sm" label="Add" (click)="addSources([x])" />
-                  </li>
-                }
-              </ul>
-            }
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Add sources"
+              title="Add sources"
+              (click)="showSources.set(true); showSuggested.set(true)"
+            >
+              <span dnIcon="plus"></span>
+            </button>
           }
+          <span class="count" [attr.aria-label]="selectedCount() + ' selected'">{{ selectedCount() }}</span>
+        </section>
+      }
+
+      <section class="col main" aria-labelledby="chat-h">
+        <div class="col-head">
+          <h2 id="chat-h">Chat</h2>
+          <span class="meta">Answers cite the {{ selectedCount() }} selected sources</span>
         </div>
-      </section>
+        <div class="col-body thread">
+          <div class="flow">
+            <article class="guide" aria-labelledby="guide-h">
+              <p class="eyebrow">Project guide</p>
+              <h3 id="guide-h">{{ p.name }}</h3>
+              <p class="meta">{{ selectedCount() }} of {{ p.sources.length }} sources selected</p>
+              @if (p.guide.length) {
+                <p class="prose">
+                  @for (seg of p.guide; track $index) {
+                    <span>{{ seg.text }}</span>
+                    @for (c of seg.cite; track c) {
+                      <button
+                        type="button"
+                        class="cite"
+                        [attr.aria-label]="'Source ' + number(c) + ': ' + sourceTitle(c)"
+                        (click)="goToSource(c)"
+                      >
+                        {{ number(c) }}
+                      </button>
+                    }
+                  }
+                </p>
+                <div class="actions">
+                  @if (!p.readOnly) {
+                    <button type="button" class="pill small" (click)="saveGuide(p)">
+                      <span dnIcon="note" [iconSize]="14"></span>Save to note
+                    </button>
+                  }
+                  <button type="button" class="pill small" (click)="copyGuide(p)">
+                    <span dnIcon="copy" [iconSize]="14"></span>Copy guide
+                  </button>
+                </div>
+              } @else {
+                <p class="prose meta">Select sources to get a guide to them.</p>
+              }
+            </article>
 
-      <section class="col main" aria-labelledby="guide-h">
-        <h2 id="guide-h">Project guide</h2>
-        @if (p.guide.length) {
-          <tc-cited-answer
-            [segments]="segments(p.guide)"
-            [sources]="citedSources()"
-            [actionLabel]="p.readOnly ? '' : 'Save to note'"
-            (tc-action)="saveGuide(p)"
-          />
-          <tc-button variant="ghost" size="sm" label="Copy guide" (click)="copyGuide(p)" />
-        } @else {
-          <p class="meta">Select sources to get a guide to them.</p>
-        }
+            @if (!p.readOnly) {
+              <ul class="questions" aria-label="Suggested questions">
+                @for (q of p.questions; track q) {
+                  <li>
+                    <button type="button" class="question" [disabled]="asking()" (click)="ask(q)">{{ q }}</button>
+                  </li>
+                }
+              </ul>
 
-        @if (!p.readOnly) {
-          <h3>Ask about these sources</h3>
-          <ul class="questions">
-            @for (q of p.questions; track q) {
-              <li>
-                <button type="button" class="question" [disabled]="asking()" (click)="ask(q)">{{ q }}</button>
-              </li>
+              @if (p.chats.length) {
+                <div>
+                  <h3 class="label">Earlier chats in this project</h3>
+                  <ul class="chats">
+                    @for (c of p.chats; track c.id) {
+                      <li>
+                        <a [routerLink]="['/chats', c.id]"
+                          ><span dnIcon="chat"></span><span class="title">{{ c.title }}</span
+                          ><span class="meta">{{ time(c.updatedAt) }}</span></a
+                        >
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+
+              @for (a of thread(); track $index) {
+                <p class="you">{{ a.question }}</p>
+                <section class="answer" [attr.aria-label]="a.question">
+                  <p class="prose">
+                    @for (seg of a.answer; track $index) {
+                      <span>{{ seg.text }}</span>
+                      @for (c of seg.cite; track c) {
+                        <button
+                          type="button"
+                          class="cite"
+                          [attr.aria-label]="'Source ' + number(c) + ': ' + sourceTitle(c)"
+                          (click)="goToSource(c)"
+                        >
+                          {{ number(c) }}
+                        </button>
+                      }
+                    }
+                  </p>
+                  <div class="actions">
+                    <button type="button" class="pill small" (click)="saveAnswer(a)">
+                      <span dnIcon="note" [iconSize]="14"></span>Save to note
+                    </button>
+                    <button type="button" class="pill small" (click)="copyAnswer(a)">
+                      <span dnIcon="copy" [iconSize]="14"></span>Copy
+                    </button>
+                  </div>
+                </section>
+              }
+              @if (asking()) {
+                <p class="busy">Reading {{ selectedCount() }} sources…</p>
+              }
             }
-          </ul>
-          <form class="ask" (ngSubmit)="ask(question)">
+          </div>
+        </div>
+        @if (!p.readOnly) {
+          <form class="composer" (ngSubmit)="ask(question)">
             <label for="project-ask" class="sr-only">Ask a question about this project's sources</label>
             <input
               id="project-ask"
               name="q"
               [(ngModel)]="question"
-              placeholder="Ask about {{ selectedCount() }} sources"
+              placeholder="Ask about your sources"
               autocomplete="off"
             />
-            <tc-button variant="primary" size="md" label="Ask" [loading]="asking()" (click)="ask(question)" />
+            <span class="meta" aria-hidden="true">{{ selectedCount() }} sources</span>
+            <button type="submit" class="round send" aria-label="Ask" [disabled]="asking()">
+              <span dnIcon="arrowUp"></span>
+            </button>
           </form>
-
-          @if (answer(); as a) {
-            <section class="answer" [attr.aria-label]="a.question">
-              <h3>{{ a.question }}</h3>
-              <p class="meta">From {{ a.sourcesRead }} sources</p>
-              <tc-cited-answer
-                [segments]="segments(a.answer)"
-                [sources]="citedSources()"
-                [actionLabel]="'Save to note'"
-                (tc-action)="saveAnswer()"
-              />
-            </section>
-          }
-
-          <h3>Earlier chats in this project</h3>
-          <ul class="list">
-            @for (c of p.chats; track c.id) {
-              <li>
-                <a [routerLink]="['/chats', c.id]">{{ c.title }}</a> <span class="meta">{{ when(c.updatedAt) }}</span>
-              </li>
-            } @empty {
-              <li class="meta">No chats in this project yet.</li>
-            }
-          </ul>
         }
       </section>
 
       @if (!p.readOnly) {
-        <section class="col" [class.folded]="!showStudio()" aria-labelledby="studio-h">
-          <div class="col-head">
-            <h2 id="studio-h">Studio</h2>
+        @if (showStudio()) {
+          <section class="col side studio" aria-labelledby="studio-h">
+            <div class="col-head">
+              <h2 id="studio-h">Studio</h2>
+              <button
+                type="button"
+                class="icon-btn"
+                aria-label="Hide studio"
+                title="Hide studio"
+                aria-expanded="true"
+                aria-controls="studio-body"
+                (click)="showStudio.set(false)"
+              >
+                <span dnIcon="panelRight"></span>
+              </button>
+            </div>
+            <div class="col-body" id="studio-body">
+              <ul class="tools" aria-label="Make from the selected sources">
+                @for (t of tools; track t.tool) {
+                  <li>
+                    <button
+                      type="button"
+                      class="tool"
+                      [title]="t.hint"
+                      [disabled]="!selectedCount() || !!making()"
+                      [attr.aria-busy]="making() === t.tool"
+                      (click)="make(t.tool)"
+                    >
+                      <span [dnIcon]="t.icon"></span
+                      ><span class="tool-label">{{ making() === t.tool ? 'Making…' : t.label }}</span>
+                    </button>
+                  </li>
+                }
+              </ul>
+              @if (!selectedCount()) {
+                <p class="meta">Select a source first.</p>
+              }
+
+              <div>
+                <h3 class="label">Workflows</h3>
+                <ul class="cards">
+                  @for (w of p.workflows; track w.name) {
+                    <li class="flow-card">
+                      <span class="kind" dnIcon="workflow"></span>
+                      <span class="text"
+                        ><span class="title">{{ w.name }}</span
+                        ><span class="meta">{{ w.meta }} · runs in Build, coming soon</span></span
+                      >
+                    </li>
+                  } @empty {
+                    <li class="meta">None attached.</li>
+                  }
+                </ul>
+              </div>
+
+              <div>
+                <h3 class="label">Skills and tools</h3>
+                <ul class="chips">
+                  @for (a of p.attached; track a) {
+                    <li>{{ a }}</li>
+                  } @empty {
+                    <li class="meta">None attached.</li>
+                  }
+                </ul>
+              </div>
+
+              <div>
+                <h3 class="label">
+                  Outputs <span class="count">{{ p.outputs.length }}</span>
+                </h3>
+                <ul class="outputs">
+                  @for (o of p.outputs; track o.artifactId) {
+                    <li>
+                      <a [routerLink]="['/artifacts', o.artifactId]"
+                        ><span class="tile" [dnIcon]="outputIcon(o.meta)"></span
+                        ><span class="text"
+                          ><span class="title">{{ o.title }}</span
+                          ><span class="meta">{{ o.meta }}</span></span
+                        ></a
+                      >
+                    </li>
+                  } @empty {
+                    <li class="none">Briefs, tables and other artifacts made from this project are saved here.</li>
+                  }
+                </ul>
+              </div>
+
+              <div>
+                <h3 class="label">
+                  Notes <span class="count">{{ p.notes.length }}</span>
+                </h3>
+                <ul class="outputs">
+                  @for (n of p.notes; track n.id) {
+                    <li class="note">
+                      <span class="tile" dnIcon="note"></span
+                      ><span class="text"
+                        ><span class="title">{{ n.text }}</span
+                        ><span class="meta">{{ date(n.at) }}</span></span
+                      >
+                      <button type="button" class="icon-btn" aria-label="Delete note" (click)="deleteNote(n.id)">
+                        <span aria-hidden="true">×</span>
+                      </button>
+                    </li>
+                  } @empty {
+                    <li class="none">Save the guide or an answer to keep it here.</li>
+                  }
+                </ul>
+              </div>
+            </div>
+          </section>
+        } @else {
+          <section class="col rail" aria-label="Studio">
             <button
               type="button"
-              class="fold"
-              [attr.aria-expanded]="showStudio()"
+              class="icon-btn"
+              aria-label="Show studio"
+              title="Show studio"
+              aria-expanded="false"
               aria-controls="studio-body"
-              (click)="showStudio.set(!showStudio())"
+              (click)="showStudio.set(true)"
             >
-              {{ showStudio() ? 'Hide' : 'Show' }}<span class="sr-only"> studio</span>
+              <span dnIcon="panelRight"></span>
             </button>
-          </div>
-          <div id="studio-body" [hidden]="!showStudio()">
-            <h3>Make from the selected sources</h3>
-            <ul class="tools">
-              @for (t of tools; track t.tool) {
-                <li>
-                  <tc-button
-                    variant="secondary"
-                    size="sm"
-                    [label]="t.label"
-                    [loading]="making() === t.tool"
-                    [disabled]="!selectedCount() || !!making()"
-                    (click)="make(t.tool)"
-                  />
-                  <span class="meta">{{ t.hint }}</span>
-                </li>
-              }
-            </ul>
-            <h3>Outputs</h3>
-            <ul class="list">
-              @for (o of p.outputs; track o.artifactId) {
-                <li>
-                  <a [routerLink]="['/artifacts', o.artifactId]">{{ o.title }}</a>
-                  <span class="meta">{{ o.meta }}</span>
-                </li>
-              } @empty {
-                <li class="meta">Briefs, tables and artifacts filed under this project show here.</li>
-              }
-            </ul>
-            <h3>Notes</h3>
-            <ul class="list">
-              @for (n of p.notes; track n.id) {
-                <li class="note">
-                  <p>{{ n.text }}</p>
-                  <span class="meta">{{ when(n.at) }}</span>
-                  <tc-button variant="ghost" size="sm" label="Delete note" (click)="deleteNote(n.id)" />
-                </li>
-              } @empty {
-                <li class="meta">Save the guide or an answer to keep it here.</li>
-              }
-            </ul>
-            <h3>Skills and tools</h3>
-            <ul class="chips">
-              @for (a of p.attached; track a) {
-                <li class="tag">{{ a }}</li>
-              } @empty {
-                <li class="meta">None attached.</li>
-              }
-            </ul>
-            <h3>Workflows</h3>
-            <ul class="list">
-              @for (w of p.workflows; track w.name) {
-                <li>
-                  <span class="title">{{ w.name }}</span>
-                  <span class="meta">{{ w.meta }} · Attach and run in Build, coming soon</span>
-                </li>
-              } @empty {
-                <li class="meta">None attached.</li>
-              }
-            </ul>
-          </div>
-        </section>
+          </section>
+        }
       }
     </div>
     <p class="sr-only" role="status">{{ status() }}</p>

@@ -1,17 +1,14 @@
 <div class="page">
   <header class="head">
     <h1>Projects</h1>
-    <div class="head-tools">
-      <label for="project-filter" class="sr-only">Find a project</label>
-      <input
-        id="project-filter"
-        type="search"
-        placeholder="Search projects"
-        [ngModel]="filter()"
-        (ngModelChange)="filter.set($event)"
-      />
-      <tc-button variant="primary" label="New project" (click)="openNew()" />
-    </div>
+    <label class="find">
+      <span dnIcon="search"></span>
+      <span class="sr-only">Find a project</span>
+      <input type="search" placeholder="Search projects" [ngModel]="filter()" (ngModelChange)="filter.set($event)" />
+    </label>
+    <tc-button variant="primary" label="New project" (click)="openNew()">
+      <span slot="icon" dnIcon="plus"></span>
+    </tc-button>
   </header>
 
   @if (overview.error()) {
@@ -21,23 +18,17 @@
   <section aria-labelledby="org-heading">
     <h2 id="org-heading">Shared with your org <span class="sub">Source libraries anyone can open or copy</span></h2>
     <ul class="grid">
-      @for (l of org(); track l.id) {
-        <li class="card org">
+      @for (l of org(); track l.id; let i = $index) {
+        <li class="card org" [attr.data-tint]="i % 4">
           <span class="team"
             ><span class="avatar" aria-hidden="true">{{ initials(l.team) }}</span
             >{{ l.team }}</span
           >
-          <h3>
-            <a [routerLink]="['/projects/libraries', l.id]">{{ l.name }}</a>
-          </h3>
-          <p class="meta">{{ when(l.updatedAt) }} · {{ l.sourceCount }} sources</p>
-          <tc-button
-            variant="secondary"
-            size="sm"
-            [label]="'Copy ' + l.name"
-            [disabled]="creating()"
-            (click)="copy(l)"
-          />
+          <a class="name" [routerLink]="['/projects/libraries', l.id]">{{ l.name }}</a>
+          <span class="meta"
+            ><span>{{ date(l.updatedAt) }} · {{ l.sourceCount }} sources</span
+            ><span dnIcon="globe" title="Shared with your org"></span
+          ></span>
         </li>
       }
     </ul>
@@ -48,22 +39,18 @@
     <ul class="grid">
       <li>
         <button type="button" class="card new" (click)="openNew()">
-          <span aria-hidden="true" class="plus">+</span>
+          <span class="plus" dnIcon="plus"></span>
           New project
         </button>
       </li>
       @for (p of mine(); track p.id) {
-        <li>
-          <a class="card" [routerLink]="['/projects', p.id]">
-            <span class="tags">
-              <span class="tag">{{ p.sensitivity }}</span>
-              @if (p.calibrated) {
-                <span class="tag">Calibrated</span>
-              }
-            </span>
-            <span class="name">{{ p.name }}</span>
-            <span class="meta">{{ when(p.updatedAt) }} · {{ p.sourceCount }} sources · {{ p.team }}</span>
-          </a>
+        <li class="card">
+          <span class="top">
+            <span class="glyph" dnIcon="folder"></span>
+            <span class="sens" [attr.data-level]="p.sensitivity">{{ p.sensitivity }}</span>
+          </span>
+          <a class="name" [routerLink]="['/projects', p.id]">{{ p.name }}</a>
+          <span class="meta">{{ date(p.updatedAt) }} · {{ p.sourceCount }} sources</span>
         </li>
       } @empty {
         @if (filter()) {

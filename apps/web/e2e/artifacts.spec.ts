@@ -8,7 +8,8 @@ test.describe('Artifacts', () => {
     const grid = page.getByRole('main').getByRole('list').last();
     await expect(grid.getByRole('link')).toHaveCount(7);
     await expectNoAxeViolations(page);
-    await page.getByRole('radio', { name: /^Data/ }).click();
+    await page.getByRole('button', { name: /^Data/ }).click();
+    await expect(page.getByRole('button', { name: /^Data/ })).toHaveAttribute('aria-pressed', 'true');
     await expect(grid.getByRole('link')).toHaveCount(2);
   });
 
@@ -29,6 +30,8 @@ test.describe('Artifacts', () => {
     await page.getByRole('radio', { name: 'v1' }).click();
     await expect(page.getByRole('heading', { name: 'Rollback trigger' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Continue in chat' })).toHaveAttribute('href', '/chats/fraud');
+    await page.getByRole('radio', { name: 'Markdown' }).click();
+    await expect(page.locator('pre.source')).toContainText('## Decision');
   });
 
   test('an artifact opens beside the chat that made it, and closes back to the chat', async ({ page }) => {
