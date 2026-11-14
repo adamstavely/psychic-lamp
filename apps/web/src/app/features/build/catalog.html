@@ -1,0 +1,116 @@
+<header class="head">
+  <p class="eyebrow">{{ area().label }} · {{ scopeLabel() }}</p>
+  <h1>{{ area().title }}</h1>
+  <p class="blurb">{{ area().blurb }}</p>
+</header>
+
+<div class="bar">
+  <tc-segmented-control
+    size="sm"
+    variant="tray"
+    aria-label="Show"
+    [value]="scope()"
+    [options]="scopes"
+    (tc-value-change)="onScope($event)"
+  />
+  <tc-segmented-control
+    class="views"
+    size="sm"
+    variant="tray"
+    aria-label="Layout"
+    [value]="view()"
+    [options]="views"
+    (tc-value-change)="onView($event)"
+  />
+</div>
+
+@if (tasks().length > 1) {
+  <div class="tasks" role="group" aria-label="Task">
+    @for (t of tasks(); track t.label) {
+      <button type="button" class="chip" [attr.aria-pressed]="task() === t.label" (click)="pickTask(t.label)">
+        {{ t.label }} <span class="n">{{ t.count }}</span>
+      </button>
+    }
+  </div>
+}
+
+@if (items.hasValue()) {
+  <p class="sr-only" role="status">{{ shown().length }} {{ shown().length === 1 ? 'item' : 'items' }}</p>
+  @if (shown().length === 0) {
+    <p class="empty">Nothing in {{ scopeLabel().toLowerCase() }} yet. Switch to All, or register one.</p>
+  } @else if (view() === 'list') {
+    <table class="list">
+      <caption class="sr-only">
+        {{
+          area().label
+        }}
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Name</th>
+          <th scope="col">State</th>
+          <th scope="col">Figures</th>
+          @if (governance()) {
+            <th scope="col">Sensitivity</th>
+          }
+          <th scope="col"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (item of shown(); track item.id) {
+          <tr>
+            <th scope="row">
+              <a class="name" [routerLink]="link(item)"><span [dnIcon]="area().icon"></span>{{ item.name }}</a>
+              <span class="meta">{{ item.card.meta }}</span>
+            </th>
+            <td>
+              <span class="badge" [attr.data-tone]="item.card.badgeTone">{{ item.card.badge }}</span>
+            </td>
+            <td class="meta">{{ item.card.stats.join(' · ') }}</td>
+            @if (governance()) {
+              <td>
+                <span class="dn-sens" [attr.data-level]="item.sensitivity">{{ item.sensitivity }}</span>
+              </td>
+            }
+            <td class="actions">
+              @if (primaryLabel(item) !== 'Open') {
+                <tc-button size="sm" variant="primary" [label]="primaryLabel(item)" (click)="primary(item)" />
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else {
+    <ul class="cards">
+      @for (item of shown(); track item.id) {
+        <li class="card">
+          <h2>
+            <a [routerLink]="link(item)"><span [dnIcon]="area().icon"></span>{{ item.name }}</a>
+          </h2>
+          <span class="badge" [attr.data-tone]="item.card.badgeTone">{{ item.card.badge }}</span>
+          <p class="meta">{{ item.card.meta }}</p>
+          <p class="summary">{{ item.summary }}</p>
+          <p class="figures">
+            @if (governance()) {
+              <span class="dn-sens" [attr.data-level]="item.sensitivity">{{ item.sensitivity }}</span>
+            }
+            @for (s of item.card.stats; track s) {
+              <span>{{ s }}</span>
+            }
+          </p>
+          <div class="actions">
+            @if (primaryLabel(item) !== 'Open') {
+              <tc-button size="sm" variant="primary" [label]="primaryLabel(item)" (click)="primary(item)" />
+            }
+            <a class="open" [routerLink]="link(item)" [attr.aria-label]="'Open ' + item.name">Open</a>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+} @else if (items.error()) {
+  <p role="alert">Couldn't load {{ area().label }}. Try again in a moment.</p>
+} @else {
+  <p role="status">Loading…</p>
+}

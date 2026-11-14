@@ -58,8 +58,14 @@ const STARTERS: PromptStarter[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class ChatsHomePage {
-  /** A question handed over in the URL (from the Daily Brief's ask box), to start the composer with. */
+  /** A question handed over in the URL (from the Daily Brief's ask box, or Build's Use in chat), to start with. */
   readonly q = input<string>();
+  /** A model to start with, from Build's Use in chat; ignored unless the composer offers it. */
+  readonly model = input<string>();
+  protected readonly startModel = computed(() => {
+    const m = this.model();
+    return m && COMPOSER_MODELS.some((c) => c.id === m) ? m : 'auto';
+  });
 
   readonly #http = inject(HttpClient);
   readonly #router = inject(Router);

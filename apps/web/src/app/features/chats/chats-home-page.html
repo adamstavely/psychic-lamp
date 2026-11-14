@@ -10,7 +10,7 @@
       placeholder="Ask anything, or type / for a skill"
       [value]="value()"
       [models]="models"
-      model="auto"
+      [model]="startModel()"
       [onSend]="send"
       disclaimer="AI-generated claims can be wrong. Verify before acting."
     />

@@ -82,7 +82,7 @@ test.describe('the frame around every page', () => {
     await nav.getByRole('link', { name: /^MCP Servers/ }).click();
     await expect(page).toHaveTitle('MCP Servers · Donovan');
     await expectNoAxeViolations(page);
-    await page.getByRole('link', { name: 'Filesystem' }).click();
+    await page.getByRole('link', { name: 'Filesystem', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Filesystem', level: 1 })).toBeVisible();
     await expect(page).toHaveTitle('Filesystem · Donovan');
     await expectNoAxeViolations(page);
