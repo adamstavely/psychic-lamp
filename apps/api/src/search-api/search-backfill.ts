@@ -1,13 +1,15 @@
 import { Client } from '@elastic/elasticsearch';
 import { ConfigService } from '@nestjs/config';
 import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnApplicationShutdown } from '@nestjs/common';
-import { isNull } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { ARTIFACT_INDEX, ArtifactSearch } from '../artifacts/artifact-search.js';
 import { plainText } from '../artifacts/text.js';
 import { ChatsService } from '../chats/chats.service.js';
 import type { Env } from '../config/env.js';
 import { DB, type Db } from '../db/db.module.js';
-import { artifacts, chats } from '../db/schema.js';
+import { artifacts, chats, registryItems } from '../db/schema.js';
+import { REGISTRY_INDEX, RegistrySearch, registryDocId } from '../registry/registry-search.js';
+import { toDoc } from '../registry/registry.service.js';
 import { CHAT_INDEX, ChatSearch, chatText } from '../search/chat-search.js';
 
 /** At most this many documents are rebuilt in one pass, so a pass stays bounded; the next pass takes the rest. */
@@ -16,6 +18,7 @@ const PER_PASS = 500;
 export interface ReconcileReport {
   chats: { indexed: number; removed: number };
   artifacts: { indexed: number; removed: number };
+  registry: { indexed: number; removed: number };
 }
 
 /**
@@ -35,6 +38,7 @@ export class SearchBackfill implements OnApplicationBootstrap, OnApplicationShut
     private readonly es: Client,
     private readonly chatSearch: ChatSearch,
     private readonly artifactSearch: ArtifactSearch,
+    private readonly registrySearch: RegistrySearch,
     private readonly chatsService: ChatsService,
     private readonly config: ConfigService<Env, true>,
   ) {}
@@ -54,17 +58,22 @@ export class SearchBackfill implements OnApplicationBootstrap, OnApplicationShut
 
   /** One pass. Passes don't overlap: one that starts while another runs does nothing. */
   async run(): Promise<ReconcileReport> {
-    const report: ReconcileReport = { chats: { indexed: 0, removed: 0 }, artifacts: { indexed: 0, removed: 0 } };
+    const report: ReconcileReport = {
+      chats: { indexed: 0, removed: 0 },
+      artifacts: { indexed: 0, removed: 0 },
+      registry: { indexed: 0, removed: 0 },
+    };
     if (this.#running) return report;
     this.#running = true;
     try {
       report.chats = await this.reconcileChats();
       report.artifacts = await this.reconcileArtifacts();
-      const { chats: c, artifacts: a } = report;
-      if (c.indexed || c.removed || a.indexed || a.removed)
+      report.registry = await this.reconcileRegistry();
+      const { chats: c, artifacts: a, registry: r } = report;
+      if (c.indexed || c.removed || a.indexed || a.removed || r.indexed || r.removed)
         this.#log.log(
-          `Search reconciled: ${c.indexed} chats and ${a.indexed} artifacts re-indexed, ` +
-            `${c.removed} chats and ${a.removed} artifacts removed`,
+          `Search reconciled: ${c.indexed} chats, ${a.indexed} artifacts and ${r.indexed} registry items re-indexed, ` +
+            `${c.removed} chats, ${a.removed} artifacts and ${r.removed} registry items removed`,
         );
       return report;
     } finally {
@@ -112,6 +121,26 @@ export class SearchBackfill implements OnApplicationBootstrap, OnApplicationShut
       );
     const gone = [...indexed.keys()].filter((id) => !live.has(id));
     await this.remove(ARTIFACT_INDEX, gone);
+    return { indexed: behind.length, removed: gone.length };
+  }
+
+  private async reconcileRegistry(): Promise<{ indexed: number; removed: number }> {
+    const indexed = await this.versions(REGISTRY_INDEX);
+    const rows = await this.db
+      .select({ kind: registryItems.kind, id: registryItems.id, version: registryItems.searchVersion })
+      .from(registryItems);
+    const live = new Set(rows.map((r) => registryDocId(r.kind, r.id)));
+    const behind = rows.filter((r) => (indexed.get(registryDocId(r.kind, r.id)) ?? -1) < r.version).slice(0, PER_PASS);
+    for (const r of behind) {
+      const [row] = await this.db
+        .select()
+        .from(registryItems)
+        .where(and(eq(registryItems.kind, r.kind), eq(registryItems.id, r.id)));
+      // Filed under the version read before the content, as for chats: a change meanwhile leaves it behind.
+      if (row) await this.registrySearch.index([{ ...toDoc(row), version: r.version }]);
+    }
+    const gone = [...indexed.keys()].filter((id) => !live.has(id));
+    await this.remove(REGISTRY_INDEX, gone);
     return { indexed: behind.length, removed: gone.length };
   }
 

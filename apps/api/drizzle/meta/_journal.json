@@ -99,6 +99,13 @@
       "when": 1794677030503,
       "tag": "0013_chat_search_version",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794695294843,
+      "tag": "0014_registry",
+      "breakpoints": true
     }
   ]
 }
