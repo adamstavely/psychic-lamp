@@ -48,19 +48,3 @@ body {
 .dn-sens[data-level='Restricted'] {
   color: var(--tc-status-danger-fg);
 }
-
-/*
- * tc-select keeps its closed list in the layout (invisible and inert), so near the right edge of a narrow window it
- * widens the page and breaks reflow at 320px (WCAG 1.4.10). Until Trench Coat takes it out of the layout itself, the
- * closed list isn't laid out at all.
- */
-tc-select .ui-select__pop[inert] {
-  display: none;
-}
-
-/* A select at the bottom of the window (the reply box's answer settings) opens upward, which tc-select can't yet. */
-.dn-select-up .ui-select__pop {
-  top: auto;
-  bottom: calc(100% + 6px);
-  transform-origin: 0% 100%;
-}
