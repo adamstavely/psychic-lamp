@@ -28,6 +28,25 @@ import { streamMessage, streamPost } from './answer-stream';
 const pendingSends = new Map<string, { text: string; requestId: string }>();
 
 /**
+ * What a failed send needs to be retried exactly: the chat it was for, and the id, text, model and attachments it went
+ * with. The server saves a send once per id, so retrying with it can't save the message twice.
+ */
+export interface RetrySend {
+  chatId: string;
+  requestId: string;
+  text: string;
+  model: ModelChoice;
+  attachments: string[];
+}
+
+/** A send that failed, with what retrying it exactly needs. */
+export class SendFailed extends Error {
+  constructor(readonly retry: RetrySend) {
+    super('send failed');
+  }
+}
+
+/**
  * One open chat: its turns, the answer being written, and the person's decisions and votes.
  *
  * Opening another chat (or leaving the page) cancels what the last one had in flight, and anything that still comes
@@ -105,19 +124,37 @@ export class ThreadStore implements OnDestroy {
   /**
    * Sends a message and streams the answer in. Each send has an id the server saves it under, so a send it already has
    * isn't saved twice. Until a send is known to have finished, its id is kept (pendingSends): sending the same text
-   * in the same chat again, as Send again or the composer does after a failure, reuses it. Once the chat shows the
-   * turn, or the send finishes, it's forgotten, and the same text sent later is a new message.
+   * in the same chat again from the composer after a failure reuses it. Once the chat shows the turn, or the send
+   * finishes, it's forgotten, and the same text sent from the composer later is a new message. Send again on the
+   * failure's toast is a retry, not a new message: see retry().
    */
   async send(text: string, model: ModelChoice, attachments: string[] = []): Promise<void> {
-    const generation = this.#generation;
     const chatId = this.chatId();
+    const pending = pendingSends.get(chatId);
+    const again = pending?.text === text && !this.#saved(pending.requestId) ? pending : null;
+    await this.#stream({ chatId, requestId: again?.requestId ?? crypto.randomUUID(), text, model, attachments });
+  }
+
+  /**
+   * Retries a failed send exactly: in the chat it was for, with its id, text, model and attachments. If the server
+   * saved it after all, it returns that turn rather than saving another. From another chat it posts nothing: the
+   * person is told to open the chat it was for.
+   */
+  async retry(send: RetrySend): Promise<void> {
+    if (send.chatId !== this.chatId()) {
+      toast.info('That message is for another chat', { description: 'Open that chat to send it again.' });
+      return;
+    }
+    await this.#stream(send);
+  }
+
+  async #stream(send: RetrySend): Promise<void> {
+    const { chatId, requestId, text, model, attachments } = send;
+    const generation = this.#generation;
     this.streaming.set(true);
     this.status.set('Donovan is answering…');
     let answer: AssistantMessage | null = null;
     const turns: string[] = [];
-    const pending = pendingSends.get(chatId);
-    const retry = pending?.text === text && !this.#saved(pending.requestId) ? pending : null;
-    const requestId = retry?.requestId ?? crypto.randomUUID();
     pendingSends.set(chatId, { text, requestId });
     try {
       await lastValueFrom(
@@ -145,9 +182,9 @@ export class ThreadStore implements OnDestroy {
       this.#chats.list.reload();
       toast.error("Donovan couldn't finish answering", {
         description: "Your message may have been saved. Send it again: it won't be saved twice.",
-        action: { label: 'Send again', onClick: () => void this.send(text, model, attachments).catch(() => undefined) },
+        action: { label: 'Send again', onClick: () => void this.retry(send).catch(() => undefined) },
       });
-      throw new Error('send failed');
+      throw new SendFailed(send);
     } finally {
       if (this.#current(generation)) this.streaming.set(false);
     }
