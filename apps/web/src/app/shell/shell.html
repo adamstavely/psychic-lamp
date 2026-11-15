@@ -34,7 +34,7 @@
 
     <div class="actions">
       @if (mode() === 'build') {
-        <tc-button variant="primary" size="md" label="Register" [hideLabel]="compact()" (click)="register()">
+        <tc-button variant="primary" size="md" [label]="buildAction()" [hideLabel]="compact()" (click)="register()">
           <span slot="icon" dnIcon="plus"></span>
         </tc-button>
       } @else {

@@ -45,3 +45,48 @@ export const INSTALL_CLIENTS = [
   { id: 'cursor', label: 'Cursor' },
   { id: 'vscode', label: 'VS Code' },
 ] as const;
+
+// A workflow's checks.
+/** Just what the checks read of a workflow's graph (the contract's WorkflowGraph fits it). */
+interface WorkflowShape {
+  nodes: readonly { id: string; label: string; kind: string; sub: string }[];
+  edges: readonly (readonly [string, string])[];
+}
+
+export interface WorkflowCheck {
+  level: 'warn' | 'block';
+  message: string;
+}
+
+/** A write tool, as the canvas binds it: "PIM · upsert_sku (write)". */
+export const isWrite = (sub: string) => /\(write\)\s*$/.test(sub);
+
+/**
+ * What a workflow needs before it can be published, and what's worth a second look. Blocking: no trigger, a step joined
+ * to one that doesn't exist, or a write tool with no approval before it. Worth a look: a step joined to nothing.
+ * The canvas shows the same checks as people edit, and the API refuses to save with a blocking one.
+ */
+export function checkWorkflow(graph: WorkflowShape): WorkflowCheck[] {
+  const ids = new Set(graph.nodes.map((n) => n.id));
+  const out: WorkflowCheck[] = [];
+  if (!graph.nodes.some((n) => n.kind === 'Trigger'))
+    out.push({ level: 'block', message: 'Add a trigger, so it knows when to run.' });
+  for (const [from, to] of graph.edges)
+    if (!ids.has(from) || !ids.has(to))
+      out.push({ level: 'block', message: `A connection leads to a step that isn't there.` });
+  const into = (id: string) => graph.edges.filter(([, to]) => to === id).map(([from]) => from);
+  const approvedBefore = (id: string, seen = new Set<string>()): boolean =>
+    into(id).some((from) => {
+      if (seen.has(from)) return false;
+      seen.add(from);
+      const n = graph.nodes.find((x) => x.id === from);
+      return n?.kind === 'Approval' || approvedBefore(from, seen);
+    });
+  for (const n of graph.nodes)
+    if (n.kind === 'Tool' && isWrite(n.sub) && !approvedBefore(n.id))
+      out.push({ level: 'block', message: `${n.label} writes outside Donovan with no approval before it.` });
+  for (const n of graph.nodes)
+    if (graph.nodes.length > 1 && !graph.edges.some(([a, b]) => a === n.id || b === n.id))
+      out.push({ level: 'warn', message: `${n.label} isn't connected to anything.` });
+  return out;
+}

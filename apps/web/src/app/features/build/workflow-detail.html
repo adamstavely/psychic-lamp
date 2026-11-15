@@ -1,60 +1,210 @@
 @let w = item();
-<div class="layout">
-  <div>
-    <header class="head">
-      <div class="title-row">
-        <h1>{{ w.name }}</h1>
-        <span class="tag">Workflow</span>
-        <span class="tag" [attr.data-tone]="w.details.state === 'Active' ? 'ok' : null">{{ w.details.state }}</span>
-        <span class="tag dn-sens" [attr.data-level]="w.sensitivity">{{ w.sensitivity }}</span>
-      </div>
-      <p class="meta">{{ w.slug }} · {{ w.version }} · {{ w.owner.name }} · {{ w.details.schedule }}</p>
-    </header>
+<header class="bar">
+  <a class="dn-back" [routerLink]="area().path" [attr.aria-label]="'Back to ' + area().label"
+    ><span dnIcon="chevron-left" [iconSize]="14"></span>{{ area().label }}</a
+  >
+  <h1 class="title">{{ editing() ? name() || w.name : w.name }}</h1>
+  <span class="meta">{{ meta() }}</span>
+  @if (!editing()) {
+    <span class="run" [attr.data-state]="runState()"><span class="dot" aria-hidden="true"></span>{{ runLabel() }}</span>
+  }
+  <span class="spacer"></span>
+  @if (canEdit()) {
+    <tc-segmented-control
+      size="sm"
+      variant="tray"
+      aria-label="Mode"
+      [value]="editing() ? 'edit' : 'view'"
+      [options]="modes"
+      (tc-value-change)="onMode($event)"
+    />
+  }
+  @if (editing()) {
+    <span class="dirty" [class.on]="dirty()">{{ dirty() ? 'Unsaved changes' : 'No changes' }}</span>
+    <tc-button size="sm" variant="secondary" label="Discard" [disabled]="!dirty()" (click)="discard()" />
+    <tc-button size="sm" variant="primary" label="Save & publish" [loading]="saving()" (click)="save()" />
+  } @else {
+    <tc-button size="sm" variant="secondary" label="Reset" [disabled]="runState() === 'idle'" (click)="reset()" />
+    <tc-button
+      size="sm"
+      variant="primary"
+      label="Run now"
+      [disabled]="runState() === 'running' || runState() === 'awaiting' || !w.details.nodes.length"
+      (click)="run()"
+    >
+      <span slot="icon" dnIcon="play"></span>
+    </tc-button>
+  }
+</header>
 
-    <h2 class="section">The flow</h2>
-    <div class="canvas" role="group" aria-label="The flow, as a graph" tabindex="0">
-      <svg [attr.viewBox]="box().view" [attr.width]="box().w" [attr.height]="box().h" aria-hidden="true">
-        @for (e of edges(); track e.key) {
-          <path class="edge" [attr.d]="e.d" />
-        }
-        @for (n of w.details.nodes; track n.id) {
-          <g [attr.transform]="'translate(' + n.x + ',' + n.y + ')'" [attr.data-kind]="n.kind" class="node">
-            <rect [attr.width]="node.w" [attr.height]="node.h" rx="8" />
-            <text x="14" y="24" class="node-kind">{{ n.kind }}</text>
-            <text x="14" y="48" class="node-label">{{ n.label }}</text>
-            <text x="14" y="70" class="node-sub">{{ n.sub }}</text>
-          </g>
-        }
-      </svg>
-    </div>
+<ng-content />
 
-    <h2 class="section">Steps</h2>
-    <ol class="steps">
-      @for (s of steps(); track s.id) {
-        <li>
-          <span class="kind">{{ s.kind }}</span>
-          <span>
-            <strong>{{ s.label }}</strong> · {{ s.sub }}
-            @if (s.next.length) {
-              <span class="small"> Then: {{ s.next.join(', ') }}.</span>
-            }
-          </span>
-        </li>
+<div class="body" [class.editing]="editing()" [class.logged]="!editing() && runState() !== 'idle'">
+  @if (editing()) {
+    <aside #palette class="palette" aria-label="Add a step">
+      <h2 class="label">Add</h2>
+      @for (k of kinds; track k.kind) {
+        <button type="button" [attr.data-kind]="k.kind" [attr.aria-label]="k.add" [title]="k.tip" (click)="add(k.kind)">
+          <span [dnIcon]="k.icon" [iconSize]="16"></span><span class="kind">{{ k.kind }}</span>
+        </button>
       }
-    </ol>
+    </aside>
+  }
+
+  <div class="stage">
+    <!-- The canvas titles itself as an h3: this keeps the outline from skipping a level. -->
+    <h2 class="sr-only">Steps</h2>
+    <tc-workflow-canvas
+      look="clean"
+      heading="The flow"
+      [nodes]="canvasNodes()"
+      [edges]="canvasEdges()"
+      [selected]="editing() ? selected() : null"
+      [readonly]="!editing()"
+      [kinds]="canvasKinds"
+      (tc-nodes-change)="onNodes($event)"
+      (tc-edges-change)="onEdges($event)"
+      (tc-selected-change)="onSelected($event)"
+      (tc-add-request)="onAddRequest($event)"
+    />
   </div>
 
-  <aside class="aside" aria-label="About this workflow">
-    <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
-    <p class="small">Running and editing workflows comes with the workflow canvas.</p>
-    <section class="card">
-      <h2>Details</h2>
-      <dl class="spec">
-        <div>
-          <dt>Steps</dt>
-          <dd>{{ w.details.nodes.length }}</dd>
+  @if (editing()) {
+    <aside class="inspector" aria-label="Step settings">
+      <div class="fields">
+        @if (sel(); as n) {
+          <div class="sel-head">
+            <span class="sel-icon" [attr.data-kind]="n.kind" [dnIcon]="selKind()!.icon" [iconSize]="16"></span>
+            <div>
+              <p class="label">{{ n.kind }} step</p>
+              <h2 class="sel-name">{{ n.label }}</h2>
+            </div>
+          </div>
+          <label class="field">
+            <span>Name</span>
+            <input type="text" maxlength="120" [value]="n.label" (change)="rename($any($event.target).value)" />
+          </label>
+          <tc-select
+            label-visible
+            [label]="selKind()!.bind"
+            [options]="bindOptions()"
+            [value]="n.sub"
+            (tc-value-change)="onBind($event)"
+          />
+          <div class="field">
+            <span id="fail-label">On failure</span>
+            <tc-segmented-control
+              size="sm"
+              variant="tray"
+              aria-labelledby="fail-label"
+              [value]="n.onFailure ?? 'stop'"
+              [options]="failures"
+              (tc-value-change)="onFailure($event)"
+            />
+          </div>
+          <div class="field">
+            <span id="next-label">Next steps</span>
+            <ul class="next" aria-labelledby="next-label">
+              @for (s of nextSteps(); track s.id) {
+                <li>
+                  <span dnIcon="workflow" [iconSize]="14"></span><span class="next-name">{{ s.label }}</span>
+                  <tc-button
+                    size="sm"
+                    variant="ghost"
+                    [label]="'Disconnect ' + s.label"
+                    [hideLabel]="true"
+                    (click)="disconnect(s.id)"
+                  >
+                    <span slot="icon" dnIcon="x"></span>
+                  </tc-button>
+                </li>
+              } @empty {
+                <li class="none">None: the run ends here.</li>
+              }
+            </ul>
+            @if (targets().length) {
+              <tc-select
+                label-visible
+                label="Connect to"
+                placeholder="Choose a step"
+                [options]="targets()"
+                value=""
+                (tc-value-change)="connect($event)"
+              />
+            }
+          </div>
+          <tc-button variant="destructive" label="Delete step" (click)="remove()">
+            <span slot="icon" dnIcon="trash"></span>
+          </tc-button>
+        } @else {
+          <h2 class="label">Workflow settings</h2>
+          <label class="field">
+            <span>Name</span>
+            <input type="text" maxlength="120" [value]="name()" (change)="name.set($any($event.target).value)" />
+          </label>
+          <div class="field">
+            <span>Owner</span>
+            <p class="owner">{{ w.owner.name }}</p>
+          </div>
+          <tc-select
+            label-visible
+            label="Sensitivity tier"
+            [options]="tiers"
+            [value]="sensitivity()"
+            (tc-value-change)="onTier($event)"
+          />
+          <p class="hint">Select a step on the canvas to edit it, or add one from the left.</p>
+        }
+      </div>
+      <section class="checks" aria-labelledby="checks-h">
+        <h2 id="checks-h" class="label">
+          Checks · {{ checks().length ? checks().length + ' to review' : 'all clear' }}
+        </h2>
+        <ul>
+          @for (c of checks(); track $index) {
+            <li [attr.data-level]="c.level">
+              <span dnIcon="alert" [iconSize]="14"></span>
+              <span
+                ><strong>{{ c.level === 'block' ? 'Blocking' : 'Worth a look' }}:</strong> {{ c.message }}</span
+              >
+            </li>
+          } @empty {
+            <li data-level="ok">
+              <span dnIcon="circle-check" [iconSize]="14"></span><span>No issues. Ready to publish.</span>
+            </li>
+          }
+        </ul>
+      </section>
+    </aside>
+  } @else if (runState() !== 'idle') {
+    <aside class="log" aria-labelledby="log-h">
+      <h2 id="log-h" class="label">Run log</h2>
+      @if (waitingOn(); as a) {
+        <div class="approve">
+          <p>
+            <strong>{{ a.label }}</strong> is waiting for approval from {{ a.sub }}.
+          </p>
+          <tc-button variant="primary" label="Approve" (click)="approve()" />
         </div>
-      </dl>
-    </section>
-  </aside>
+      }
+      <div role="log" aria-live="polite">
+        <ol>
+          @for (l of log(); track $index) {
+            <li [attr.data-state]="l.state">
+              <span
+                [dnIcon]="l.state === 'done' ? 'circle-check' : l.state === 'awaiting' ? 'lock' : 'circle'"
+                [iconSize]="14"
+              ></span>
+              <div>
+                <p>{{ l.text }}</p>
+                <p class="at">
+                  {{ l.state === 'running' ? 'Running…' : l.state === 'awaiting' ? 'Waiting since ' + l.at : l.at }}
+                </p>
+              </div>
+            </li>
+          }
+        </ol>
+      </div>
+    </aside>
+  }
 </div>

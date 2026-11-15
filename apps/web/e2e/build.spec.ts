@@ -219,19 +219,59 @@ test.describe('skill, prompt and workflow pages', () => {
     await expectNoAxeViolations(page);
   });
 
-  test("a workflow's graph, and the same steps as a list", async ({ page }) => {
-    await signIn(page, 'alex', '/build/workflows/sku');
+  test('a workflow runs on its canvas, stopping at its approval until someone approves', async ({ page }) => {
+    await signIn(page, 'alex', '/build/workflows/weekly');
     await matchTheme(page);
-    await expect(page.getByRole('group', { name: 'The flow, as a graph' })).toBeVisible();
-    const steps = page.getByRole('list').filter({ hasText: 'New SKU in catalog' });
-    await expect(steps.getByRole('listitem')).toHaveCount(6);
-    await expect(steps.getByRole('listitem').first()).toContainText('Then: Fetch supplier sheet, Extract attributes.');
+    await expect(page.getByRole('heading', { name: 'Weekly fraud digest', level: 1 })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'The flow' })).toBeVisible();
     await expectNoAxeViolations(page);
+
+    await page.getByRole('button', { name: 'Run now' }).click();
+    const log = page.getByRole('complementary', { name: 'Run log' });
+    await expect(page.getByText('Waiting for approval', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(log).toContainText('Risk lead sign-off is waiting for approval from Confidential · Risk ML.');
+    await expectNoAxeViolations(page);
+    await log.getByRole('button', { name: 'Approve' }).click();
+    await expect(page.getByText('Completed', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(log.getByRole('listitem')).toHaveCount(5);
+    await expect(log.getByRole('listitem').first()).toContainText('Post to #risk-ops');
   });
 });
 
 test.describe('registering', () => {
   test.skip(({ colorScheme }) => colorScheme !== 'light', 'state-changing; runs once');
+
+  test('a new workflow is built on the canvas, checked, and sent to review', async ({ page }) => {
+    await signIn(page, 'devon', '/build/workflows');
+    await resetUser(page);
+    await page.getByRole('button', { name: 'New workflow' }).click();
+    await expect(page).toHaveURL(/\/build\/workflows\/[a-z0-9-]+\?mode=edit$/);
+    const checks = page.getByRole('region', { name: /^Checks/ });
+    await expect(checks).toContainText('Blocking: Add a trigger, so it knows when to run.');
+    await expectNoAxeViolations(page);
+
+    const palette = page.getByRole('complementary', { name: 'Add a step' });
+    await palette.getByRole('button', { name: /^Add a trigger step/ }).click();
+    await palette.getByRole('button', { name: /^Add a tool step/ }).click();
+    const settings = page.getByRole('complementary', { name: 'Step settings' });
+    await settings.getByRole('button', { name: 'Server tool' }).click();
+    await page.getByRole('option', { name: 'Slack · post_message (write)' }).click();
+    await expect(checks).toContainText('Blocking: New tool step writes outside Donovan with no approval before it.');
+    await expectNoAxeViolations(page);
+    await page.getByRole('button', { name: 'Save & publish' }).click();
+    await expect(page.getByText('1 blocking issue', { exact: true })).toBeVisible();
+
+    // An approval between the trigger and the tool clears it.
+    await settings.getByRole('button', { name: 'Delete step' }).click();
+    await page.getByRole('button', { name: /New trigger step/ }).click();
+    await palette.getByRole('button', { name: /^Add an approval step/ }).click();
+    await palette.getByRole('button', { name: /^Add a tool step/ }).click();
+    await expect(checks).toContainText('No issues. Ready to publish.');
+    await page.getByRole('button', { name: 'Save & publish' }).click();
+    await expect(page.getByRole('region', { name: 'Waiting for review' })).toContainText('Round 1: 0 of 2');
+    await expect(page.getByText('3 steps', { exact: false }).first()).toBeVisible();
+    await resetUser(page);
+  });
 
   test('registering a server takes five steps, and it waits for review in Mine', async ({ page }) => {
     await signIn(page, 'devon', '/build/servers');

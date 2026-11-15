@@ -80,14 +80,21 @@ const AgentDetails = z.object({
   success: Short,
 });
 
+export const WorkflowStepKind = z.enum(['Trigger', 'Tool', 'Model', 'Skill', 'Approval', 'Branch']);
+export type WorkflowStepKind = z.infer<typeof WorkflowStepKind>;
+
 const WorkflowNode = z.object({
-  id: Short,
+  id: z.string().regex(/^[a-z0-9-]{1,40}$/, 'Not a step id'),
   label: Short,
-  kind: z.enum(['Trigger', 'Tool', 'Model', 'Skill', 'Approval']),
+  kind: WorkflowStepKind,
+  /** What the step is bound to: a trigger, a server's tool, a model, a skill, an approver or a condition. */
   sub: Short,
-  x: z.number(),
-  y: z.number(),
+  x: z.number().min(0).max(4000),
+  y: z.number().min(0).max(4000),
+  /** What happens when the step fails; stop when unset. */
+  onFailure: z.enum(['stop', 'retry', 'skip']).optional(),
 });
+export type WorkflowNode = z.infer<typeof WorkflowNode>;
 const WorkflowDetails = z.object({
   state: z.enum(['Active', 'Paused', 'Draft']),
   schedule: Short,
@@ -366,3 +373,24 @@ export const NewRegistryItem = z.discriminatedUnion('kind', [
 export type NewRegistryItem = z.infer<typeof NewRegistryItem>;
 /** What can be registered here; workflows and prompts are made in their builders (slice 3). */
 export type RegistrableKind = NewRegistryItem['kind'];
+
+/** Starts a workflow: a draft of the person's own, with no steps yet, to build on the canvas. */
+export const NewWorkflow = z.strictObject({ name: z.string().trim().min(1, 'Name it').max(120) });
+export type NewWorkflow = z.infer<typeof NewWorkflow>;
+
+/** A workflow's graph as edited on the canvas, saved as its next version and sent to review. */
+export const WorkflowGraph = z.strictObject({
+  name: z.string().trim().min(1, 'Name it').max(120),
+  sensitivity: Sensitivity,
+  nodes: z.array(WorkflowNode).min(1, 'Add a step').max(100),
+  edges: z.array(z.tuple([z.string().max(40), z.string().max(40)])).max(300),
+});
+export type WorkflowGraph = z.infer<typeof WorkflowGraph>;
+
+/** What a workflow's steps can be bound to, from what the person can see: server tools, models and skills. */
+export const WorkflowBindings = z.object({
+  Tool: z.array(z.string()),
+  Model: z.array(z.string()),
+  Skill: z.array(z.string()),
+});
+export type WorkflowBindings = z.infer<typeof WorkflowBindings>;
