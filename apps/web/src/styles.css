@@ -48,3 +48,62 @@ body {
 .dn-sens[data-level='Restricted'] {
   color: var(--tc-status-danger-fg);
 }
+
+/*
+ * Build's page frame (the prototype's): 32px × 40px padding, a back button above an item, and an eyebrow and title on
+ * an area. Shared by the catalog, Governance, Insights, Register and every item page.
+ */
+.dn-build-page {
+  padding: var(--tc-space-8) var(--tc-space-10);
+}
+
+.dn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  margin-bottom: var(--tc-space-5);
+  padding: 0 10px;
+  border: 1px solid var(--tc-border-strong);
+  border-radius: var(--tc-radius-sm);
+  background: var(--dn-canvas);
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-md);
+  text-decoration: none;
+}
+
+.dn-back:hover {
+  background: var(--tc-fill-hover);
+  color: var(--tc-text-primary);
+}
+
+.dn-back:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+.dn-eyebrow {
+  margin: 0;
+  color: var(--tc-accent-text);
+  font-size: var(--tc-font-size-lg);
+  font-weight: var(--tc-font-weight-semibold);
+}
+
+.dn-page-title {
+  margin: var(--tc-space-1) 0 0;
+  font-size: var(--tc-font-size-3xl);
+  font-weight: var(--tc-font-weight-semibold);
+  line-height: 1.2;
+}
+
+.dn-blurb {
+  margin: var(--tc-space-1) 0 0;
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-lg);
+}
+
+@media (max-width: 600px) {
+  .dn-build-page {
+    padding: var(--tc-space-6) var(--tc-space-4);
+  }
+}

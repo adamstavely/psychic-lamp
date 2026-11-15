@@ -2,13 +2,11 @@
 <div class="layout">
   <div>
     <header class="head">
-      <h1>{{ m.name }}</h1>
-      <span class="tags">
+      <div class="title-row">
+        <h1>{{ m.name }}</h1>
         <span class="tag">{{ m.details.task }}</span>
-        @if (m.details.verified) {
-          <span class="tag" data-tone="ok">Verified</span>
-        }
-      </span>
+        <span class="tag dn-sens" [attr.data-level]="m.sensitivity">{{ m.sensitivity }}</span>
+      </div>
       <p class="meta">{{ m.slug }} · {{ m.version }} · {{ m.owner.name }}</p>
       <p class="summary">{{ m.summary }}</p>
     </header>
@@ -33,7 +31,7 @@
               </div>
             }
           </dl>
-          <h2 class="sub">In chat</h2>
+          <h2 class="section">In chat</h2>
           <p class="summary">
             @if (m.details.task === 'Foundation') {
               Auto-routing can pick it for any message. To use it for one, pick it in the composer or press Use in chat.
@@ -116,20 +114,26 @@
 
   <aside class="aside" aria-label="About this model">
     <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
-    <h2>Specification</h2>
-    <dl class="spec">
-      <dt>Base</dt>
-      <dd>{{ m.details.base }}</dd>
-      <dt>Context</dt>
-      <dd>{{ m.details.context }}</dd>
-      <dt>Tier</dt>
-      <dd>
-        <span class="dn-sens" [attr.data-level]="m.sensitivity">{{ m.sensitivity }}</span>
-      </dd>
-      <dt>Calls / week</dt>
-      <dd>{{ m.details.calls }}</dd>
-      <dt>Verified</dt>
-      <dd>{{ m.details.verified ? 'Yes' : 'No' }}</dd>
-    </dl>
+    <section class="card">
+      <h2>Specification</h2>
+      <dl class="spec">
+        <div>
+          <dt>Base</dt>
+          <dd>{{ m.details.base }}</dd>
+        </div>
+        <div>
+          <dt>Context</dt>
+          <dd>{{ m.details.context }}</dd>
+        </div>
+        <div>
+          <dt>Calls / week</dt>
+          <dd>{{ m.details.calls }}</dd>
+        </div>
+        <div>
+          <dt>Verified</dt>
+          <dd>{{ m.details.verified ? 'Yes' : 'No' }}</dd>
+        </div>
+      </dl>
+    </section>
   </aside>
 </div>

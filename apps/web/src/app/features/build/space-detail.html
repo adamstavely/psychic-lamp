@@ -2,9 +2,12 @@
 <div class="layout">
   <div>
     <header class="head">
-      <h1>{{ sp.name }}</h1>
-      <span class="tags"><span class="tag">Space</span></span>
-      <p class="meta">{{ sp.slug }} · {{ sp.owner.name }} · runs on {{ sp.details.model }}</p>
+      <div class="title-row">
+        <h1>{{ sp.name }}</h1>
+        <span class="tag">Space</span>
+        <span class="tag dn-sens" [attr.data-level]="sp.sensitivity">{{ sp.sensitivity }}</span>
+      </div>
+      <p class="meta">{{ sp.slug }} · {{ sp.version }} · {{ sp.owner.name }} · runs on {{ sp.details.model }}</p>
       <p class="summary">{{ sp.summary }}</p>
     </header>
 
@@ -45,18 +48,16 @@
 
   <aside class="aside" aria-label="About this space">
     @if (modelLink(); as link) {
-      <a class="aside-link" [routerLink]="link">Open the model</a>
+      <tc-button variant="secondary" label="Open the model" (click)="open(link)" />
     }
-    <h2>Specification</h2>
-    <dl class="spec">
-      <dt>Visits</dt>
-      <dd>{{ sp.details.visits }}</dd>
-      <dt>Model</dt>
-      <dd>{{ sp.details.model }}</dd>
-      <dt>Tier</dt>
-      <dd>
-        <span class="dn-sens" [attr.data-level]="sp.sensitivity">{{ sp.sensitivity }}</span>
-      </dd>
-    </dl>
+    <section class="card">
+      <h2>Usage</h2>
+      <dl class="spec">
+        <div>
+          <dt>Visits</dt>
+          <dd>{{ sp.details.visits }}</dd>
+        </div>
+      </dl>
+    </section>
   </aside>
 </div>

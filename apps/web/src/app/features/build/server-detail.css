@@ -9,7 +9,7 @@
 .tool {
   padding: var(--tc-space-4);
   border: 1px solid var(--tc-border-subtle);
-  border-radius: var(--tc-radius-lg);
+  border-radius: var(--tc-radius-md);
 }
 
 .tool-head {

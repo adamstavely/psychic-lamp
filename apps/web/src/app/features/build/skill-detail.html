@@ -2,16 +2,21 @@
 <div class="layout">
   <div>
     <header class="head">
-      <h1>{{ s.name }}</h1>
-      <span class="tags">
+      <div class="title-row">
+        <h1>{{ s.name }}</h1>
         <span class="tag">Skill</span>
         @if (s.details.score !== null) {
           <span class="tag" [attr.data-tone]="s.details.score >= 80 ? 'ok' : 'warn'">Score {{ s.details.score }}</span>
         }
-      </span>
+        <span class="tag dn-sens" [attr.data-level]="s.sensitivity">{{ s.sensitivity }}</span>
+      </div>
       <p class="meta">{{ s.slug }} · {{ s.version }} · {{ s.owner.name }}</p>
       <p class="summary">{{ s.summary }}</p>
       <dl class="figures">
+        <div>
+          <dt>Score</dt>
+          <dd>{{ s.details.score ?? '—' }}</dd>
+        </div>
         <div>
           <dt>Uses</dt>
           <dd>{{ s.details.uses }}</dd>
@@ -69,18 +74,5 @@
   <aside class="aside" aria-label="About this skill">
     <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
     <p class="small">Editing skills comes with the Skill Builder.</p>
-    <h2>Specification</h2>
-    <dl class="spec">
-      <dt>Score</dt>
-      <dd>{{ s.details.score ?? 'Not scored yet' }}</dd>
-      <dt>Tier</dt>
-      <dd>
-        <span class="dn-sens" [attr.data-level]="s.sensitivity">{{ s.sensitivity }}</span>
-      </dd>
-      <dt>Version</dt>
-      <dd>{{ s.version }}</dd>
-      <dt>Owner</dt>
-      <dd>{{ s.owner.name }}</dd>
-    </dl>
   </aside>
 </div>

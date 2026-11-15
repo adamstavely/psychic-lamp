@@ -2,8 +2,8 @@
 <div class="layout">
   <div>
     <header class="head">
-      <h1>{{ s.name }}</h1>
-      <span class="tags">
+      <div class="title-row">
+        <h1>{{ s.name }}</h1>
         <span class="tag">Server</span>
         @if (s.details.verified) {
           <span class="tag" data-tone="ok">Verified</span>
@@ -13,7 +13,8 @@
         @if (s.details.official) {
           <span class="tag">Official</span>
         }
-      </span>
+        <span class="tag dn-sens" [attr.data-level]="s.sensitivity">{{ s.sensitivity }}</span>
+      </div>
       <p class="meta">{{ s.slug }} · {{ s.version }} · {{ s.owner.name }}</p>
       <p class="summary">{{ s.summary }}</p>
       <dl class="figures">
@@ -110,7 +111,7 @@
         @case ('install') {
           <p class="summary">Add it with the Donovan CLI, or install it in a client with its configuration.</p>
           <tc-code-block class="cli" language="shell" filename="Terminal" [code]="cli()" />
-          <h2 class="sub">Installed in</h2>
+          <h2 class="section">Installed in</h2>
           @if (installedIn().length) {
             <ul class="installed">
               @for (c of installedIn(); track c) {
@@ -132,23 +133,31 @@
   <aside class="aside" aria-label="About this server">
     <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
     <tc-button variant="secondary" label="Install in a client" (click)="openInstall()" />
-    <h2>Specification</h2>
-    <dl class="spec">
-      <dt>Publisher</dt>
-      <dd>{{ publisher() }}</dd>
-      <dt>Transport</dt>
-      <dd>{{ s.details.transport }}</dd>
-      <dt>Auth</dt>
-      <dd>{{ s.details.auth }}</dd>
-      <dt>Tier</dt>
-      <dd>
-        <span class="dn-sens" [attr.data-level]="s.sensitivity">{{ s.sensitivity }}</span>
-      </dd>
-      <dt>Version</dt>
-      <dd>{{ s.version }}</dd>
-    </dl>
-    <h2>Source</h2>
-    <p class="small">{{ s.details.source }}</p>
+    <section class="card">
+      <h2>Specification</h2>
+      <dl class="spec">
+        <div>
+          <dt>Publisher</dt>
+          <dd>{{ publisher() }}</dd>
+        </div>
+        <div>
+          <dt>Transport</dt>
+          <dd>{{ s.details.transport }}</dd>
+        </div>
+        <div>
+          <dt>Auth</dt>
+          <dd>{{ s.details.auth }}</dd>
+        </div>
+        <div>
+          <dt>Version</dt>
+          <dd>{{ s.version }}</dd>
+        </div>
+      </dl>
+    </section>
+    <section class="card">
+      <h2>Source</h2>
+      <p class="small">{{ s.details.source }}</p>
+    </section>
   </aside>
 </div>
 
