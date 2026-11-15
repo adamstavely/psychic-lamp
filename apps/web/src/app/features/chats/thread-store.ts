@@ -227,6 +227,24 @@ export class ThreadStore implements OnDestroy {
     this.status.set(
       decision.decision === 'approve' ? 'Approved. Donovan ran the tool.' : "Denied. The tool didn't run.",
     );
+    // The chat now allows it without asking; the session panel lists it.
+    if (decision.always) this.chat.reload();
+  }
+
+  /** Stops a tool running without asking in this chat. */
+  async revokeTool(tool: string): Promise<void> {
+    try {
+      await firstValueFrom(
+        this.#http.delete<void>(
+          `/api/chats/${encodeURIComponent(this.chatId())}/allowed-tools/${encodeURIComponent(tool)}`,
+        ),
+      );
+    } catch {
+      toast.error("Couldn't revoke that", { description: 'Try again in a moment.' });
+      return;
+    }
+    this.chat.reload();
+    this.status.set(`${tool} needs your approval again.`);
   }
 
   /** Claim verdicts made here, laid over the loaded ones until the chat reloads. */

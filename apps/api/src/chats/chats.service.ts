@@ -27,7 +27,7 @@ import { SeedService } from '../seed/seed.service.js';
 import { ChatSearch, chatText } from '../search/chat-search.js';
 import { calibrateReply } from './claims.js';
 import { contextFor } from './context.js';
-import { decisionReply, pickReply, shapeReply, withFiles, type Reply } from './replies.js';
+import { allowListed, decisionReply, pickReply, shapeReply, withFiles, type Reply } from './replies.js';
 
 type ChatRow = typeof chats.$inferSelect;
 type MessageRow = typeof messages.$inferSelect;
@@ -101,6 +101,7 @@ export class ChatsService {
       intent: row.intent ?? null,
       persona: row.persona,
       knowledge: row.knowledge,
+      allowedTools: row.allowedTools,
       messages: thread,
       context: contextFor({ calibrated: row.calibrated, project: row.project, persona: row.persona }, thread),
       checkpoints: checks.map((c) => ({ claimId: c.claimId, method: c.method, at: c.at.toISOString() })),
@@ -153,6 +154,7 @@ export class ChatsService {
       checkpoints: checks,
       persona: _persona,
       knowledge: _knowledge,
+      allowedTools: _allowed,
       ...summary
     } = chat;
     return {
@@ -241,7 +243,10 @@ export class ChatsService {
   ): Promise<{ user: UserMessage; answer: AssistantMessage }> {
     const chat = await this.get(userId, chatId);
     const files = await this.attachments(userId, body.attachments);
-    const answered = withFiles(shapeReply(pickReply(body.text, body.model), chat.persona, chat.knowledge), files);
+    const answered = allowListed(
+      withFiles(shapeReply(pickReply(body.text, body.model), chat.persona, chat.knowledge), files),
+      chat.allowedTools,
+    );
     const reply = chat.calibrated ? calibrateReply(answered, files) : answered;
     const sent = await this.db.transaction(async (tx) => {
       await lockChat(tx, userId, chatId);
@@ -405,9 +410,9 @@ export class ChatsService {
       const asked = question && 'text' in question.body ? question.body : { text: '' };
       const versions = versionsOf(row.body);
       const files = asked.attachments ?? [];
-      const answered = withFiles(
-        shapeReply(pickReply(asked.text, model, versions.length), chat.persona, chat.knowledge),
-        files,
+      const answered = allowListed(
+        withFiles(shapeReply(pickReply(asked.text, model, versions.length), chat.persona, chat.knowledge), files),
+        chat.allowedTools,
       );
       const next = answerBody(chat.calibrated ? calibrateReply(answered, files) : answered);
       const [saved] = await tx
@@ -464,6 +469,19 @@ export class ChatsService {
       )
       .returning({ id: messages.id });
     if (rows.length === 0) throw new NotFoundException('No answer with that id in this chat');
+  }
+
+  /** Stops a write tool running without asking in this chat: from now on it waits for approval again. */
+  async revokeTool(userId: string, chatId: string, tool: string): Promise<void> {
+    const [row] = await this.db
+      .update(chats)
+      .set({
+        allowedTools: sql`coalesce((select jsonb_agg(t) from jsonb_array_elements_text(${chats.allowedTools}) t where t <> ${tool}), '[]'::jsonb)`,
+        updatedAt: sql`${chats.updatedAt}`,
+      })
+      .where(and(eq(chats.ownerId, userId), eq(chats.id, chatId)))
+      .returning({ id: chats.id });
+    if (!row) throw new NotFoundException('No chat with that id');
   }
 
   /** Marks one of the person's own questions to come back to, or unmarks it. */

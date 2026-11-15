@@ -43,6 +43,7 @@ export class BlockView {
       { label: 'Server', value: b.server },
       { label: 'Sensitivity', value: b.sensitivity },
       { label: 'Can approve', value: 'You (chat owner)' },
+      { label: 'Policy', value: 'Write tools run only after the chat owner approves them' },
       ...Object.entries(b.args).map(([label, value]) => ({ label, value })),
     ];
     return {
@@ -51,6 +52,10 @@ export class BlockView {
       risk:
         b.sensitivity === 'Confidential' || b.sensitivity === 'Restricted' ? ('high' as const) : ('medium' as const),
       details,
+      consequences: {
+        approve: `${b.name} runs on ${b.server} now. "Always in this chat" also lets it run without asking next time, until you revoke it in the session panel.`,
+        deny: `Nothing runs. Donovan asks what to change.`,
+      },
       approve: (d: ApprovalDecision) => this.decide()!(b.id, { decision: 'approve', always: d.always }),
     };
   });

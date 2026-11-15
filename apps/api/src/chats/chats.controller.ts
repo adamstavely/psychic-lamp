@@ -174,6 +174,16 @@ export class ChatsController {
     await this.chats.vote(await this.users.idFor(claims), id, messageId, body);
   }
 
+  @Delete(':id/allowed-tools/:tool')
+  @HttpCode(204)
+  async revokeTool(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: ChatId }) id: string,
+    @Param('tool', { schema: z.string().min(1).max(120) }) tool: string,
+  ): Promise<void> {
+    await this.chats.revokeTool(await this.users.idFor(claims), id, tool);
+  }
+
   @Put(':id/messages/:messageId/bookmark')
   @HttpCode(204)
   async bookmark(
