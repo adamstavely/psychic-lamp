@@ -2,15 +2,15 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input } f
 import { Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import type { RegistryScope } from '@donovan/contracts';
-import { IconDirective } from '../../core/icon.directive';
 import { BUILD_AREAS } from '../../shell/areas';
 import { Catalog, type CatalogView } from './catalog';
 import { GovernancePage } from './governance-page';
+import { InsightsPage } from './insights-page';
 
-/** A Build area: the catalog for a registry area, or Governance. Insights arrives in step 9 of slice 2. */
+/** A Build area: the catalog for a registry area, or Governance, or Insights. */
 @Component({
   selector: 'dn-build-area-page',
-  imports: [RouterLink, IconDirective, Catalog, GovernancePage],
+  imports: [RouterLink, Catalog, GovernancePage, InsightsPage],
   template: `
     <section class="page">
       @if (buildArea(); as a) {
@@ -19,9 +19,7 @@ import { GovernancePage } from './governance-page';
         } @else if (a.id === 'governance') {
           <dn-governance-page [tab]="tab()" />
         } @else {
-          <h1><span [dnIcon]="a.icon"></span>{{ a.label }}</h1>
-          <p class="blurb">{{ a.description }}</p>
-          <p class="soon">This page arrives later in Build mode's first release.</p>
+          <dn-insights-page />
         }
       } @else {
         <h1>Page not found</h1>
@@ -40,10 +38,6 @@ import { GovernancePage } from './governance-page';
       gap: var(--tc-space-2);
       margin: 0 0 var(--tc-space-2);
       font-size: var(--tc-font-size-2xl);
-    }
-    .blurb,
-    .soon {
-      color: var(--tc-text-secondary);
     }
     @media (max-width: 600px) {
       .page {

@@ -1,0 +1,79 @@
+<p class="eyebrow">Insights · last 30 days</p>
+<h1>Usage, routing and the registry.</h1>
+<p class="meta">
+  Across every chat and registry item in the workspace, counted from what's stored: counts only, never content.
+</p>
+
+@if (insights.hasValue()) {
+  @let i = insights.value();
+  <p class="small">{{ period() }}</p>
+  <dl class="kpis">
+    @for (k of i.kpis; track k.label) {
+      <div>
+        <dt>{{ k.label }}</dt>
+        <dd>
+          <span class="value">{{ count(k.value) }}</span>
+          <span class="small">{{ k.detail }}</span>
+        </dd>
+      </div>
+    }
+  </dl>
+
+  <div class="panels">
+    <section aria-labelledby="by-model">
+      <h2 id="by-model" class="section">Answers by model</h2>
+      @if (i.byModel.length) {
+        <ol class="bars">
+          @for (m of i.byModel; track m.name) {
+            <li [title]="m.name + ': ' + percent(m)">
+              <span class="bar-label">{{ m.name }}</span>
+              <span class="bar-track" aria-hidden="true"
+                ><span class="bar-fill" [style.width.%]="(m.count / max(i.byModel)) * 100"></span
+              ></span>
+              <span class="bar-value">{{ percent(m) }}</span>
+            </li>
+          }
+        </ol>
+      } @else {
+        <p class="small">No answers yet in this period.</p>
+      }
+    </section>
+
+    <section aria-labelledby="by-server">
+      <h2 id="by-server" class="section">Tool calls by server</h2>
+      @if (i.byServer.length) {
+        <ol class="bars">
+          @for (s of i.byServer.slice(0, 6); track s.name) {
+            <li [title]="s.name + ': ' + percent(s)">
+              <span class="bar-label">{{ s.name }}</span>
+              <span class="bar-track" aria-hidden="true"
+                ><span class="bar-fill" [style.width.%]="(s.count / max(i.byServer)) * 100"></span
+              ></span>
+              <span class="bar-value">{{ percent(s) }}</span>
+            </li>
+          }
+        </ol>
+      } @else {
+        <p class="small">No tool calls yet in this period.</p>
+      }
+    </section>
+  </div>
+
+  <h2 class="section">Most installed</h2>
+  @if (i.installs.length) {
+    <ol class="links">
+      @for (x of i.installs; track x.kind + x.id) {
+        <li>
+          <a [routerLink]="link(x.kind, x.id)">{{ x.name }}</a>
+          <span class="small"> · {{ count(x.count) }} {{ x.count === 1 ? 'install' : 'installs' }}</span>
+        </li>
+      }
+    </ol>
+  } @else {
+    <p class="small">Nothing installed in this period yet.</p>
+  }
+} @else if (insights.error()) {
+  <p role="alert">Insights didn't load. Try again in a moment.</p>
+} @else {
+  <p role="status">Counting…</p>
+}

@@ -272,3 +272,15 @@ test.describe('registering', () => {
     await resetUser(page);
   });
 });
+
+test.describe('Insights', () => {
+  test("shows the workspace's usage, counted from what's stored", async ({ page }) => {
+    await signIn(page, 'alex', '/build/insights');
+    await matchTheme(page);
+    await expect(page.getByRole('heading', { name: 'Usage, routing and the registry.' })).toBeVisible();
+    await expect(page.getByRole('term').filter({ hasText: 'Questions' })).toBeVisible();
+    const byModel = page.getByRole('region', { name: 'Answers by model' });
+    await expect(byModel.getByRole('listitem').filter({ hasText: 'claude-sonnet-4.5' })).toContainText('%');
+    await expectNoAxeViolations(page);
+  });
+});

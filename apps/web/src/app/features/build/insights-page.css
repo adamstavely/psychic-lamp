@@ -1,0 +1,107 @@
+.eyebrow {
+  margin: 0;
+  color: var(--tc-accent-text);
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-semibold);
+}
+
+h1 {
+  margin: var(--tc-space-1) 0;
+  font-size: var(--tc-font-size-2xl);
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr));
+  gap: var(--tc-space-3);
+  margin: var(--tc-space-4) 0 0;
+}
+
+.kpis > div {
+  display: grid;
+  gap: var(--tc-space-1);
+  padding: var(--tc-space-4);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+}
+
+.kpis dt {
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-sm);
+}
+
+.kpis dd {
+  display: grid;
+  gap: var(--tc-space-1);
+  margin: 0;
+}
+
+.value {
+  font-size: var(--tc-font-size-2xl);
+  font-weight: var(--tc-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+  gap: var(--tc-space-8);
+}
+
+.panels section {
+  display: grid;
+  gap: var(--tc-space-2);
+  align-content: start;
+}
+
+/* One series per list: a single hue, the name and value as text on every row, so colour carries nothing alone. */
+.bars {
+  display: grid;
+  gap: var(--tc-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--tc-font-size-sm);
+}
+
+.bars li {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) minmax(4rem, 1fr) auto;
+  align-items: center;
+  gap: var(--tc-space-3);
+}
+
+.bar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--tc-fill-hover);
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  border-radius: 4px;
+  background: var(--tc-accent-text);
+}
+
+.bar-value {
+  color: var(--tc-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 480px) {
+  .bars li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .bar-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
