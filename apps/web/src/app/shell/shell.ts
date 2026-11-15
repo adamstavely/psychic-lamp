@@ -1,6 +1,7 @@
-import { HttpClient, httpResource } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal } from '@angular/core';
+import { RegistryCountsStore } from '../core/registry-counts-store';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
@@ -20,7 +21,7 @@ import type { ProfileMenuItem } from '@adamstavely/trenchcoat/profile-menu';
 import type { SegmentOption, SegmentValueChange } from '@adamstavely/trenchcoat/segmented-control';
 import type { SideNavCollapsedChange, SideNavItem, SideNavNavigate } from '@adamstavely/trenchcoat/side-nav';
 import { toast } from '@adamstavely/trenchcoat/toaster';
-import type { RegistryCounts, RegistrySummary, SearchResults } from '@donovan/contracts';
+import type { RegistrySummary, SearchResults } from '@donovan/contracts';
 import { catchError, debounceTime, filter, forkJoin, map, of, Subject, switchMap } from 'rxjs';
 import { IconDirective } from '../core/icon.directive';
 import { ChatsStore } from '../core/chats-store';
@@ -118,6 +119,7 @@ export class Shell {
     inject(DestroyRef).onDestroy(() => this.#searchSub.unsubscribe());
     this.#narrow?.addEventListener('change', (e) => this.narrow.set(e.matches));
     this.#compact?.addEventListener('change', (e) => this.compact.set(e.matches));
+    effect(() => this.#countsStore.setActive(this.mode() === 'build'));
   }
   readonly #router = inject(Router);
 
@@ -140,7 +142,8 @@ export class Shell {
   protected readonly mode = computed<Mode>(() => modeFor(this.#url()));
 
   /** How many items each Build area holds, for the rail; loaded only in Build. */
-  readonly #counts = httpResource<RegistryCounts>(() => (this.mode() === 'build' ? '/api/registry/counts' : undefined));
+  readonly #countsStore = inject(RegistryCountsStore);
+  readonly #counts = this.#countsStore.counts;
 
   protected readonly navItems = computed<SideNavItem[]>(() => {
     if (this.mode() === 'assist')
@@ -391,13 +394,16 @@ export class Shell {
         const draft = await firstValueFrom(
           this.#http.post<{ id: string }>('/api/registry/workflows', { name: 'Untitled workflow' }),
         );
+        this.#countsStore.changed();
         await this.#router.navigate(['/build/workflows', draft.id], { queryParams: { mode: 'edit' } });
       } catch {
         toast.error("Couldn't start a workflow", { description: 'Try again in a moment.' });
       }
       return;
     }
-    await this.#router.navigate(['/build/register'], { queryParams: kind ? { kind } : {} });
+    await this.#router.navigate(['/build/register'], {
+      queryParams: { ...(kind ? { kind } : {}), from: this.currentArea() },
+    });
   }
 
   protected async newChat(): Promise<void> {

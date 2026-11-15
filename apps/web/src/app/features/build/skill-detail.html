@@ -72,7 +72,11 @@
   </div>
 
   <aside class="aside" aria-label="About this skill">
-    <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
+    @if (s.status === 'published') {
+      <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
+    } @else {
+      <p class="small">You can use it in chat once it's published.</p>
+    }
     <p class="small">Editing skills comes with the Skill Builder.</p>
   </aside>
 </div>

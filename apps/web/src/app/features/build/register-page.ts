@@ -31,6 +31,7 @@ import { Session } from '../../core/session';
 import { SENSITIVITIES } from '../../core/sensitivities';
 import { BUILD_AREAS, buildAreaFor } from '../../shell/areas';
 import { IconDirective } from '../../core/icon.directive';
+import { RegistryCountsStore } from '../../core/registry-counts-store';
 
 interface KindOption {
   id: RegistrableKind;
@@ -87,14 +88,20 @@ const RANK = (s: Sensitivity) => SENSITIVITIES.findIndex((t) => t.id === s);
 export default class RegisterPage {
   /** From the URL: the kind to start with (the Register button passes the area's). */
   readonly kind = input<string>();
+  /** From the URL: the Build area Register was pressed in, to go back to. */
+  readonly from = input<string>();
   readonly #http = inject(HttpClient);
   readonly #session = inject(Session);
   readonly #injector = inject(Injector);
+  readonly #counts = inject(RegistryCountsStore);
 
   protected readonly kinds = KINDS;
   /** Back to the area Register was opened from (its kind's), else Build's first area. */
   protected readonly backLink = computed(() => {
-    const a = BUILD_AREAS.find((x) => x.kind === this.kind()) ?? BUILD_AREAS[0]!;
+    const a =
+      BUILD_AREAS.find((x) => x.id === this.from()) ??
+      BUILD_AREAS.find((x) => x.kind === this.kind()) ??
+      BUILD_AREAS[0]!;
     return { path: a.path, label: a.label };
   });
   protected readonly tiers = SENSITIVITIES;
@@ -102,6 +109,15 @@ export default class RegisterPage {
   protected readonly picked = linkedSignal<RegistrableKind>(
     () => (KINDS.find((k) => k.id === this.kind())?.id ?? 'server') as RegistrableKind,
   );
+  /** Asked to register a kind that's made in its own builder instead (a prompt, a workflow). */
+  protected readonly builtElsewhere = computed(() => {
+    const k = this.kind();
+    return k === 'prompt'
+      ? 'Prompts will be written in Prompt Studio'
+      : k === 'workflow'
+        ? 'Workflows are built on their canvas'
+        : null;
+  });
   protected readonly pickedKind = computed(() => KINDS.find((k) => k.id === this.picked())!);
   protected readonly steps = computed(() => ['Type', 'Identity', this.pickedKind().step, 'Governance', 'Review']);
   protected readonly step = signal(0);
@@ -199,10 +215,10 @@ export default class RegisterPage {
 
   protected readonly error = signal('');
 
-  /** What's missing before the person can leave the step, in a sentence; empty when nothing is. */
-  protected missing(): string {
+  /** What's missing before the person can leave a step (this one by default), in a sentence; empty when nothing is. */
+  protected missing(step = this.step()): string {
     const f = this.f;
-    switch (this.step()) {
+    switch (step) {
       case 1:
         return !f.name.trim() ? 'Name it.' : !f.summary.trim() ? 'Say what it does.' : '';
       case 2:
@@ -239,6 +255,22 @@ export default class RegisterPage {
     if (step === 1) this.updateSlug();
     // Focus follows the step, so a screen reader starts at its heading.
     afterNextRender(() => this.heading()?.nativeElement.focus(), { injector: this.#injector });
+  }
+
+  /**
+   * From the step list. Going back is always fine; going forward checks every step on the way, as Continue does, so
+   * an earlier step changed after it was passed can't be skipped. It stops at the first step that's missing something.
+   */
+  protected jump(target: number): void {
+    for (let s = this.step(); s < target; s++) {
+      const missing = this.missing(s);
+      if (missing) {
+        if (s !== this.step()) this.goTo(s);
+        this.error.set(missing);
+        return;
+      }
+    }
+    this.goTo(target);
   }
 
   protected next(): void {
@@ -341,6 +373,7 @@ export default class RegisterPage {
     try {
       const made = await firstValueFrom(this.#http.post<RegistryItem>('/api/registry', this.body()));
       this.made.set(made);
+      this.#counts.changed();
     } catch (err) {
       this.error.set((err as { error?: { message?: string } }).error?.message ?? "It wasn't submitted. Try again.");
     } finally {

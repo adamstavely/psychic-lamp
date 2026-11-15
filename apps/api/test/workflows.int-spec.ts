@@ -116,6 +116,16 @@ describe('workflows on the canvas', () => {
     expect((await decide(await person('b')).expect(200)).body.status).toBe('published');
   });
 
+  it('numbers a second draft with the same name instead of refusing it', async () => {
+    const owner = await person('twice');
+    const make = async () =>
+      (await http.post('/api/registry/workflows').auth(owner, bearer).send({ name: 'Untitled workflow' }).expect(201))
+        .body as { name: string; id: string };
+    const [a, b] = [await make(), await make()];
+    expect([a.name, b.name]).toEqual(['Untitled workflow', 'Untitled workflow 2']);
+    expect(a.id).not.toBe(b.id);
+  });
+
   it("refuses to change someone else's own workflow", async () => {
     const owner = await person('mine');
     const draft = (await http.post('/api/registry/workflows').auth(owner, bearer).send({ name: 'Mine' }).expect(201))

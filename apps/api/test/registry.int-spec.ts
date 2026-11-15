@@ -249,6 +249,27 @@ describe('/api/registry', () => {
         .expect(400);
     });
 
+    it('refuses an agent with no servers or skills', async () => {
+      const token = await t.token({ sub: `registrar-${randomUUID()}` });
+      const res = await http
+        .post('/api/registry')
+        .auth(token, bearer)
+        .send({
+          kind: 'agent',
+          name: `Empty agent ${randomUUID().slice(0, 6)}`,
+          summary: 'Does nothing.',
+          team: null,
+          sensitivity: 'Internal',
+          access,
+          model: 'claude-sonnet-4.5',
+          autonomy: 'Read-only',
+          servers: [],
+          skills: [],
+        })
+        .expect(400);
+      expect(res.body.message).toMatch(/at least one server or skill/);
+    });
+
     it("raises a collection to its most sensitive member, and refuses members the registry doesn't have", async () => {
       const token = await t.token({ sub: `registrar-${randomUUID()}` });
       const collection = (members: { kind: string; name: string }[]) => ({

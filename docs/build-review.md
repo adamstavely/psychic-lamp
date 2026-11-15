@@ -18,9 +18,9 @@ prototype and a trace of every control in the code. Each fix below is one PR; th
    settings, checks (unconnected step, write tool with no approval upstream, no trigger), Discard and Save & publish,
    saved as a new version through review. Plus **New workflow** from the catalog. Two of the three seeded workflows
    have no steps: give them their graphs.
-3. **Newly registered items render properly.** _(This PR.)_ A model with no metrics, a space with no outputs, a server with no tools,
+3. **Newly registered items render properly.** _(Done.)_ A model with no metrics, a space with no outputs, a server with no tools,
    a dataset's "updated", a skill keeping the SKILL.md it was registered with (not rebuilt from its headings).
-4. **Actions match what's allowed.** Pending items don't offer Install, Attach or Use in chat (the API refuses them).
+4. **Actions match what's allowed.** _(This PR.)_ Pending items don't offer Install, Attach or Use in chat (the API refuses them).
    The wizard's step list can't skip validation, and an agent needs at least one server or skill. Register opens on the
    right kind from Workflows, Prompts, Governance and Insights. Rail counts refresh after registering or a decision.
 5. **Links by id, not by name.** Agents' servers and skills and collections' members are stored by id, so links and
