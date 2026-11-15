@@ -146,12 +146,8 @@
           "name": "artifacts_owner_id_users_id_fk",
           "tableFrom": "artifacts",
           "tableTo": "users",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -159,14 +155,8 @@
           "name": "artifacts_owner_id_project_id_projects_owner_id_id_fk",
           "tableFrom": "artifacts",
           "tableTo": "projects",
-          "columnsFrom": [
-            "owner_id",
-            "project_id"
-          ],
-          "columnsTo": [
-            "owner_id",
-            "id"
-          ],
+          "columnsFrom": ["owner_id", "project_id"],
+          "columnsTo": ["owner_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -174,10 +164,7 @@
       "compositePrimaryKeys": {
         "artifacts_owner_id_id_pk": {
           "name": "artifacts_owner_id_id_pk",
-          "columns": [
-            "owner_id",
-            "id"
-          ]
+          "columns": ["owner_id", "id"]
         }
       },
       "uniqueConstraints": {},
@@ -221,12 +208,8 @@
           "name": "brief_state_user_id_users_id_fk",
           "tableFrom": "brief_state",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -234,11 +217,7 @@
       "compositePrimaryKeys": {
         "brief_state_user_id_kind_key_pk": {
           "name": "brief_state_user_id_kind_key_pk",
-          "columns": [
-            "user_id",
-            "kind",
-            "key"
-          ]
+          "columns": ["user_id", "kind", "key"]
         }
       },
       "uniqueConstraints": {},
@@ -383,12 +362,8 @@
           "name": "chats_owner_id_users_id_fk",
           "tableFrom": "chats",
           "tableTo": "users",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -396,14 +371,8 @@
           "name": "chats_owner_id_project_id_projects_owner_id_id_fk",
           "tableFrom": "chats",
           "tableTo": "projects",
-          "columnsFrom": [
-            "owner_id",
-            "project_id"
-          ],
-          "columnsTo": [
-            "owner_id",
-            "id"
-          ],
+          "columnsFrom": ["owner_id", "project_id"],
+          "columnsTo": ["owner_id", "id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -411,10 +380,7 @@
       "compositePrimaryKeys": {
         "chats_owner_id_id_pk": {
           "name": "chats_owner_id_id_pk",
-          "columns": [
-            "owner_id",
-            "id"
-          ]
+          "columns": ["owner_id", "id"]
         }
       },
       "uniqueConstraints": {},
@@ -471,14 +437,8 @@
           "name": "checkpoints_owner_id_chat_id_chats_owner_id_id_fk",
           "tableFrom": "checkpoints",
           "tableTo": "chats",
-          "columnsFrom": [
-            "owner_id",
-            "chat_id"
-          ],
-          "columnsTo": [
-            "owner_id",
-            "id"
-          ],
+          "columnsFrom": ["owner_id", "chat_id"],
+          "columnsTo": ["owner_id", "id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -531,14 +491,8 @@
           "name": "claim_reviews_owner_id_chat_id_chats_owner_id_id_fk",
           "tableFrom": "claim_reviews",
           "tableTo": "chats",
-          "columnsFrom": [
-            "owner_id",
-            "chat_id"
-          ],
-          "columnsTo": [
-            "owner_id",
-            "id"
-          ],
+          "columnsFrom": ["owner_id", "chat_id"],
+          "columnsTo": ["owner_id", "id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -546,11 +500,7 @@
       "compositePrimaryKeys": {
         "claim_reviews_owner_id_chat_id_claim_id_pk": {
           "name": "claim_reviews_owner_id_chat_id_claim_id_pk",
-          "columns": [
-            "owner_id",
-            "chat_id",
-            "claim_id"
-          ]
+          "columns": ["owner_id", "chat_id", "claim_id"]
         }
       },
       "uniqueConstraints": {},
@@ -676,14 +626,8 @@
           "name": "messages_owner_id_chat_id_chats_owner_id_id_fk",
           "tableFrom": "messages",
           "tableTo": "chats",
-          "columnsFrom": [
-            "owner_id",
-            "chat_id"
-          ],
-          "columnsTo": [
-            "owner_id",
-            "id"
-          ],
+          "columnsFrom": ["owner_id", "chat_id"],
+          "columnsTo": ["owner_id", "id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -693,20 +637,12 @@
         "messages_chat_seq": {
           "name": "messages_chat_seq",
           "nullsNotDistinct": false,
-          "columns": [
-            "owner_id",
-            "chat_id",
-            "seq"
-          ]
+          "columns": ["owner_id", "chat_id", "seq"]
         },
         "messages_chat_request": {
           "name": "messages_chat_request",
           "nullsNotDistinct": false,
-          "columns": [
-            "owner_id",
-            "chat_id",
-            "request_id"
-          ]
+          "columns": ["owner_id", "chat_id", "request_id"]
         }
       },
       "policies": {},
@@ -748,12 +684,8 @@
           "name": "notification_state_user_id_users_id_fk",
           "tableFrom": "notification_state",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -761,10 +693,7 @@
       "compositePrimaryKeys": {
         "notification_state_user_id_key_pk": {
           "name": "notification_state_user_id_key_pk",
-          "columns": [
-            "user_id",
-            "key"
-          ]
+          "columns": ["user_id", "key"]
         }
       },
       "uniqueConstraints": {},
@@ -867,14 +796,8 @@
           "name": "project_answers_owner_id_project_id_projects_owner_id_id_fk",
           "tableFrom": "project_answers",
           "tableTo": "projects",
-          "columnsFrom": [
-            "owner_id",
-            "project_id"
-          ],
-          "columnsTo": [
-            "owner_id",
-            "id"
-          ],
+          "columnsFrom": ["owner_id", "project_id"],
+          "columnsTo": ["owner_id", "id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -921,14 +844,8 @@
           "name": "project_collections_owner_id_project_id_projects_owner_id_id_fk",
           "tableFrom": "project_collections",
           "tableTo": "projects",
-          "columnsFrom": [
-            "owner_id",
-            "project_id"
-          ],
-          "columnsTo": [
-            "owner_id",
-            "id"
-          ],
+          "columnsFrom": ["owner_id", "project_id"],
+          "columnsTo": ["owner_id", "id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -936,11 +853,7 @@
       "compositePrimaryKeys": {
         "project_collections_owner_id_project_id_collection_id_pk": {
           "name": "project_collections_owner_id_project_id_collection_id_pk",
-          "columns": [
-            "owner_id",
-            "project_id",
-            "collection_id"
-          ]
+          "columns": ["owner_id", "project_id", "collection_id"]
         }
       },
       "uniqueConstraints": {},
@@ -991,14 +904,8 @@
           "name": "project_notes_owner_id_project_id_projects_owner_id_id_fk",
           "tableFrom": "project_notes",
           "tableTo": "projects",
-          "columnsFrom": [
-            "owner_id",
-            "project_id"
-          ],
-          "columnsTo": [
-            "owner_id",
-            "id"
-          ],
+          "columnsFrom": ["owner_id", "project_id"],
+          "columnsTo": ["owner_id", "id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1062,14 +969,8 @@
           "name": "project_shares_owner_id_project_id_projects_owner_id_id_fk",
           "tableFrom": "project_shares",
           "tableTo": "projects",
-          "columnsFrom": [
-            "owner_id",
-            "project_id"
-          ],
-          "columnsTo": [
-            "owner_id",
-            "id"
-          ],
+          "columnsFrom": ["owner_id", "project_id"],
+          "columnsTo": ["owner_id", "id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1077,11 +978,7 @@
       "compositePrimaryKeys": {
         "project_shares_owner_id_project_id_recipient_id_pk": {
           "name": "project_shares_owner_id_project_id_recipient_id_pk",
-          "columns": [
-            "owner_id",
-            "project_id",
-            "recipient_id"
-          ]
+          "columns": ["owner_id", "project_id", "recipient_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1161,14 +1058,8 @@
           "name": "project_sources_owner_id_project_id_projects_owner_id_id_fk",
           "tableFrom": "project_sources",
           "tableTo": "projects",
-          "columnsFrom": [
-            "owner_id",
-            "project_id"
-          ],
-          "columnsTo": [
-            "owner_id",
-            "id"
-          ],
+          "columnsFrom": ["owner_id", "project_id"],
+          "columnsTo": ["owner_id", "id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1176,11 +1067,7 @@
       "compositePrimaryKeys": {
         "project_sources_owner_id_project_id_id_pk": {
           "name": "project_sources_owner_id_project_id_id_pk",
-          "columns": [
-            "owner_id",
-            "project_id",
-            "id"
-          ]
+          "columns": ["owner_id", "project_id", "id"]
         }
       },
       "uniqueConstraints": {},
@@ -1257,12 +1144,8 @@
           "name": "projects_owner_id_users_id_fk",
           "tableFrom": "projects",
           "tableTo": "users",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1270,10 +1153,7 @@
       "compositePrimaryKeys": {
         "projects_owner_id_id_pk": {
           "name": "projects_owner_id_id_pk",
-          "columns": [
-            "owner_id",
-            "id"
-          ]
+          "columns": ["owner_id", "id"]
         }
       },
       "uniqueConstraints": {},
@@ -1323,12 +1203,8 @@
           "name": "registry_installs_owner_id_users_id_fk",
           "tableFrom": "registry_installs",
           "tableTo": "users",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1336,14 +1212,8 @@
           "name": "registry_installs_kind_item_id_registry_items_kind_id_fk",
           "tableFrom": "registry_installs",
           "tableTo": "registry_items",
-          "columnsFrom": [
-            "kind",
-            "item_id"
-          ],
-          "columnsTo": [
-            "kind",
-            "id"
-          ],
+          "columnsFrom": ["kind", "item_id"],
+          "columnsTo": ["kind", "id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1351,12 +1221,7 @@
       "compositePrimaryKeys": {
         "registry_installs_owner_id_kind_item_id_client_pk": {
           "name": "registry_installs_owner_id_kind_item_id_client_pk",
-          "columns": [
-            "owner_id",
-            "kind",
-            "item_id",
-            "client"
-          ]
+          "columns": ["owner_id", "kind", "item_id", "client"]
         }
       },
       "uniqueConstraints": {},
@@ -1518,12 +1383,8 @@
           "name": "registry_items_owner_id_users_id_fk",
           "tableFrom": "registry_items",
           "tableTo": "users",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1531,12 +1392,8 @@
           "name": "registry_items_submitted_by_users_id_fk",
           "tableFrom": "registry_items",
           "tableTo": "users",
-          "columnsFrom": [
-            "submitted_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["submitted_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1544,20 +1401,14 @@
       "compositePrimaryKeys": {
         "registry_items_kind_id_pk": {
           "name": "registry_items_kind_id_pk",
-          "columns": [
-            "kind",
-            "id"
-          ]
+          "columns": ["kind", "id"]
         }
       },
       "uniqueConstraints": {
         "registry_items_kind_slug": {
           "name": "registry_items_kind_slug",
           "nullsNotDistinct": false,
-          "columns": [
-            "kind",
-            "slug"
-          ]
+          "columns": ["kind", "slug"]
         }
       },
       "policies": {},
@@ -1625,12 +1476,8 @@
           "name": "registry_reviews_reviewer_id_users_id_fk",
           "tableFrom": "registry_reviews",
           "tableTo": "users",
-          "columnsFrom": [
-            "reviewer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["reviewer_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1638,14 +1485,8 @@
           "name": "registry_reviews_kind_item_id_registry_items_kind_id_fk",
           "tableFrom": "registry_reviews",
           "tableTo": "registry_items",
-          "columnsFrom": [
-            "kind",
-            "item_id"
-          ],
-          "columnsTo": [
-            "kind",
-            "id"
-          ],
+          "columnsFrom": ["kind", "item_id"],
+          "columnsTo": ["kind", "id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1653,12 +1494,7 @@
       "compositePrimaryKeys": {
         "registry_reviews_kind_item_id_round_reviewer_id_pk": {
           "name": "registry_reviews_kind_item_id_round_reviewer_id_pk",
-          "columns": [
-            "kind",
-            "item_id",
-            "round",
-            "reviewer_id"
-          ]
+          "columns": ["kind", "item_id", "round", "reviewer_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1697,12 +1533,8 @@
           "name": "user_preferences_user_id_users_id_fk",
           "tableFrom": "user_preferences",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1743,12 +1575,8 @@
           "name": "user_seeds_user_id_users_id_fk",
           "tableFrom": "user_seeds",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1756,10 +1584,7 @@
       "compositePrimaryKeys": {
         "user_seeds_user_id_name_pk": {
           "name": "user_seeds_user_id_name_pk",
-          "columns": [
-            "user_id",
-            "name"
-          ]
+          "columns": ["user_id", "name"]
         }
       },
       "uniqueConstraints": {},
@@ -1824,9 +1649,7 @@
         "users_subject_unique": {
           "name": "users_subject_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "subject"
-          ]
+          "columns": ["subject"]
         }
       },
       "policies": {},
