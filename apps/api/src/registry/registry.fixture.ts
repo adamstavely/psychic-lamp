@@ -600,8 +600,14 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
     details: {
       autonomy: 'Approval on writes',
       model: 'claude-sonnet-4.5',
-      servers: ['GitHub', 'Slack'],
-      skills: ['Release notes', 'PR review checklist'],
+      servers: [
+        { id: 'github', name: 'GitHub' },
+        { id: 'slack', name: 'Slack' },
+      ],
+      skills: [
+        { id: 'notes', name: 'Release notes' },
+        { id: 'pr', name: 'PR review checklist' },
+      ],
       runs: '312',
       success: '97%',
     },
@@ -623,8 +629,11 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
     details: {
       autonomy: 'Autonomous (read) · approval (write)',
       model: 'claude-haiku-4.5',
-      servers: ['Postgres · support_dw', 'Slack'],
-      skills: ['Churn narrative'],
+      servers: [
+        { id: 'postgres', name: 'Postgres · support_dw' },
+        { id: 'slack', name: 'Slack' },
+      ],
+      skills: [{ id: 'churn', name: 'Churn narrative' }],
       runs: '48k',
       success: '94%',
     },
@@ -646,8 +655,8 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
     details: {
       autonomy: 'Read-only',
       model: 'claude-sonnet-4.5',
-      servers: ['Filesystem'],
-      skills: ['Rollout note'],
+      servers: [{ id: 'filesystem', name: 'Filesystem' }],
+      skills: [{ id: 'rollout', name: 'Rollout note' }],
       runs: '1.1k',
       success: '99%',
     },
@@ -669,8 +678,11 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
     details: {
       autonomy: 'Approval on writes',
       model: 'claude-sonnet-4.5',
-      servers: ['Filesystem', 'PIM'],
-      skills: ['Quarterly forecast memo'],
+      servers: [
+        { id: 'filesystem', name: 'Filesystem' },
+        { id: 'pim', name: 'PIM' },
+      ],
+      skills: [{ id: 'forecast', name: 'Quarterly forecast memo' }],
       runs: '220',
       success: '91%',
     },
@@ -1564,6 +1576,77 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
     },
   },
   {
+    kind: 'model',
+    id: 'churn',
+    name: 'Churn Propensity',
+    slug: 'growth-ml/churn-propensity',
+    version: 'v1.8.0',
+    sensitivity: 'Internal',
+    summary:
+      'Scores each account for its chance of churning in the next 90 days, from usage, plan and support-contact signals. v2.0 is a candidate.',
+    owner: {
+      team: 'Growth ML',
+      personId: null,
+      name: 'Growth ML',
+    },
+    status: 'published',
+    details: {
+      task: 'Classification',
+      base: 'LightGBM',
+      context: '—',
+      calls: '310k',
+      verified: true,
+      metrics: [
+        {
+          value: '0.89',
+          label: 'AUC-ROC',
+        },
+        {
+          value: '0.040',
+          label: 'Brier score',
+        },
+        {
+          value: '41%',
+          label: 'Recall @ top 5%',
+        },
+        {
+          value: '310k',
+          label: 'Calls / wk',
+        },
+      ],
+      files: [
+        {
+          name: 'model.txt',
+          size: '12 MB',
+        },
+        {
+          name: 'features.json',
+          size: '6 KB',
+        },
+        {
+          name: 'MODEL_CARD.md',
+          size: '9 KB',
+        },
+      ],
+      evals: [
+        {
+          suite: '90-day holdout',
+          metric: 'AUC-ROC',
+          value: '0.89',
+          previous: '0.88',
+          trend: 'up',
+        },
+        {
+          suite: '90-day holdout',
+          metric: 'Brier score',
+          value: '0.040',
+          previous: '0.042',
+          trend: 'up',
+        },
+      ],
+    },
+  },
+  {
     kind: 'dataset',
     id: 'txn-graph',
     name: 'Transaction graph 2026-Q3',
@@ -1582,7 +1665,10 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
       size: '12.4 GB',
       format: 'Parquet',
       splits: 'train / val / test (time-based)',
-      usedBy: ['Fraud Sentinel', 'Churn Propensity'],
+      usedBy: [
+        { id: 'fraud', name: 'Fraud Sentinel' },
+        { id: 'churn', name: 'Churn Propensity' },
+      ],
       pulls: '1.2k',
       updated: '3 days ago',
       schema: [
@@ -1628,7 +1714,7 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
       size: '3.8 GB',
       format: 'JSONL',
       splits: 'train / val / test (stratified)',
-      usedBy: ['Support Intent XL'],
+      usedBy: [{ id: 'intent', name: 'Support Intent XL' }],
       pulls: '860',
       updated: '1 week ago',
       schema: [
@@ -1670,7 +1756,7 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
       size: '6.1 GB',
       format: 'Parquet',
       splits: 'rolling-origin backtests',
-      usedBy: ['Demand Forecaster', 'Price Elasticity'],
+      usedBy: [{ id: 'demand', name: 'Demand Forecaster' }],
       pulls: '410',
       updated: '2 days ago',
       schema: [
@@ -1716,7 +1802,7 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
       size: '22 GB',
       format: 'PDF + JSON',
       splits: 'train / val / test',
-      usedBy: ['Invoice Extractor'],
+      usedBy: [{ id: 'invoice', name: 'Invoice Extractor' }],
       pulls: '95',
       updated: '3 weeks ago',
       schema: [
@@ -1886,22 +1972,27 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
       members: [
         {
           kind: 'server',
+          id: 'github',
           name: 'GitHub',
         },
         {
           kind: 'server',
+          id: 'filesystem',
           name: 'Filesystem',
         },
         {
           kind: 'skill',
+          id: 'pr',
           name: 'PR review checklist',
         },
         {
           kind: 'skill',
+          id: 'notes',
           name: 'Release notes',
         },
         {
           kind: 'agent',
+          id: 'release',
           name: 'Release captain',
         },
       ],
@@ -1925,26 +2016,32 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
       members: [
         {
           kind: 'model',
+          id: 'fraud',
           name: 'Fraud Sentinel',
         },
         {
           kind: 'model',
+          id: 'churn',
           name: 'Churn Propensity',
         },
         {
           kind: 'dataset',
+          id: 'txn-graph',
           name: 'Transaction graph 2026-Q3',
         },
         {
           kind: 'skill',
+          id: 'rollout',
           name: 'Rollout note',
         },
         {
           kind: 'agent',
+          id: 'fraudwatch',
           name: 'Fraud watch',
         },
         {
           kind: 'space',
+          id: 'fraud-explainer',
           name: 'Fraud score explainer',
         },
       ],
@@ -1968,22 +2065,27 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
       members: [
         {
           kind: 'server',
+          id: 'filesystem',
           name: 'Filesystem',
         },
         {
           kind: 'server',
+          id: 'slack',
           name: 'Slack',
         },
         {
           kind: 'server',
+          id: 'github',
           name: 'GitHub',
         },
         {
           kind: 'server',
+          id: 'sfdc',
           name: 'Salesforce',
         },
         {
           kind: 'model',
+          id: 'sonnet',
           name: 'claude-sonnet-4.5',
         },
       ],
@@ -2007,18 +2109,22 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
       members: [
         {
           kind: 'skill',
+          id: 'notes',
           name: 'Release notes',
         },
         {
           kind: 'skill',
+          id: 'pr',
           name: 'PR review checklist',
         },
         {
           kind: 'skill',
+          id: 'rollout',
           name: 'Rollout note',
         },
         {
           kind: 'skill',
+          id: 'churn',
           name: 'Churn narrative',
         },
       ],

@@ -173,11 +173,11 @@ export default class RegisterPage {
       this.#policies.hasValue() &&
       !!this.#policies.value().policies.find((p) => p.id === 'read-only-default' && p.enabled),
   );
-  /** Picked servers, skills or members, by "kind:name". */
+  /** Picked servers, skills or members, by "kind:id". */
   protected readonly picks = signal<Set<string>>(new Set());
 
-  protected togglePick(item: { kind: RegistryKind; name: string }): void {
-    const key = `${item.kind}:${item.name}`;
+  protected togglePick(item: { kind: RegistryKind; id: string }): void {
+    const key = `${item.kind}:${item.id}`;
     this.picks.update((set) => {
       const next = new Set(set);
       if (next.has(key)) next.delete(key);
@@ -185,21 +185,20 @@ export default class RegisterPage {
       return next;
     });
   }
-  protected isPicked(item: { kind: RegistryKind; name: string }): boolean {
-    return this.picks().has(`${item.kind}:${item.name}`);
+  protected isPicked(item: { kind: RegistryKind; id: string }): boolean {
+    return this.picks().has(`${item.kind}:${item.id}`);
   }
+  /** What's picked, in the order picked, as the registry has it. */
   protected readonly pickedItems = computed(() =>
-    [...this.picks()].map((key) => {
-      const [kind, ...name] = key.split(':');
-      return { kind: kind as RegistryKind, name: name.join(':') };
+    [...this.picks()].flatMap((key) => {
+      const [kind, id] = key.split(':') as [RegistryKind, string];
+      const found = this.all().find((i) => i.kind === kind && i.id === id);
+      return found ? [{ kind, id, name: found.name, sensitivity: found.sensitivity }] : [];
     }),
   );
   /** A collection is as sensitive as its most sensitive member. */
   protected readonly ceiling = computed<Sensitivity>(() =>
-    this.pickedItems().reduce<Sensitivity>((c, p) => {
-      const s = this.all().find((i) => i.kind === p.kind && i.name === p.name)?.sensitivity ?? 'Public';
-      return RANK(s) > RANK(c) ? s : c;
-    }, 'Public'),
+    this.pickedItems().reduce<Sensitivity>((c, p) => (RANK(p.sensitivity) > RANK(c) ? p.sensitivity : c), 'Public'),
   );
 
   protected readonly slug = signal('');
@@ -409,8 +408,8 @@ export default class RegisterPage {
           kind: 'agent',
           model: f.model,
           autonomy: f.autonomy,
-          servers: picks.filter((p) => p.kind === 'server').map((p) => p.name),
-          skills: picks.filter((p) => p.kind === 'skill').map((p) => p.name),
+          servers: picks.filter((p) => p.kind === 'server').map((p) => p.id),
+          skills: picks.filter((p) => p.kind === 'skill').map((p) => p.id),
         };
       case 'model':
         return { ...shared, kind: 'model', task: f.task, framework: f.framework, base: f.base.trim() };
@@ -425,7 +424,7 @@ export default class RegisterPage {
           placeholder: f.placeholder.trim(),
         };
       case 'collection':
-        return { ...shared, kind: 'collection', members: picks };
+        return { ...shared, kind: 'collection', members: picks.map(({ kind, id }) => ({ kind, id })) };
     }
   }
 }

@@ -27,7 +27,7 @@
 
     <h2 class="section">Composition</h2>
     <ul class="parts">
-      @for (p of parts(); track p.kind + p.name) {
+      @for (p of parts(); track p.kind + (p.id ?? p.name)) {
         <li>
           <span class="kind">{{ p.kind }}</span>
           @if (p.link) {

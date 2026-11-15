@@ -86,7 +86,7 @@
       <h2>Used by</h2>
       @if (usedBy().length) {
         <ul class="links">
-          @for (u of usedBy(); track u.name) {
+          @for (u of usedBy(); track u.id) {
             <li>
               @if (u.link) {
                 <a [routerLink]="u.link">{{ u.name }}</a>

@@ -20,12 +20,12 @@ prototype and a trace of every control in the code. Each fix below is one PR; th
    have no steps: give them their graphs.
 3. **Newly registered items render properly.** _(Done.)_ A model with no metrics, a space with no outputs, a server with no tools,
    a dataset's "updated", a skill keeping the SKILL.md it was registered with (not rebuilt from its headings).
-4. **Actions match what's allowed.** _(This PR.)_ Pending items don't offer Install, Attach or Use in chat (the API refuses them).
+4. **Actions match what's allowed.** _(Done.)_ Pending items don't offer Install, Attach or Use in chat (the API refuses them).
    The wizard's step list can't skip validation, and an agent needs at least one server or skill. Register opens on the
    right kind from Workflows, Prompts, Governance and Insights. Rail counts refresh after registering or a decision.
-5. **Links by id, not by name.** Agents' servers and skills and collections' members are stored by id, so links and
-   tiers can't break or be ambiguous ("Churn Propensity" and "Price Elasticity" are named but don't exist: add them or
-   drop the references).
+5. **Links by id, not by name.** _(This PR.)_ Agents' servers and skills, datasets' models and collections' members are
+   stored by id, so links and tiers can't break or be ambiguous ("Churn Propensity" and "Price Elasticity" are named
+   but don't exist: Churn Propensity, which the seeded chats use, is added; Price Elasticity is dropped).
 6. **Trench Coat controls instead of raw HTML** where Trench Coat has them: `tc-select`, `tc-radio-group`,
    `tc-checkbox`, `tc-sensitivity-label-picker` (the wizard's tier), `tc-dialog`. Text inputs and textareas have no
    Trench Coat component yet; that gap goes to Trench Coat.
