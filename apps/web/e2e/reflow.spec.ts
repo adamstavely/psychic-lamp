@@ -21,6 +21,9 @@ const paths = [
   '/build/datasets/txn-graph',
   '/build/spaces/fraud-explainer',
   '/build/collections/risk-fraud',
+  '/build/skills/rollout',
+  '/build/prompts/status',
+  '/build/workflows/sku',
 ];
 
 for (const width of [640, 320]) {

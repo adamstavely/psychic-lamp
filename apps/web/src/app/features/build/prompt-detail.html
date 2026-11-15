@@ -1,0 +1,132 @@
+@let p = item();
+@let v = current();
+<div class="layout">
+  <div>
+    <header class="head">
+      <h1>{{ p.name }}</h1>
+      <span class="tags">
+        <span class="tag">Prompt</span>
+        @for (t of p.details.tags; track t) {
+          <span class="tag">{{ t }}</span>
+        }
+      </span>
+      <p class="meta">{{ p.slug }} · {{ v.version }} published · {{ p.owner.name }}</p>
+      <p class="summary">{{ p.summary }}</p>
+      <dl class="figures">
+        <div>
+          <dt>Uses</dt>
+          <dd>{{ p.details.uses }}</dd>
+        </div>
+        @if (v.score !== null) {
+          <div>
+            <dt>Score</dt>
+            <dd>{{ v.score }}</dd>
+          </div>
+        }
+        <div>
+          <dt>Versions</dt>
+          <dd>{{ p.details.versions.length }}</dd>
+        </div>
+      </dl>
+    </header>
+
+    <h2 class="section">Published version · {{ v.version }}</h2>
+    <h3 class="sub">System</h3>
+    <tc-code-block language="text" filename="System" [code]="v.system" />
+    <h3 class="sub">Template</h3>
+    <tc-code-block language="text" filename="Template" [code]="v.template" />
+
+    @if (variables().length) {
+      <h3 class="sub">Variables</h3>
+      <dl class="spec">
+        @for (e of variables(); track e[0]) {
+          <dt>
+            <code>{{ '{{' }}{{ e[0] }}{{ '}}' }}</code>
+          </dt>
+          <dd>{{ e[1] }}</dd>
+        }
+      </dl>
+    }
+
+    @if (output(); as out) {
+      <h3 class="sub">Sample output</h3>
+      <pre class="result">{{ out }}</pre>
+    }
+
+    @if (p.details.tests.length) {
+      <h2 class="section">Tests</h2>
+      <table class="grid">
+        <caption class="sr-only">
+          Tests of
+          {{
+            p.name
+          }}
+          at
+          {{
+            v.version
+          }}
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Test</th>
+            <th scope="col">Checks</th>
+            <th scope="col">{{ v.version }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (t of p.details.tests; track t.name) {
+            <tr>
+              <td>{{ t.name }}</td>
+              <td>{{ t.checks.join(' · ') }}</td>
+              @if (t.results[v.version]; as r) {
+                <td [attr.data-result]="r">{{ r === 'pass' ? 'Pass' : 'Fail' }}</td>
+              } @else {
+                <td>Not run</td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    <h2 class="section">History</h2>
+    <ol class="history">
+      @for (h of history(); track h.version) {
+        <li>
+          <details>
+            <summary>
+              <strong>{{ h.version }}</strong>
+              @if (h.version === v.version) {
+                <span class="tag" data-tone="ok">Published</span>
+              }
+              <span>{{ h.note }}</span>
+              <span class="small">{{ h.when }} · {{ h.by }}{{ h.score !== null ? ' · score ' + h.score : '' }}</span>
+            </summary>
+            <h3 class="sub">System</h3>
+            <pre class="result">{{ h.system }}</pre>
+            <h3 class="sub">Template</h3>
+            <pre class="result">{{ h.template }}</pre>
+          </details>
+        </li>
+      }
+    </ol>
+  </div>
+
+  <aside class="aside" aria-label="About this prompt">
+    <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
+    <p class="small">Editing prompts comes with Prompt Studio.</p>
+    <h2>Specification</h2>
+    <dl class="spec">
+      <dt>Model</dt>
+      <dd>{{ p.details.model }}</dd>
+      <dt>Temperature</dt>
+      <dd>{{ p.details.temperature }}</dd>
+      <dt>Max tokens</dt>
+      <dd>{{ p.details.maxTokens }}</dd>
+      <dt>Tier</dt>
+      <dd>
+        <span class="dn-sens" [attr.data-level]="p.sensitivity">{{ p.sensitivity }}</span>
+      </dd>
+    </dl>
+  </aside>
+</div>

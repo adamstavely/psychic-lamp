@@ -1,0 +1,86 @@
+@let s = item();
+<div class="layout">
+  <div>
+    <header class="head">
+      <h1>{{ s.name }}</h1>
+      <span class="tags">
+        <span class="tag">Skill</span>
+        @if (s.details.score !== null) {
+          <span class="tag" [attr.data-tone]="s.details.score >= 80 ? 'ok' : 'warn'">Score {{ s.details.score }}</span>
+        }
+      </span>
+      <p class="meta">{{ s.slug }} · {{ s.version }} · {{ s.owner.name }}</p>
+      <p class="summary">{{ s.summary }}</p>
+      <dl class="figures">
+        <div>
+          <dt>Uses</dt>
+          <dd>{{ s.details.uses }}</dd>
+        </div>
+        <div>
+          <dt>Tests passing</dt>
+          <dd>{{ passed() }} of {{ s.details.tests.length }}</dd>
+        </div>
+      </dl>
+    </header>
+
+    <tc-segmented-control
+      class="tabs"
+      kind="tabs"
+      variant="underline"
+      [options]="tabs()"
+      [value]="tab()"
+      (tc-value-change)="pick($event)"
+    />
+
+    <div id="skill-panel" role="tabpanel" [attr.aria-label]="tab() === 'skill' ? 'SKILL.md' : 'Tests'">
+      @if (tab() === 'skill') {
+        <tc-code-block language="markdown" filename="SKILL.md" [code]="skillMd()" />
+      } @else if (s.details.tests.length) {
+        <table class="grid">
+          <caption class="sr-only">
+            Tests of
+            {{
+              s.name
+            }}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Test</th>
+              <th scope="col">Result</th>
+              <th scope="col">What happened</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of s.details.tests; track t.name) {
+              <tr>
+                <td>{{ t.name }}</td>
+                <td [attr.data-result]="t.result">{{ t.result === 'pass' ? 'Pass' : 'Fail' }}</td>
+                <td>{{ t.note }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="small">No tests yet.</p>
+      }
+    </div>
+  </div>
+
+  <aside class="aside" aria-label="About this skill">
+    <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
+    <p class="small">Editing skills comes with the Skill Builder.</p>
+    <h2>Specification</h2>
+    <dl class="spec">
+      <dt>Score</dt>
+      <dd>{{ s.details.score ?? 'Not scored yet' }}</dd>
+      <dt>Tier</dt>
+      <dd>
+        <span class="dn-sens" [attr.data-level]="s.sensitivity">{{ s.sensitivity }}</span>
+      </dd>
+      <dt>Version</dt>
+      <dd>{{ s.version }}</dd>
+      <dt>Owner</dt>
+      <dd>{{ s.owner.name }}</dd>
+    </dl>
+  </aside>
+</div>

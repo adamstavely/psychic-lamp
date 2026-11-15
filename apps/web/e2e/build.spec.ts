@@ -194,3 +194,38 @@ test.describe('model, dataset, space and collection pages', () => {
     });
   });
 });
+
+test.describe('skill, prompt and workflow pages', () => {
+  test("a skill's SKILL.md and its tests", async ({ page }) => {
+    await signIn(page, 'alex', '/build/skills/rollout');
+    await matchTheme(page);
+    await expect(page.getByRole('heading', { name: 'Rollout note', level: 1 })).toBeVisible();
+    await expect(page.getByRole('tabpanel', { name: 'SKILL.md' })).toContainText('## Lead with the decision');
+    await expectNoAxeViolations(page);
+    await page.getByRole('tab', { name: /^Tests/ }).click();
+    const tests = page.getByRole('table', { name: 'Tests of Rollout note' });
+    await expect(tests.getByRole('row', { name: /Empty findings/ })).toContainText('Fail');
+    await expectNoAxeViolations(page);
+  });
+
+  test("a prompt's published version, its tests, and its history", async ({ page }) => {
+    await signIn(page, 'alex', '/build/prompts/status');
+    await matchTheme(page);
+    await expect(page.getByRole('heading', { name: 'Published version · v2' })).toBeVisible();
+    await expect(page.getByRole('table', { name: 'Tests of Weekly status, exec voice at v2' })).toBeVisible();
+    const v1 = page.getByRole('listitem').filter({ hasText: 'First version' });
+    await v1.getByText('v1', { exact: true }).click();
+    await expect(v1).toContainText('You write weekly status updates.');
+    await expectNoAxeViolations(page);
+  });
+
+  test("a workflow's graph, and the same steps as a list", async ({ page }) => {
+    await signIn(page, 'alex', '/build/workflows/sku');
+    await matchTheme(page);
+    await expect(page.getByRole('group', { name: 'The flow, as a graph' })).toBeVisible();
+    const steps = page.getByRole('list').filter({ hasText: 'New SKU in catalog' });
+    await expect(steps.getByRole('listitem')).toHaveCount(6);
+    await expect(steps.getByRole('listitem').first()).toContainText('Then: Fetch supplier sheet, Extract attributes.');
+    await expectNoAxeViolations(page);
+  });
+});

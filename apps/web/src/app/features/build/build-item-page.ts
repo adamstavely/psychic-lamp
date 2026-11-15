@@ -8,21 +8,27 @@ import { AgentDetail } from './agent-detail';
 import { CollectionDetail } from './collection-detail';
 import { DatasetDetail } from './dataset-detail';
 import { ModelDetail } from './model-detail';
+import { PromptDetail } from './prompt-detail';
+import { SkillDetail } from './skill-detail';
 import { SpaceDetail } from './space-detail';
+import { WorkflowDetail } from './workflow-detail';
 import { ServerDetail } from './server-detail';
 
-const STATUS: Record<RegistryItem['status'], string> = {
-  draft: 'Draft',
-  pending: 'Waiting for review',
-  'changes-requested': 'Changes requested',
-  published: 'Published',
-  rejected: 'Rejected',
-};
-
-/** One registry item, on its kind's page; skills, prompts and workflows show their essentials until step 6. */
+/** One registry item, on its kind's page. */
 @Component({
   selector: 'dn-build-item-page',
-  imports: [RouterLink, AgentDetail, CollectionDetail, DatasetDetail, ModelDetail, ServerDetail, SpaceDetail],
+  imports: [
+    RouterLink,
+    AgentDetail,
+    CollectionDetail,
+    DatasetDetail,
+    ModelDetail,
+    PromptDetail,
+    ServerDetail,
+    SkillDetail,
+    SpaceDetail,
+    WorkflowDetail,
+  ],
   template: `
     <section class="page">
       @if (buildArea(); as a) {
@@ -48,21 +54,14 @@ const STATUS: Record<RegistryItem['status'], string> = {
             @case ('collection') {
               <dn-collection-detail [item]="i" />
             }
-            @default {
-              <h1>{{ i.name }}</h1>
-              <dl>
-                <dt>Id</dt>
-                <dd>{{ i.slug }} · {{ i.version }}</dd>
-                <dt>Owner</dt>
-                <dd>{{ i.owner.name }}</dd>
-                <dt>Sensitivity</dt>
-                <dd>
-                  <span class="dn-sens" [attr.data-level]="i.sensitivity">{{ i.sensitivity }}</span>
-                </dd>
-                <dt>Status</dt>
-                <dd>{{ status(i.status) }}</dd>
-              </dl>
-              <p>{{ i.summary }}</p>
+            @case ('skill') {
+              <dn-skill-detail [item]="i" />
+            }
+            @case ('prompt') {
+              <dn-prompt-detail [item]="i" />
+            }
+            @case ('workflow') {
+              <dn-workflow-detail [item]="i" />
             }
           }
         } @else if (item.error()) {
@@ -90,18 +89,6 @@ const STATUS: Record<RegistryItem['status'], string> = {
       margin: 0 0 var(--tc-space-4);
       font-size: var(--tc-font-size-2xl);
     }
-    dl {
-      display: grid;
-      grid-template-columns: max-content minmax(0, 1fr);
-      gap: var(--tc-space-2) var(--tc-space-6);
-      margin: 0 0 var(--tc-space-4);
-    }
-    dt {
-      color: var(--tc-text-secondary);
-    }
-    dd {
-      margin: 0;
-    }
     @media (max-width: 600px) {
       .page {
         padding-inline: var(--tc-space-4);
@@ -128,7 +115,4 @@ export default class BuildItemPage {
     const kind = this.buildArea()?.kind;
     return kind && this.itemId() ? `/api/registry/${kind}/${encodeURIComponent(this.itemId())}` : undefined;
   });
-  protected status(s: RegistryItem['status']): string {
-    return STATUS[s];
-  }
 }

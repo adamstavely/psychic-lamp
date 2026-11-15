@@ -1,0 +1,77 @@
+/* The graph scrolls in its own box when it's wider than the page (allowed under WCAG 1.4.10). */
+.canvas {
+  overflow: auto;
+  padding: var(--tc-space-3);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-sunken);
+}
+
+.canvas:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+.canvas svg {
+  display: block;
+}
+
+.edge {
+  fill: none;
+  stroke: var(--tc-border-strong);
+  stroke-width: 1.5;
+}
+
+.node rect {
+  fill: var(--tc-surface-raised);
+  stroke: var(--tc-border-default);
+}
+
+.node[data-kind='Approval'] rect {
+  stroke: var(--tc-status-warning-fg);
+}
+
+.node text {
+  fill: var(--tc-text-primary);
+  font-family: var(--tc-font-sans);
+}
+
+.node .node-kind {
+  fill: var(--tc-accent-text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.node[data-kind='Approval'] .node-kind {
+  fill: var(--tc-status-warning-fg);
+}
+
+.node .node-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.node .node-sub {
+  fill: var(--tc-text-secondary);
+  font-size: 12px;
+}
+
+.steps {
+  display: grid;
+  gap: var(--tc-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--tc-font-size-sm);
+}
+
+.steps li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tc-space-3);
+  padding: var(--tc-space-3) var(--tc-space-4);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+}

@@ -336,6 +336,44 @@
   font-size: var(--tc-font-size-sm);
 }
 
+td[data-result='pass'],
+td[data-trend='up'] {
+  color: var(--tc-status-success-fg);
+}
+
+td[data-result='fail'],
+td[data-trend='down'] {
+  color: var(--tc-status-danger-fg);
+}
+
+.history {
+  display: grid;
+  gap: var(--tc-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history details {
+  padding: var(--tc-space-3) var(--tc-space-4);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+}
+
+.history summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tc-space-2) var(--tc-space-3);
+  font-size: var(--tc-font-size-sm);
+  cursor: pointer;
+}
+
+.history summary:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
 @media (max-width: 900px) {
   .layout {
     grid-template-columns: minmax(0, 1fr);
