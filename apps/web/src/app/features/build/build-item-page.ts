@@ -5,6 +5,10 @@ import { RouterLink } from '@angular/router';
 import type { RegistryItem } from '@donovan/contracts';
 import { BUILD_AREAS } from '../../shell/areas';
 import { AgentDetail } from './agent-detail';
+import { CollectionDetail } from './collection-detail';
+import { DatasetDetail } from './dataset-detail';
+import { ModelDetail } from './model-detail';
+import { SpaceDetail } from './space-detail';
 import { ServerDetail } from './server-detail';
 
 const STATUS: Record<RegistryItem['status'], string> = {
@@ -15,10 +19,10 @@ const STATUS: Record<RegistryItem['status'], string> = {
   rejected: 'Rejected',
 };
 
-/** One registry item: servers and agents have their own pages; the other kinds show their essentials until steps 5 and 6. */
+/** One registry item, on its kind's page; skills, prompts and workflows show their essentials until step 6. */
 @Component({
   selector: 'dn-build-item-page',
-  imports: [RouterLink, AgentDetail, ServerDetail],
+  imports: [RouterLink, AgentDetail, CollectionDetail, DatasetDetail, ModelDetail, ServerDetail, SpaceDetail],
   template: `
     <section class="page">
       @if (buildArea(); as a) {
@@ -31,6 +35,18 @@ const STATUS: Record<RegistryItem['status'], string> = {
             }
             @case ('agent') {
               <dn-agent-detail [item]="i" />
+            }
+            @case ('model') {
+              <dn-model-detail [item]="i" />
+            }
+            @case ('dataset') {
+              <dn-dataset-detail [item]="i" />
+            }
+            @case ('space') {
+              <dn-space-detail [item]="i" />
+            }
+            @case ('collection') {
+              <dn-collection-detail [item]="i" />
             }
             @default {
               <h1>{{ i.name }}</h1>

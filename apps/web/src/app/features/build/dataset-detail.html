@@ -1,0 +1,98 @@
+@let d = item();
+<div class="layout">
+  <div>
+    <header class="head">
+      <h1>{{ d.name }}</h1>
+      <span class="tags">
+        <span class="tag">Dataset</span>
+        <span class="tag">{{ d.details.format }}</span>
+      </span>
+      <p class="meta">{{ d.slug }} · {{ d.version }} · {{ d.owner.name }}</p>
+      <p class="summary">{{ d.summary }}</p>
+      <dl class="figures">
+        <div>
+          <dt>Rows</dt>
+          <dd>{{ d.details.rows }}</dd>
+        </div>
+        <div>
+          <dt>Size</dt>
+          <dd>{{ d.details.size }}</dd>
+        </div>
+        <div>
+          <dt>Pulls</dt>
+          <dd>{{ d.details.pulls }}</dd>
+        </div>
+        <div>
+          <dt>Updated</dt>
+          <dd>{{ d.details.updated }}</dd>
+        </div>
+      </dl>
+    </header>
+
+    <h2 class="section">Schema</h2>
+    @if (d.details.schema.length) {
+      <table class="grid">
+        <caption class="sr-only">
+          Schema of
+          {{
+            d.name
+          }}
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Column</th>
+            <th scope="col">Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of d.details.schema; track c.name) {
+            <tr>
+              <td>
+                <code>{{ c.name }}</code>
+              </td>
+              <td>{{ c.type }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @else {
+      <p class="small">No schema published yet.</p>
+    }
+
+    <h2 class="section">Load it</h2>
+    <tc-code-block language="python" filename="Python" [code]="code()" />
+  </div>
+
+  <aside class="aside" aria-label="About this dataset">
+    <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
+    <h2>Specification</h2>
+    <dl class="spec">
+      <dt>Format</dt>
+      <dd>{{ d.details.format }}</dd>
+      <dt>Splits</dt>
+      <dd>{{ d.details.splits }}</dd>
+      <dt>Tier</dt>
+      <dd>
+        <span class="dn-sens" [attr.data-level]="d.sensitivity">{{ d.sensitivity }}</span>
+      </dd>
+      <dt>Version</dt>
+      <dd>{{ d.version }}</dd>
+    </dl>
+    <h2>Used by</h2>
+    @if (usedBy().length) {
+      <ul class="links">
+        @for (u of usedBy(); track u.name) {
+          <li>
+            @if (u.link) {
+              <a [routerLink]="u.link">{{ u.name }}</a>
+            } @else {
+              {{ u.name }}
+            }
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="small">No model uses it yet.</p>
+    }
+  </aside>
+</div>

@@ -375,3 +375,20 @@ export const registryInstalls = pgTable(
     ),
   ],
 );
+
+/** Collections the person attached to their projects; attaching applies the collection's ceiling tier to the project. */
+export const projectCollections = pgTable(
+  'project_collections',
+  {
+    ownerId: uuid().notNull(),
+    projectId: text().notNull(),
+    collectionId: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.ownerId, t.projectId, t.collectionId] }),
+    foreignKey({ columns: [t.ownerId, t.projectId], foreignColumns: [projects.ownerId, projects.id] }).onDelete(
+      'cascade',
+    ),
+  ],
+);

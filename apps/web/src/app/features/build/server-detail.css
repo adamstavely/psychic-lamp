@@ -67,27 +67,6 @@
   margin-block: var(--tc-space-3) var(--tc-space-5);
 }
 
-.sub {
-  margin: 0 0 var(--tc-space-2);
-  font-size: var(--tc-font-size-sm);
-}
-
-.installed {
-  display: grid;
-  gap: var(--tc-space-2);
-  margin: 0 0 var(--tc-space-4);
-  padding: 0;
-  list-style: none;
-}
-
-.installed li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--tc-space-3);
-  font-size: var(--tc-font-size-sm);
-}
-
 .clients {
   display: flex;
   flex-wrap: wrap;
@@ -107,12 +86,6 @@
   display: inline-flex;
   align-items: center;
   gap: var(--tc-space-1);
-}
-
-.error {
-  margin: 0;
-  color: var(--tc-status-danger-fg);
-  font-size: var(--tc-font-size-sm);
 }
 
 @media (max-width: 600px) {
