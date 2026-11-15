@@ -257,3 +257,33 @@ export type NewInstall = z.infer<typeof NewInstall>;
 /** Where the person has installed an item. */
 export const RegistryInstall = z.object({ client: InstallClient, at: z.iso.datetime({ offset: true }) });
 export type RegistryInstall = z.infer<typeof RegistryInstall>;
+
+/** What a space is given to run on. */
+export const SpaceRun = z.strictObject({ input: z.string().trim().min(1, 'Give it something to run on').max(8000) });
+export type SpaceRun = z.infer<typeof SpaceRun>;
+
+/** A space's answer: simulated from its model, the same shape as the real one. */
+export const SpaceRunResult = z.object({
+  status: z.string(),
+  durationMs: z.number().int().nonnegative(),
+  outputs: z.array(z.object({ label: z.string(), value: z.string() })),
+});
+export type SpaceRunResult = z.infer<typeof SpaceRunResult>;
+
+export const AttachCollection = z.strictObject({ projectId: z.string().min(1).max(64) });
+export type AttachCollection = z.infer<typeof AttachCollection>;
+
+/** A project of the person's that a collection is attached to. */
+export const CollectionAttachment = z.object({
+  projectId: z.string(),
+  project: z.string(),
+  at: z.iso.datetime({ offset: true }),
+});
+export type CollectionAttachment = z.infer<typeof CollectionAttachment>;
+
+/** After attaching: where the collection is attached, and the project's tier if attaching raised it. */
+export const AttachResult = z.object({
+  attachments: z.array(CollectionAttachment),
+  raised: z.object({ from: Sensitivity, to: Sensitivity }).nullable(),
+});
+export type AttachResult = z.infer<typeof AttachResult>;

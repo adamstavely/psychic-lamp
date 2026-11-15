@@ -127,6 +127,13 @@
       "when": 1794709638439,
       "tag": "0017_registry_installs",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794710182262,
+      "tag": "0018_project_collections",
+      "breakpoints": true
     }
   ]
 }

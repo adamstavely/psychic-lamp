@@ -1,4 +1,12 @@
-import { RegistryInstall, TryResult, RegistryCounts, RegistryItem, RegistrySummary } from '@donovan/contracts';
+import {
+  AttachResult,
+  RegistryInstall,
+  SpaceRunResult,
+  TryResult,
+  RegistryCounts,
+  RegistryItem,
+  RegistrySummary,
+} from '@donovan/contracts';
 import { Client } from '@elastic/elasticsearch';
 import { and, eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
@@ -134,7 +142,7 @@ describe('/api/registry', () => {
   });
 
   it('records installs per person and client, once each, and takes one out', async () => {
-    const token = await t.token({ sub: 'installer' });
+    const token = await t.token({ sub: `installer-${randomUUID()}` });
     const other = await t.token({ sub: 'installer-other' });
     const url = '/api/registry/server/filesystem/installs';
     const clients = (body: unknown) =>
@@ -152,5 +160,46 @@ describe('/api/registry', () => {
     await http.post('/api/registry/agent/release/installs').auth(token, bearer).send({ client: 'cursor' }).expect(400);
     const left = await http.delete(`${url}/cursor`).auth(token, bearer).expect(200);
     expect(clients(left.body)).toEqual(['claude-code']);
+  });
+
+  it("runs a space on what it's given, and asks for something to run on", async () => {
+    const token = await t.token();
+    const run = (input: string) =>
+      http.post('/api/registry/space/fraud-explainer/run').auth(token, bearer).send({ input });
+    const ran = SpaceRunResult.parse((await run('{"amount": 1249}').expect(200)).body);
+    expect(ran.outputs[0]).toEqual({ label: 'Score', value: '0.971' });
+    await run('   ').expect(400);
+    await http.post('/api/registry/space/nope/run').auth(token, bearer).send({ input: 'x' }).expect(404);
+  });
+
+  it("attaches a collection to the person's project, raising the project to the collection's tier", async () => {
+    const token = await t.token({ sub: 'collector' });
+    const other = await t.token({ sub: 'collector-other' });
+    const project = (
+      await http
+        .post('/api/projects')
+        .auth(token, bearer)
+        .send({ name: 'Fraud review', sensitivity: 'Internal' })
+        .expect(201)
+    ).body as { id: string };
+    const url = '/api/registry/collection/risk-fraud/projects';
+
+    const first = AttachResult.parse(
+      (await http.post(url).auth(token, bearer).send({ projectId: project.id }).expect(200)).body,
+    );
+    expect(first.attachments.map((a) => a.project)).toEqual(['Fraud review']);
+    expect(first.raised).toEqual({ from: 'Internal', to: 'Restricted' });
+    const again = AttachResult.parse(
+      (await http.post(url).auth(token, bearer).send({ projectId: project.id }).expect(200)).body,
+    );
+    expect(again.raised).toBeNull();
+    const after = (await http.get(`/api/projects/${project.id}`).auth(token, bearer).expect(200)).body as {
+      sensitivity: string;
+    };
+    expect(after.sensitivity).toBe('Restricted');
+
+    await http.post(url).auth(other, bearer).send({ projectId: project.id }).expect(400);
+    expect((await http.get(url).auth(other, bearer).expect(200)).body).toEqual([]);
+    expect((await http.delete(`${url}/${project.id}`).auth(token, bearer).expect(200)).body).toEqual([]);
   });
 });

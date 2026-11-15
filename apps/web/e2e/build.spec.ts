@@ -1,5 +1,5 @@
 import { expectNoAxeViolations } from './a11y';
-import { expect, matchTheme, signIn, test } from './fixtures';
+import { api, expect, matchTheme, resetUser, signIn, test } from './fixtures';
 
 test.describe('the Build catalog', () => {
   test.beforeEach(async ({ page }) => {
@@ -119,6 +119,78 @@ test.describe('server and agent pages', () => {
       await expect(remove).toBeVisible();
       await remove.click();
       await expect(remove).toBeHidden();
+    });
+  });
+});
+
+test.describe('model, dataset, space and collection pages', () => {
+  test("a model's card, how to call it, and its evals", async ({ page }) => {
+    await signIn(page, 'alex', '/build/models/sonnet');
+    await matchTheme(page);
+    await expect(page.getByRole('heading', { name: 'claude-sonnet-4.5', level: 1 })).toBeVisible();
+    await expect(page.getByRole('tabpanel', { name: 'Card' })).toContainText('SWE-bench');
+    await expectNoAxeViolations(page);
+    await page.getByRole('tab', { name: 'Use' }).click();
+    await expect(page.getByRole('tabpanel', { name: 'Use' })).toContainText('anthropic/claude-sonnet-4-5');
+    await page.getByRole('tab', { name: /^Evals/ }).click();
+    await expect(page.getByRole('table', { name: 'Evals of claude-sonnet-4.5' })).toContainText('SWE-bench Verified');
+    await expectNoAxeViolations(page);
+  });
+
+  test("a dataset's schema, how to load it, and the models that use it", async ({ page }) => {
+    await signIn(page, 'alex', '/build/datasets/txn-graph');
+    await matchTheme(page);
+    await expect(page.getByRole('table', { name: 'Schema of Transaction graph 2026-Q3' })).toContainText('label_fraud');
+    await expectNoAxeViolations(page);
+    await page
+      .getByRole('complementary', { name: 'About this dataset' })
+      .getByRole('link', { name: 'Fraud Sentinel' })
+      .click();
+    await expect(page).toHaveURL(/\/build\/models\/[a-z0-9-]+$/);
+    await expect(page.getByRole('heading', { name: 'Fraud Sentinel', level: 1 })).toBeVisible();
+  });
+
+  test('a space asks for input, runs, and links its model', async ({ page }) => {
+    await signIn(page, 'alex', '/build/spaces/fraud-explainer');
+    await matchTheme(page);
+    await page.getByRole('button', { name: 'Run' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Give it' })).toHaveText(
+      'Give it transaction json to run on.',
+    );
+    await page.getByRole('textbox', { name: 'Transaction JSON' }).fill('{"amount": 1249.00}');
+    await page.getByRole('button', { name: 'Run' }).click();
+    const result = page.getByRole('region', { name: /^Result/ });
+    await expect(result).toContainText('0.971');
+    await expectNoAxeViolations(page);
+    await page.getByRole('link', { name: 'Open the model' }).click();
+    await expect(page.getByRole('heading', { name: 'Fraud Sentinel', level: 1 })).toBeVisible();
+  });
+
+  test.describe('changing state', () => {
+    test.skip(({ colorScheme }) => colorScheme !== 'light', 'state-changing; runs once');
+
+    test("attaching a collection raises a project to the collection's tier", async ({ page }) => {
+      await signIn(page, 'devon', '/build/collections/risk-fraud');
+      await resetUser(page);
+      const made = await api(page).post('/api/projects', {
+        name: `Collection test ${Date.now()}`,
+        sensitivity: 'Internal',
+      });
+      const project = (await made.json()) as { id: string; name: string };
+      await page.reload();
+      await expect(page.getByRole('link', { name: 'Fraud Sentinel' })).toBeVisible();
+      await expectNoAxeViolations(page);
+
+      await page.getByRole('button', { name: 'Attach to a project' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Attach Risk & fraud' });
+      await dialog.getByRole('combobox', { name: 'Project' }).selectOption(project.id);
+      await dialog.getByRole('button', { name: 'Attach' }).click();
+      await expect(page.getByText(`${project.name} is now Restricted, up from Internal`).first()).toBeVisible();
+      const aside = page.getByRole('complementary', { name: 'About this collection' });
+      await expect(aside.getByRole('link', { name: project.name })).toBeVisible();
+
+      await aside.getByRole('button', { name: `Take off ${project.name}` }).click();
+      await expect(aside.getByRole('link', { name: project.name })).toHaveCount(0);
     });
   });
 });

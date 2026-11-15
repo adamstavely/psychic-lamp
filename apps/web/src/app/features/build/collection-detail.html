@@ -1,0 +1,82 @@
+@let c = item();
+<div class="layout">
+  <div>
+    <header class="head">
+      <h1>{{ c.name }}</h1>
+      <span class="tags"><span class="tag">Collection</span></span>
+      <p class="meta">{{ c.slug }} · {{ c.version }} · {{ c.owner.name }}</p>
+      <p class="summary">{{ c.summary }}</p>
+    </header>
+
+    <h2 class="section">Members · {{ c.details.members.length }}</h2>
+    <ul class="parts">
+      @for (m of members(); track m.kind + m.name) {
+        <li>
+          <span class="kind">{{ kindLabel[m.kind] }}</span>
+          @if (m.link) {
+            <a [routerLink]="m.link">{{ m.name }}</a>
+          } @else {
+            <span>{{ m.name }}</span>
+          }
+          @if (m.sensitivity) {
+            <span class="dn-sens" [attr.data-level]="m.sensitivity">{{ m.sensitivity }}</span>
+          }
+        </li>
+      }
+    </ul>
+  </div>
+
+  <aside class="aside" aria-label="About this collection">
+    <tc-button variant="primary" label="Attach to a project" (click)="openAttach()" />
+    <h2>Ceiling tier</h2>
+    <p>
+      <span class="dn-sens" [attr.data-level]="c.sensitivity">{{ c.sensitivity }}</span>
+    </p>
+    <p class="small">
+      A collection is as sensitive as its most sensitive member. Attaching it applies that tier to the project: a
+      project below it is raised to it.
+    </p>
+    <h2>Attached to</h2>
+    @if (attached.hasValue() && attached.value().length) {
+      <ul class="attached">
+        @for (a of attached.value(); track a.projectId) {
+          <li>
+            <a [routerLink]="['/projects', a.projectId]">{{ a.project }}</a>
+            <tc-button size="sm" variant="ghost" [label]="'Take off ' + a.project" (click)="detach(a)" />
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="small">None of your projects yet.</p>
+    }
+  </aside>
+</div>
+
+<dialog #attachDialog class="dialog" aria-labelledby="attach-h">
+  <form (submit)="$event.preventDefault(); attach()">
+    <h2 id="attach-h">Attach {{ c.name }}</h2>
+    @if (myProjects().length) {
+      <label>
+        Project
+        <select name="project" [(ngModel)]="projectId">
+          @for (p of myProjects(); track p.id) {
+            <option [value]="p.id">{{ p.name }} · {{ p.sensitivity }}</option>
+          }
+        </select>
+      </label>
+      <p class="small">A project below {{ c.sensitivity }} becomes {{ c.sensitivity }}.</p>
+    } @else {
+      <p class="small">You have no projects yet. <a routerLink="/projects">Make one</a> first.</p>
+    }
+    <div class="dialog-actions">
+      <tc-button variant="ghost" label="Cancel" (click)="closeAttach()" />
+      <tc-button
+        type="submit"
+        variant="primary"
+        label="Attach"
+        [loading]="attaching()"
+        [disabled]="!myProjects().length"
+      />
+    </div>
+  </form>
+</dialog>

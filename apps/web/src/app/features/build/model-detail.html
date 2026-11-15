@@ -1,0 +1,135 @@
+@let m = item();
+<div class="layout">
+  <div>
+    <header class="head">
+      <h1>{{ m.name }}</h1>
+      <span class="tags">
+        <span class="tag">{{ m.details.task }}</span>
+        @if (m.details.verified) {
+          <span class="tag" data-tone="ok">Verified</span>
+        }
+      </span>
+      <p class="meta">{{ m.slug }} · {{ m.version }} · {{ m.owner.name }}</p>
+      <p class="summary">{{ m.summary }}</p>
+    </header>
+
+    <tc-segmented-control
+      class="tabs"
+      kind="tabs"
+      variant="underline"
+      [options]="tabs()"
+      [value]="tab()"
+      (tc-value-change)="pick($event)"
+    />
+
+    <div id="model-panel" role="tabpanel" [attr.aria-label]="tabLabel()">
+      @switch (tab()) {
+        @case ('card') {
+          <dl class="figures">
+            @for (k of m.details.metrics; track k.label) {
+              <div>
+                <dt>{{ k.label }}</dt>
+                <dd>{{ k.value }}</dd>
+              </div>
+            }
+          </dl>
+          <h2 class="sub">In chat</h2>
+          <p class="summary">
+            @if (m.details.task === 'Foundation') {
+              Auto-routing can pick it for any message. To use it for one, pick it in the composer or press Use in chat.
+            } @else {
+              Auto-routing picks it when a message needs {{ m.details.task.toLowerCase() }}. Use in chat names it in a
+              new chat.
+            }
+          </p>
+        }
+        @case ('use') {
+          <tc-code-block language="python" filename="Python" [code]="code()" />
+        }
+        @case ('files') {
+          @if (m.details.files.length) {
+            <table class="grid">
+              <caption class="sr-only">
+                Files of
+                {{
+                  m.name
+                }}
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">File</th>
+                  <th scope="col">Size</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (f of m.details.files; track f.name) {
+                  <tr>
+                    <td>
+                      <code>{{ f.name }}</code>
+                    </td>
+                    <td>{{ f.size }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          } @else {
+            <p class="small">Served by its provider, so there are no files to list.</p>
+          }
+        }
+        @case ('evals') {
+          @if (m.details.evals.length) {
+            <table class="grid">
+              <caption class="sr-only">
+                Evals of
+                {{
+                  m.name
+                }}
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Suite</th>
+                  <th scope="col">Metric</th>
+                  <th scope="col">{{ m.version }}</th>
+                  <th scope="col">Previous</th>
+                  <th scope="col">Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (e of m.details.evals; track e.suite + e.metric) {
+                  <tr>
+                    <td>{{ e.suite }}</td>
+                    <td>{{ e.metric }}</td>
+                    <td>{{ e.value }}</td>
+                    <td>{{ e.previous }}</td>
+                    <td [attr.data-trend]="e.trend">{{ trend[e.trend] }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          } @else {
+            <p class="small">No evals recorded yet.</p>
+          }
+        }
+      }
+    </div>
+  </div>
+
+  <aside class="aside" aria-label="About this model">
+    <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
+    <h2>Specification</h2>
+    <dl class="spec">
+      <dt>Base</dt>
+      <dd>{{ m.details.base }}</dd>
+      <dt>Context</dt>
+      <dd>{{ m.details.context }}</dd>
+      <dt>Tier</dt>
+      <dd>
+        <span class="dn-sens" [attr.data-level]="m.sensitivity">{{ m.sensitivity }}</span>
+      </dd>
+      <dt>Calls / week</dt>
+      <dd>{{ m.details.calls }}</dd>
+      <dt>Verified</dt>
+      <dd>{{ m.details.verified ? 'Yes' : 'No' }}</dd>
+    </dl>
+  </aside>
+</div>

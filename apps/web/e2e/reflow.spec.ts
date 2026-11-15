@@ -17,6 +17,10 @@ const paths = [
   '/projects/fraud-rollout',
   '/build/servers/filesystem',
   '/build/agents/release',
+  '/build/models/sonnet',
+  '/build/datasets/txn-graph',
+  '/build/spaces/fraud-explainer',
+  '/build/collections/risk-fraud',
 ];
 
 for (const width of [640, 320]) {

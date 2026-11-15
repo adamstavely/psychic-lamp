@@ -1,9 +1,14 @@
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import {
+  AttachCollection,
+  AttachResult,
+  CollectionAttachment,
   InstallClient,
   NewInstall,
   RegistryCounts,
   RegistryInstall,
+  SpaceRun,
+  SpaceRunResult,
   TryResult,
   TryTool,
   RegistryId,
@@ -53,6 +58,47 @@ export class RegistryController {
     @Body({ schema: TryTool }) body: TryTool,
   ): Promise<TryResult> {
     return this.registry.tryTool(await this.users.idFor(claims), id, tool, body.args);
+  }
+
+  @Post('space/:id/run')
+  @HttpCode(200)
+  @ApiOkResponse({ standardSchema: SpaceRunResult })
+  async runSpace(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: RegistryId }) id: string,
+    @Body({ schema: SpaceRun }) body: SpaceRun,
+  ): Promise<SpaceRunResult> {
+    return this.registry.runSpace(await this.users.idFor(claims), id, body.input);
+  }
+
+  @Get('collection/:id/projects')
+  @ApiOkResponse({ standardSchema: z.array(CollectionAttachment) })
+  async attachments(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: RegistryId }) id: string,
+  ): Promise<CollectionAttachment[]> {
+    return this.registry.attachments(await this.users.idFor(claims), id);
+  }
+
+  @Post('collection/:id/projects')
+  @HttpCode(200)
+  @ApiOkResponse({ standardSchema: AttachResult })
+  async attach(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: RegistryId }) id: string,
+    @Body({ schema: AttachCollection }) body: AttachCollection,
+  ): Promise<AttachResult> {
+    return this.registry.attach(await this.users.idFor(claims), id, body.projectId);
+  }
+
+  @Delete('collection/:id/projects/:projectId')
+  @ApiOkResponse({ standardSchema: z.array(CollectionAttachment) })
+  async detach(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: RegistryId }) id: string,
+    @Param('projectId', { schema: z.string().min(1).max(64) }) projectId: string,
+  ): Promise<CollectionAttachment[]> {
+    return this.registry.detach(await this.users.idFor(claims), id, projectId);
   }
 
   @Get(':kind/:id/installs')

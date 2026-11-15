@@ -1,9 +1,13 @@
 import {
   RegistryItem,
   RegistryKind,
+  Sensitivity,
+  type AttachResult,
+  type CollectionAttachment,
   type InstallClient,
   type RegistryCounts,
   type RegistryInstall,
+  type SpaceRunResult,
   type TryResult,
   type RegistryQuery,
   type RegistrySummary,
@@ -18,7 +22,7 @@ import {
 } from '@nestjs/common';
 import { and, asc, count, eq, inArray, isNotNull, or, sql, type SQL } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module.js';
-import { registryInstalls, registryItems } from '../db/schema.js';
+import { projectCollections, projects, registryInstalls, registryItems } from '../db/schema.js';
 import { cardFor, type CardInput } from './registry-card.js';
 import { REGISTRY_SEED } from './registry.fixture.js';
 import { missingArgs, mockToolResult } from './registry-try.js';
@@ -114,6 +118,68 @@ export class RegistryService implements OnApplicationBootstrap {
     const missing = missingArgs(tool, args);
     if (missing.length) throw new BadRequestException(`Fill in ${missing.join(', ')}`);
     return { status: '200 OK', durationMs: 400, result: mockToolResult(tool, args) };
+  }
+
+  /** Runs a space on what the person gave it: simulated, so its model's usual answer comes back. */
+  async runSpace(userId: string, id: string, _input: string): Promise<SpaceRunResult> {
+    const space = await this.get(userId, 'space', id);
+    if (space.kind !== 'space') throw new NotFoundException('No space with that id');
+    return { status: '200 OK', durationMs: 400, outputs: space.details.outputs };
+  }
+
+  /** The person's projects a collection is attached to, oldest first. */
+  async attachments(userId: string, collectionId: string): Promise<CollectionAttachment[]> {
+    await this.get(userId, 'collection', collectionId);
+    const rows = await this.db
+      .select({ projectId: projectCollections.projectId, project: projects.name, at: projectCollections.createdAt })
+      .from(projectCollections)
+      .innerJoin(
+        projects,
+        and(eq(projects.ownerId, projectCollections.ownerId), eq(projects.id, projectCollections.projectId)),
+      )
+      .where(and(eq(projectCollections.ownerId, userId), eq(projectCollections.collectionId, collectionId)))
+      .orderBy(asc(projectCollections.createdAt));
+    return rows.map((r) => ({ projectId: r.projectId, project: r.project, at: r.at.toISOString() }));
+  }
+
+  /**
+   * Attaches a collection to one of the person's projects. A collection is as sensitive as its most sensitive member,
+   * and attaching applies that tier to the project: a project below it is raised to it (and the result says so).
+   */
+  async attach(userId: string, collectionId: string, projectId: string): Promise<AttachResult> {
+    const collection = await this.get(userId, 'collection', collectionId);
+    if (collection.status !== 'published') throw new BadRequestException('Only published collections can be attached');
+    const raised = await this.db.transaction(async (tx) => {
+      const [project] = await tx
+        .select({ sensitivity: projects.sensitivity })
+        .from(projects)
+        .where(and(eq(projects.ownerId, userId), eq(projects.id, projectId)))
+        .for('update');
+      if (!project) throw new BadRequestException("That isn't one of your projects");
+      await tx.insert(projectCollections).values({ ownerId: userId, projectId, collectionId }).onConflictDoNothing();
+      const rank = (s: Sensitivity) => Sensitivity.options.indexOf(s);
+      if (rank(project.sensitivity) >= rank(collection.sensitivity)) return null;
+      await tx
+        .update(projects)
+        .set({ sensitivity: collection.sensitivity, updatedAt: new Date() })
+        .where(and(eq(projects.ownerId, userId), eq(projects.id, projectId)));
+      return { from: project.sensitivity, to: collection.sensitivity };
+    });
+    return { attachments: await this.attachments(userId, collectionId), raised };
+  }
+
+  /** Takes a collection off a project. The project keeps its tier: lowering it is the owner's call. */
+  async detach(userId: string, collectionId: string, projectId: string): Promise<CollectionAttachment[]> {
+    await this.db
+      .delete(projectCollections)
+      .where(
+        and(
+          eq(projectCollections.ownerId, userId),
+          eq(projectCollections.projectId, projectId),
+          eq(projectCollections.collectionId, collectionId),
+        ),
+      );
+    return this.attachments(userId, collectionId);
   }
 
   /** Where the person has installed an item, oldest first. */
