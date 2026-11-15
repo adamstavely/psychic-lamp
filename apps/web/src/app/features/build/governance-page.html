@@ -119,6 +119,8 @@
             </li>
           }
         </ul>
+      } @else if (policyList.error()) {
+        <p role="alert">The policies didn't load. Try again in a moment.</p>
       } @else {
         <p role="status">Loading the policies…</p>
       }

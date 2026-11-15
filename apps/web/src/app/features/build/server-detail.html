@@ -112,17 +112,23 @@
           <p class="summary">Add it with the Donovan CLI, or install it in a client with its configuration.</p>
           <tc-code-block class="cli" language="shell" filename="Terminal" [code]="cli()" />
           <h2 class="section">Installed in</h2>
-          @if (installedIn().length) {
-            <ul class="installed">
-              @for (c of installedIn(); track c) {
-                <li>
-                  <span>{{ label(c) }}</span>
-                  <tc-button size="sm" variant="ghost" [label]="'Remove from ' + label(c)" (click)="uninstall(c)" />
-                </li>
-              }
-            </ul>
+          @if (installs.hasValue()) {
+            @if (installedIn().length) {
+              <ul class="installed">
+                @for (c of installedIn(); track c) {
+                  <li>
+                    <span>{{ label(c) }}</span>
+                    <tc-button size="sm" variant="ghost" [label]="'Remove from ' + label(c)" (click)="uninstall(c)" />
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="small">Not installed in any of your clients yet.</p>
+            }
+          } @else if (installs.error()) {
+            <p class="small" role="alert">Where you've installed it didn't load. Try again in a moment.</p>
           } @else {
-            <p class="small">Not installed in any of your clients yet.</p>
+            <p class="small" role="status">Loading…</p>
           }
           @if (s.status === 'published') {
             <tc-button variant="secondary" label="Install in a client" (click)="openInstall()" />
