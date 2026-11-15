@@ -4,7 +4,7 @@ import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import type { AssistantMessage, UserMessage } from '@donovan/contracts';
 import { ChatsStore } from '../../core/chats-store';
-import { ThreadStore } from './thread-store';
+import { SendFailed, ThreadStore } from './thread-store';
 
 const at = '2026-11-14T10:00:00.000Z';
 const user = (id: string, text: string): UserMessage => ({ id, role: 'user', text, at });
@@ -177,6 +177,47 @@ describe('ThreadStore', () => {
       const first = await failOnce('saved', 'Ship it');
       await reloadWith('saved', { ...user('u1', 'Ship it'), requestId: first });
       expect(await succeed('saved', 'Ship it')).not.toBe(first);
+    });
+
+    /** A send that fails, and the retry its Send again carries. */
+    const failed = async (chatId: string, text: string) => {
+      const sending = store.send(text, 'auto', ['art-1']);
+      http.expectOne(`/api/chats/${chatId}/messages`).error(new ProgressEvent('error'));
+      const err = await sending.then(
+        () => null,
+        (e: unknown) => e,
+      );
+      expect(err).toBeInstanceOf(SendFailed);
+      return (err as SendFailed).retry;
+    };
+
+    it('Send again resends the same operation, even when the reload shows the server saved it', async () => {
+      store.open('kept');
+      loaded('kept');
+      const retry = await failed('kept', 'Ship it');
+      await reloadWith('kept', { ...user('u1', 'Ship it'), requestId: retry.requestId });
+      const again = store.retry(retry);
+      const req = http.expectOne('/api/chats/kept/messages');
+      expect(req.request.body).toEqual({
+        text: 'Ship it',
+        model: 'auto',
+        attachments: ['art-1'],
+        requestId: retry.requestId,
+      });
+      req.flush(sse({ type: 'done', message: answer('a-kept') }));
+      await again;
+    });
+
+    it("Send again from a chat you've left posts nothing, to that chat or the open one", async () => {
+      store.open('from');
+      loaded('from');
+      const retry = await failed('from', 'Ship it');
+      await reloadWith('from');
+      store.open('to');
+      loaded('to');
+      await store.retry(retry);
+      http.expectNone('/api/chats/to/messages');
+      http.expectNone('/api/chats/from/messages');
     });
 
     it('is a new message when the text is different', async () => {
