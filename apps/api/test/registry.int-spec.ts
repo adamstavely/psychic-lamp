@@ -228,7 +228,9 @@ describe('/api/registry', () => {
     it('gives the same name, registered at once by different people, its own id each: no errors', async () => {
       const name = `Same name ${randomUUID().slice(0, 8)}`;
       const people = await Promise.all(
-        [1, 2, 3, 4, 5, 6].map((n) => t.token({ sub: `registrar-same-${n}-${randomUUID()}`, name: `Person ${n} ${name}` })),
+        [1, 2, 3, 4, 5, 6].map((n) =>
+          t.token({ sub: `registrar-same-${n}-${randomUUID()}`, name: `Person ${n} ${name}` }),
+        ),
       );
       const results = await Promise.all(
         people.map((token) => http.post('/api/registry').auth(token, bearer).send(server(name))),
