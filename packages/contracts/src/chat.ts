@@ -197,9 +197,22 @@ export const Chat = ChatSummary.extend({
 });
 export type Chat = z.infer<typeof Chat>;
 
+const IntentField = z.string().trim().min(1, 'Say what it is').max(300);
+/** A session intent as the person writes it. */
+export const SessionIntentInput = z.strictObject({
+  task: IntentField,
+  decision: IntentField,
+  consequence: IntentField,
+});
+export type SessionIntentInput = z.infer<typeof SessionIntentInput>;
+
 export const ChatPatch = z.strictObject({
   title: z.string().trim().min(1).max(120).optional(),
   pinned: z.boolean().optional(),
+  /** Calibrated answers label each claim; turning it on or off applies to answers from then on. */
+  calibrated: z.boolean().optional(),
+  /** What the session is for (null clears it). */
+  intent: SessionIntentInput.nullable().optional(),
 });
 export type ChatPatch = z.infer<typeof ChatPatch>;
 
@@ -222,6 +235,8 @@ export const NewChat = z.strictObject({
   /** The first message; the chat is titled from it. */
   text: z.string().trim().min(1).max(8000),
   sensitivity: Sensitivity.default('Internal'),
+  /** Start in Calibrated mode: answers label each claim. */
+  calibrated: z.boolean().default(false),
 });
 export type NewChat = z.infer<typeof NewChat>;
 

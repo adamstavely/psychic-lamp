@@ -4,6 +4,7 @@ import type {
   AssistantMessage,
   Block,
   Chat,
+  ChatPatch,
   ClaimReview,
   Message,
   NewCheckpoint,
@@ -250,6 +251,18 @@ export class ThreadStore implements OnDestroy {
       this.#reviews.set(before);
       toast.error("Couldn't save your verdict", { description: 'Try again in a moment.' });
     }
+  }
+
+  /** Changes the chat's mode or intent, then shows the chat as the server has it. */
+  async update(patch: ChatPatch): Promise<void> {
+    try {
+      await firstValueFrom(this.#http.patch<void>(`/api/chats/${encodeURIComponent(this.chatId())}`, patch));
+    } catch {
+      toast.error("Couldn't save that", { description: 'Try again in a moment.' });
+      throw new Error('update failed');
+    }
+    this.chat.reload();
+    this.#chats.list.reload();
   }
 
   async addCheckpoint(body: NewCheckpoint): Promise<void> {

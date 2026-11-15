@@ -60,6 +60,37 @@ test.describe('the session panel', () => {
       await expect(page.getByRole('note').filter({ hasText: 'Ask MP Materials IR' })).toBeVisible();
     });
 
+    test('a chat started Calibrated labels its claims, takes an intent, and can be turned off', async ({ page }) => {
+      await signIn(page, 'mara', '/chats');
+      await resetUser(page);
+      await page.getByRole('switch', { name: 'Calibrated' }).check();
+      await page.getByRole('textbox', { name: 'Message' }).fill('What should I prep for the 2:00 PM go/no-go?');
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(/\/chats\/[a-z0-9]{8}$/);
+      const panel = page.getByRole('complementary', { name: 'Session panel' });
+      await expect(panel.getByRole('switch', { name: 'Calibrated' })).toBeChecked();
+      await expect(panel.getByText(/0 confirmed · 0 disputed · [1-9]\d* unresolved/)).toBeVisible();
+
+      await panel.getByRole('button', { name: 'Set intent' }).click();
+      await panel.getByRole('textbox', { name: 'Task' }).fill('Prep the go/no-go');
+      await panel.getByRole('textbox', { name: 'Decision this supports' }).fill('Ship v3.2 or hold');
+      await panel.getByRole('textbox', { name: 'Consequence of error' }).fill('A rollout that has to be reversed');
+      await panel.getByRole('button', { name: 'Save intent' }).click();
+      await expect(page.getByRole('region', { name: 'Session intent' })).toContainText('Ship v3.2 or hold');
+      await expectNoAxeViolations(page);
+
+      await panel.getByRole('switch', { name: 'Calibrated' }).uncheck();
+      await expect(page.getByRole('status').filter({ hasText: 'Calibrated mode off.' })).toBeAttached();
+      await page.reload();
+      await expect(
+        page.getByRole('complementary', { name: 'Session panel' }).getByRole('switch', { name: 'Calibrated' }),
+      ).toHaveCount(0);
+      await page.getByRole('button', { name: 'Session panel' }).click();
+      await expect(
+        page.getByRole('complementary', { name: 'Session panel' }).getByRole('switch', { name: 'Calibrated' }),
+      ).not.toBeChecked();
+    });
+
     test('export downloads a provenance record', async ({ page }) => {
       await signIn(page, 'mara', '/chats/supplier');
       const panel = page.getByRole('complementary', { name: 'Session panel' });

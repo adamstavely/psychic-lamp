@@ -24,6 +24,7 @@ import { DB, type Db } from '../db/db.module.js';
 import { type AnswerBody, artifacts, chats, checkpoints, claimReviews, messages } from '../db/schema.js';
 import { SeedService } from '../seed/seed.service.js';
 import { ChatSearch, chatText } from '../search/chat-search.js';
+import { calibrateReply } from './claims.js';
 import { contextFor } from './context.js';
 import { decisionReply, pickReply, withFiles, type Reply } from './replies.js';
 
@@ -198,7 +199,13 @@ export class ChatsService {
     await this.seeds.ensureChats(userId);
     const [row] = await this.db
       .insert(chats)
-      .values({ ownerId: userId, id: newChatId(), title: titleFrom(body.text), sensitivity: body.sensitivity })
+      .values({
+        ownerId: userId,
+        id: newChatId(),
+        title: titleFrom(body.text),
+        sensitivity: body.sensitivity,
+        calibrated: body.calibrated,
+      })
       .returning();
     await this.reindex(userId, row!.id);
     return toSummary(row!);
@@ -210,9 +217,10 @@ export class ChatsService {
     chatId: string,
     body: SendMessage,
   ): Promise<{ user: UserMessage; answer: AssistantMessage }> {
-    await this.get(userId, chatId);
+    const chat = await this.get(userId, chatId);
     const files = await this.attachments(userId, body.attachments);
-    const reply = withFiles(pickReply(body.text, body.model), files);
+    const answered = withFiles(pickReply(body.text, body.model), files);
+    const reply = chat.calibrated ? calibrateReply(answered, files) : answered;
     const sent = await this.db.transaction(async (tx) => {
       await lockChat(tx, userId, chatId);
       const seq = await nextSeq(tx, userId, chatId);
@@ -342,7 +350,7 @@ export class ChatsService {
 
   /** Adds a new version of an answer, from the question before it, and shows it. */
   async regenerate(userId: string, chatId: string, messageId: string, model: ModelChoice): Promise<AssistantMessage> {
-    await this.get(userId, chatId);
+    const chat = await this.get(userId, chatId);
     const regenerated = await this.db.transaction(async (tx) => {
       // Before reading the versions: concurrent regenerations each add theirs instead of replacing the others'.
       await lockChat(tx, userId, chatId);
@@ -364,7 +372,9 @@ export class ChatsService {
         .where(and(eq(messages.ownerId, userId), eq(messages.chatId, chatId), eq(messages.seq, row.seq - 1)));
       const asked = question && 'text' in question.body ? question.body : { text: '' };
       const versions = versionsOf(row.body);
-      const next = answerBody(withFiles(pickReply(asked.text, model, versions.length), asked.attachments ?? []));
+      const files = asked.attachments ?? [];
+      const answered = withFiles(pickReply(asked.text, model, versions.length), files);
+      const next = answerBody(chat.calibrated ? calibrateReply(answered, files) : answered);
       const [saved] = await tx
         .update(messages)
         .set({ body: showing([...versions, next], versions.length + 1), vote: null, voteReason: null })

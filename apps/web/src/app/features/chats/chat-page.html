@@ -101,9 +101,7 @@
             (tc-submit)="onCheckpoint($event)"
           />
         } @else if (c.checkpoints.length) {
-          <p class="checkpoint-done" role="note">
-            You'll verify {{ c.checkpoints[0]!.claimId }}: {{ c.checkpoints[0]!.method }}
-          </p>
+          <p class="checkpoint-done" role="note">You'll verify “{{ verifying() }}”: {{ c.checkpoints[0]!.method }}</p>
         }
       </div>
 
@@ -121,7 +119,7 @@
           [onSend]="send"
           (tc-model-change)="onModel($event)"
           (tc-attach)="files.pick()"
-              disclaimer="AI-generated claims can be wrong, including plausible ones with no basis in the sources. Verify before acting."
+          disclaimer="AI-generated claims can be wrong, including plausible ones with no basis in the sources. Verify before acting."
         />
       </div>
       <p class="sr-only" role="status" aria-live="polite">{{ thread.status() }}</p>

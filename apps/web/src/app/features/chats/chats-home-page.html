@@ -22,6 +22,12 @@
       disclaimer="AI-generated claims can be wrong. Verify before acting."
     />
     <div class="composer-meta">
+      <tc-switch
+        label="Calibrated"
+        title="Label every claim and add verification checkpoints"
+        [value]="calibrated()"
+        (tc-value-change)="calibrated.set($event.detail.value === true)"
+      />
       <tc-sensitivity-label-picker
         [fileName]="'this chat'"
         [options]="sensitivities"

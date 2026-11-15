@@ -14,27 +14,65 @@
     @switch (tab()) {
       @case ('session') {
         <div id="panel-session" role="tabpanel" aria-label="Session" class="body">
-          <div>
-            <h3 id="intent-h">Session intent</h3>
-            @if (c.intent; as intent) {
-              <dl class="facts">
-                <div>
-                  <dt>Task</dt>
-                  <dd>{{ intent.task }}</dd>
-                </div>
-                <div>
-                  <dt>Decision this supports</dt>
-                  <dd>{{ intent.decision }}</dd>
-                </div>
-                <div>
-                  <dt>Consequence of error</dt>
-                  <dd>{{ intent.consequence }}</dd>
-                </div>
-              </dl>
-            } @else {
-              <p class="empty">No session intent. Turn on Calibrated mode in the project to set one.</p>
-            }
+          <div class="mode">
+            <tc-switch
+              label="Calibrated"
+              description="Answers label each claim by where it comes from, and ask you to plan a check before you act."
+              [value]="c.calibrated"
+              (tc-value-change)="setCalibrated($event)"
+            />
           </div>
+
+          @if (c.calibrated || c.intent) {
+            <div>
+              <h3 id="intent-h">Session intent</h3>
+              @if (editingIntent()) {
+                <form class="intent-form" aria-labelledby="intent-h" (ngSubmit)="saveIntent()">
+                  <label for="intent-task">Task</label>
+                  <textarea id="intent-task" name="task" rows="2" required [(ngModel)]="intentDraft.task"></textarea>
+                  <label for="intent-decision">Decision this supports</label>
+                  <textarea
+                    id="intent-decision"
+                    name="decision"
+                    rows="2"
+                    required
+                    [(ngModel)]="intentDraft.decision"
+                  ></textarea>
+                  <label for="intent-consequence">Consequence of error</label>
+                  <textarea
+                    id="intent-consequence"
+                    name="consequence"
+                    rows="2"
+                    required
+                    [(ngModel)]="intentDraft.consequence"
+                  ></textarea>
+                  <div class="form-actions">
+                    <tc-button type="submit" size="sm" variant="primary" label="Save intent" [loading]="saving()" />
+                    <tc-button size="sm" variant="ghost" label="Cancel" (click)="editingIntent.set(false)" />
+                  </div>
+                </form>
+              } @else if (c.intent; as intent) {
+                <dl class="facts">
+                  <div>
+                    <dt>Task</dt>
+                    <dd>{{ intent.task }}</dd>
+                  </div>
+                  <div>
+                    <dt>Decision this supports</dt>
+                    <dd>{{ intent.decision }}</dd>
+                  </div>
+                  <div>
+                    <dt>Consequence of error</dt>
+                    <dd>{{ intent.consequence }}</dd>
+                  </div>
+                </dl>
+                <tc-button size="sm" variant="ghost" label="Edit intent" (click)="editIntent()" />
+              } @else {
+                <p class="empty">Say what this session is for, so its answers can be weighed against it.</p>
+                <tc-button size="sm" variant="secondary" label="Set intent" (click)="editIntent()" />
+              }
+            </div>
+          }
 
           <div>
             <h3 id="claims-h">Claims</h3>
@@ -44,7 +82,8 @@
             </p>
             @if (claims().length === 0) {
               <p class="empty">
-                No claims in this chat yet. Calibrated answers mark each claim as Grounded, Model knowledge or Inferred.
+                No claims in this chat yet. With Calibrated on, answers mark each claim as Grounded, Model knowledge or
+                Inferred.
               </p>
             }
             <ul class="claims">

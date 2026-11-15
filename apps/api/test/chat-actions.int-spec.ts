@@ -161,6 +161,45 @@ describe('sending, approving and voting', () => {
     expect(after.messages).toEqual([]);
   });
 
+  it('starts a chat Calibrated, labels its answers, takes an intent, and turns it off for later answers', async () => {
+    const token = await t.token({ sub: 'calibrated-chat' });
+    const ask = async (id: string) =>
+      events(
+        (
+          await http
+            .post(`/api/chats/${id}/messages`)
+            .auth(token, bearer)
+            .send({ text: 'What should I prep for the meeting?' })
+            .expect(200)
+        ).text,
+      ).at(-1);
+    const hasClaims = (e: StreamEvent | undefined) =>
+      e?.type === 'done' && e.message.blocks.some((b) => b.type === 'claims');
+
+    const created = ChatSummary.parse(
+      (await http.post('/api/chats').auth(token, bearer).send({ text: 'Prep', calibrated: true }).expect(201)).body,
+    );
+    expect(created.calibrated).toBe(true);
+    expect(hasClaims(await ask(created.id))).toBe(true);
+
+    const intent = { task: 'Prep the go/no-go', decision: 'Ship or hold', consequence: 'A bad rollout' };
+    await http.patch(`/api/chats/${created.id}`).auth(token, bearer).send({ intent }).expect(200);
+    await http
+      .patch(`/api/chats/${created.id}`)
+      .auth(token, bearer)
+      .send({ intent: { ...intent, task: ' ' } })
+      .expect(400);
+    await http.patch(`/api/chats/${created.id}`).auth(token, bearer).send({ calibrated: false }).expect(200);
+    expect(hasClaims(await ask(created.id))).toBe(false);
+
+    const chat = Chat.parse((await http.get(`/api/chats/${created.id}`).auth(token, bearer)).body);
+    expect(chat).toMatchObject({ calibrated: false, intent });
+    // Answers given while it was Calibrated keep their labels.
+    expect(
+      chat.messages.filter((m) => m.role === 'assistant' && m.blocks.some((b) => b.type === 'claims')),
+    ).toHaveLength(1);
+  });
+
   it('approves a waiting write tool once, then refuses a second decision', async () => {
     const token = await t.token();
     const result = ToolDecisionResult.parse(

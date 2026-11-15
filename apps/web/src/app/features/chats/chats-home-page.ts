@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { ChatComposer } from '@adamstavely/trenchcoat/angular/chat-composer';
 import { PromptStarters } from '@adamstavely/trenchcoat/angular/prompt-starters';
 import { SensitivityLabelPicker } from '@adamstavely/trenchcoat/angular/sensitivity-label-picker';
+import { Switch } from '@adamstavely/trenchcoat/angular/switch';
 import type { ChatSendDetails } from '@adamstavely/trenchcoat/chat-composer';
 import type { PromptStarter } from '@adamstavely/trenchcoat/prompt-starters';
 import type { SensitivityLabel } from '@adamstavely/trenchcoat/sensitivity-label-picker';
@@ -53,7 +54,7 @@ const STARTERS: PromptStarter[] = [
 /** Where a new chat starts: the composer, with routing on Auto, and a few ways in. */
 @Component({
   selector: 'dn-chats-home-page',
-  imports: [ChatComposer, PromptStarters, SensitivityLabelPicker],
+  imports: [ChatComposer, PromptStarters, SensitivityLabelPicker, Switch],
   templateUrl: './chats-home-page.html',
   styleUrl: './chats-home-page.css',
   providers: [ComposerFiles],
@@ -80,6 +81,8 @@ export default class ChatsHomePage {
   protected readonly starters = STARTERS;
   protected readonly sensitivities = SENSITIVITIES;
   protected readonly sensitivity = signal<Sensitivity>('Internal');
+  /** Start the chat Calibrated: its answers label each claim. */
+  protected readonly calibrated = signal(false);
   protected readonly date = new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
     month: 'long',
@@ -112,7 +115,11 @@ export default class ChatsHomePage {
   private async start(text: string, model: ModelChoice): Promise<void> {
     try {
       const chat = await firstValueFrom(
-        this.#http.post<ChatSummary>('/api/chats', { text, sensitivity: this.sensitivity() }),
+        this.#http.post<ChatSummary>('/api/chats', {
+          text,
+          sensitivity: this.sensitivity(),
+          calibrated: this.calibrated(),
+        }),
       );
       this.#chats.list.reload();
       const state: Record<string, PendingSend> = {

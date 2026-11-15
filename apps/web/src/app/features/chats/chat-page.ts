@@ -128,6 +128,13 @@ export default class ChatPage {
       needsCheckpoint(this.chat.value().calibrated, this.thread.messages(), this.chat.value().checkpoints.length),
   );
 
+  /** The claim the person said they'd verify, by its words (ids mean nothing to a reader). */
+  protected readonly verifying = computed(() => {
+    const point = this.chat.hasValue() ? this.chat.value().checkpoints[0] : undefined;
+    if (!point) return '';
+    return allClaims(this.thread.messages()).find((c) => c.id === point.claimId)?.text ?? point.claimId;
+  });
+
   protected onCheckpoint(event: CustomEvent<ReflectionGateSubmission>): void {
     const { claim, method } = event.detail.value;
     if (!claim || !method) return;
