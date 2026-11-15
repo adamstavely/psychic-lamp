@@ -23,14 +23,18 @@
     <div id="model-panel" role="tabpanel" [attr.aria-label]="tabLabel()">
       @switch (tab()) {
         @case ('card') {
-          <dl class="figures">
-            @for (k of m.details.metrics; track k.label) {
-              <div>
-                <dt>{{ k.label }}</dt>
-                <dd>{{ k.value }}</dd>
-              </div>
-            }
-          </dl>
+          @if (m.details.metrics.length) {
+            <dl class="figures">
+              @for (k of m.details.metrics; track k.label) {
+                <div>
+                  <dt>{{ k.label }}</dt>
+                  <dd>{{ k.value }}</dd>
+                </div>
+              }
+            </dl>
+          } @else {
+            <p class="small">No metrics yet. They come from its first evaluation run.</p>
+          }
           <h2 class="section">In chat</h2>
           <p class="summary">
             @if (m.details.task === 'Foundation') {

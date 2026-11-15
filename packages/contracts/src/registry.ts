@@ -46,6 +46,8 @@ const SkillDetails = z.object({
   score: z.number().int().min(0).max(100).nullable(),
   uses: Short,
   principles: z.array(z.object({ title: Short, text: Text })).max(50),
+  /** The SKILL.md as it was registered; the seeded skills have none and show one built from their principles. */
+  skillMd: z.string().max(50_000).optional(),
   tests: z.array(z.object({ name: Short, result: z.enum(['pass', 'fail']), note: Text })).max(100),
 });
 

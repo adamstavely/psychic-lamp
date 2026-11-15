@@ -23,7 +23,7 @@
         </div>
         <div>
           <dt>Tests passing</dt>
-          <dd>{{ passed() }} of {{ s.details.tests.length }}</dd>
+          <dd>{{ s.details.tests.length ? passed() + ' of ' + s.details.tests.length : 'None yet' }}</dd>
         </div>
       </dl>
     </header>

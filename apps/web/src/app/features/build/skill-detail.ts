@@ -35,6 +35,7 @@ export class SkillDetail {
   /** The SKILL.md an agent reads: its name and when to use it, then the principles it follows. */
   protected readonly skillMd = computed(() => {
     const s = this.item();
+    if (s.details.skillMd) return s.details.skillMd;
     const principles = s.details.principles.map((p) => `## ${p.title}\n\n${p.text}`).join('\n\n');
     return `---\nname: ${s.slug.split('/').pop()}\ndescription: ${s.summary}\n---\n\n# ${s.name}\n\n${principles}\n`;
   });

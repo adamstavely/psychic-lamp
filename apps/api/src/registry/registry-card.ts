@@ -36,7 +36,10 @@ export function cardFor(item: CardInput): RegistryCard {
           badge: item.details.verified ? 'Verified' : 'Unverified',
           badgeTone: item.details.verified ? 'ok' : 'warn',
           meta,
-          stats: [`${item.details.tools.length} tools`, `${item.details.installs} installs`],
+          stats: [
+            `${item.details.tools.length} ${item.details.tools.length === 1 ? 'tool' : 'tools'}`,
+            `${item.details.installs} installs`,
+          ],
           facet: null,
         };
       case 'agent':
