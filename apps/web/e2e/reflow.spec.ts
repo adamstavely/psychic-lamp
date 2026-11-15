@@ -26,6 +26,7 @@ const paths = [
   '/build/workflows/sku',
   '/build/register',
   '/build/governance',
+  '/build/insights',
 ];
 
 for (const width of [640, 320]) {
