@@ -116,5 +116,60 @@ test.describe('Governance', () => {
       await expect(page.getByRole('region', { name: 'Waiting for review' })).toContainText('Round 2: 0 of 2');
       await resetUser(page);
     });
+
+    test('an edit of a published workflow waits for review while everyone else keeps the published version', async ({
+      page,
+      browser,
+    }) => {
+      await signIn(page, 'devon', '/build/workflows');
+      await resetUser(page);
+      const graph = (revision: number, sub: string) => ({
+        revision,
+        name: `Nightly sync ${Date.now()}`,
+        sensitivity: 'Internal',
+        nodes: [{ id: 'start', label: 'Start', kind: 'Trigger', sub, x: 40, y: 170 }],
+        edges: [],
+      });
+      const draft = (await (await api(page).post('/api/registry/workflows', { name: 'Nightly sync' })).json()) as {
+        id: string;
+        revision: number;
+      };
+      const url = `/api/registry/workflow/${draft.id}/graph`;
+      const v1 = (await (await api(page).put(url, graph(draft.revision, 'Webhook'))).json()) as {
+        name: string;
+        revision: number;
+      };
+      for (const user of ['sam', 'kemi'] as const) {
+        const reviewer = await as(browser, user, '/build/governance');
+        const res = await api(reviewer).post(`/api/governance/queue/workflow/${draft.id}/decisions`, {
+          revision: v1.revision,
+          decision: 'approve',
+        });
+        expect(res.status()).toBe(200);
+        await reviewer.context().close();
+      }
+      const edit = await api(page).put(url, { ...graph(v1.revision, 'Chat command'), name: v1.name });
+      expect(edit.status()).toBe(200);
+
+      // Its editor sees the edit, and that v1 is still live.
+      await page.goto(`/build/workflows/${draft.id}`);
+      await expect(page.getByRole('region', { name: 'Waiting for review' })).toContainText(
+        'v2 is an edit of v1, which stays published',
+      );
+
+      // Someone else sees v1, which they can't edit while v2 is in review, and can open v2 from there.
+      const other = await as(browser, 'mara', `/build/workflows/${draft.id}`);
+      const review = other.getByRole('region', { name: 'Published' });
+      await expect(review).toContainText('An edit, v2, is waiting for review');
+      await expect(other.getByText(/^v1 ·/)).toBeVisible();
+      await expect(other.locator('tc-segmented-control')).toHaveCount(0);
+      await expectNoAxeViolations(other);
+      await review.getByRole('link', { name: 'See v2' }).click();
+      await expect(other).toHaveURL(/proposed=1/);
+      await expect(other.getByRole('region', { name: 'Waiting for review' })).toContainText('v2 is an edit of v1');
+      await expect(other.getByText(/^v2 ·/)).toBeVisible();
+      await other.context().close();
+      await resetUser(page);
+    });
   });
 });

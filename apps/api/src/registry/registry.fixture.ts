@@ -1,11 +1,14 @@
 import type { RegistryItem } from '@donovan/contracts';
 
+/** A seed item: what the database fills in (times, access, revisions, versions in review) left out. */
+type SeedItem = Omit<RegistryItem, 'updatedAt' | 'access' | 'revision' | 'liveVersion' | 'editInReview'>;
+
 /**
  * The registry Build mode starts with: the prototype's skills, MCP servers, agents, workflows, models, datasets, spaces,
  * collections and prompts, owned by the teams named in it. Shared by everyone (unlike the per-person Assist seeds), and
  * written once. The invoice-audit skill, a draft in the prototype, is a submission waiting for review.
  */
-export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access' | 'revision'>[] = [
+export const REGISTRY_SEED: SeedItem[] = [
   {
     kind: 'skill',
     id: 'rollout',

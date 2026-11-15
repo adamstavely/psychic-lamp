@@ -20,7 +20,7 @@ import {
 import { and, asc, count, eq, gte, or, sql } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module.js';
 import { governancePolicies, registryItems, registryReviews, registryRevisions } from '../db/schema.js';
-import { toSummary } from '../registry/registry-row.js';
+import { authorOf, proposed, seenBy, toSummary } from '../registry/registry-row.js';
 
 type Row = typeof registryItems.$inferSelect;
 
@@ -71,25 +71,31 @@ export const ADMIN_ROLE = 'donovan-admin';
 export class GovernanceService {
   constructor(@Inject(DB) private readonly db: Db) {}
 
-  /** Everything waiting for review, oldest first, with how far along each is and the person's own part in it. */
+  /**
+   * Everything waiting for review, oldest first, with how far along each is and the person's own part in it. An edit of
+   * a published item shows as that edit, with the version it would replace.
+   */
   async queue(userId: string): Promise<GovernanceQueue> {
-    const pending = await this.db
+    const rows = await this.db
       .select()
       .from(registryItems)
-      .where(eq(registryItems.status, 'pending'))
-      .orderBy(asc(registryItems.updatedAt));
+      .where(or(eq(registryItems.status, 'pending'), sql`${registryItems.proposal}->>'status' = 'pending'`));
+    const pending = rows.map(proposed).sort((a, b) => a.updatedAt.getTime() - b.updatedAt.getTime());
     const reviews = await this.db.select().from(registryReviews);
     const items: QueueItem[] = pending.map((r) => {
       const round = reviews.filter((v) => v.kind === r.kind && v.itemId === r.id && v.round === r.reviewRound);
       const { risk, why } = riskOf(r);
       return {
-        item: toSummary(r),
+        item: toSummary(
+          rows.find((row) => row.kind === r.kind && row.id === r.id)!,
+          'review',
+        ),
         round: r.reviewRound,
         approvals: round.filter((v) => v.decision === 'approve').length,
         submittedAt: r.updatedAt.toISOString(),
         risk,
         why,
-        mine: r.ownerId === userId || r.submittedBy === userId,
+        mine: authorOf(r, userId),
         myDecision: round.find((v) => v.reviewerId === userId)?.decision ?? null,
       };
     });
@@ -122,7 +128,9 @@ export class GovernanceService {
    * Records a reviewer's decision. The submitter can't review their own submission, a reviewer decides once per round,
    * and decisions take turns on the item, so two second approvals at once publish it once. A decision names the
    * revision it was made on: if the item has changed since, it's refused (409), so an approval from an old screen can't
-   * publish a version nobody reviewed. What was decided on is kept as a snapshot, for the history.
+   * publish a version nobody reviewed. What was decided on is kept as a snapshot, for the history. For an edit of a
+   * published item, two approvals put the edit in place of the published version; a rejection or a request for changes
+   * leaves the published version as it was.
    */
   async decide(
     userId: string,
@@ -134,12 +142,14 @@ export class GovernanceService {
     if (body.decision !== 'approve' && !body.note)
       throw new BadRequestException('Say why, so the submitter knows what to change');
     return this.db.transaction(async (tx) => {
-      const [item] = await tx
+      const [row] = await tx
         .select()
         .from(registryItems)
         .where(and(eq(registryItems.kind, kind), eq(registryItems.id, id)))
         .for('update');
-      if (!item) throw new NotFoundException(`No ${kind} with that id`);
+      if (!row) throw new NotFoundException(`No ${kind} with that id`);
+      // What's under review: an edit of a published item, or the item itself.
+      const item = proposed(row);
       if (item.status !== 'pending') throw new ConflictException(`It isn't waiting for review: it's ${item.status}`);
       if (item.ownerId === userId || item.submittedBy === userId)
         throw new ForbiddenException("You can't review your own submission");
@@ -195,37 +205,80 @@ export class GovernanceService {
             : approvals >= APPROVALS_TO_PUBLISH
               ? 'published'
               : 'pending';
-      if (status !== 'pending')
+      const here = and(eq(registryItems.kind, kind), eq(registryItems.id, id));
+      if (status === 'pending') return { status, approvals };
+      if (!row.proposal)
         await tx
           .update(registryItems)
           .set({ status, updatedAt: new Date(), searchVersion: sql`${registryItems.searchVersion} + 1` })
-          .where(and(eq(registryItems.kind, kind), eq(registryItems.id, id)));
+          .where(here);
+      else if (status === 'published')
+        await tx
+          .update(registryItems)
+          .set({
+            name: item.name,
+            version: item.version,
+            sensitivity: item.sensitivity,
+            summary: item.summary,
+            details: item.details,
+            revision: item.revision,
+            proposal: null,
+            updatedAt: new Date(),
+            // Search re-indexes it on its next reconciliation.
+            searchVersion: sql`${registryItems.searchVersion} + 1`,
+          })
+          .where(here);
+      else
+        await tx
+          .update(registryItems)
+          .set({ proposal: { ...row.proposal, status } })
+          .where(here);
       return { status, approvals };
     });
   }
 
   /** The submitter sends it back after changes: a new round, with no decisions in it yet. */
   async resubmit(userId: string, kind: RegistryKind, id: string, summary?: string): Promise<void> {
-    const [row] = await this.db
-      .update(registryItems)
-      .set({
-        status: 'pending',
-        reviewRound: sql`${registryItems.reviewRound} + 1`,
-        revision: sql`${registryItems.revision} + 1`,
-        ...(summary ? { summary } : {}),
-        updatedAt: new Date(),
-        searchVersion: sql`${registryItems.searchVersion} + 1`,
-      })
-      .where(
-        and(
-          eq(registryItems.kind, kind),
-          eq(registryItems.id, id),
-          or(eq(registryItems.ownerId, userId), eq(registryItems.submittedBy, userId)),
-          sql`${registryItems.status} in ('changes-requested', 'rejected')`,
-        ),
-      )
-      .returning({ id: registryItems.id });
-    if (!row) throw new ConflictException('Only your own submission, sent back or rejected, can be resubmitted');
+    const refused = () => new ConflictException('Only your own submission, sent back or rejected, can be resubmitted');
+    await this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(registryItems)
+        .where(and(eq(registryItems.kind, kind), eq(registryItems.id, id)))
+        .for('update');
+      const p = row?.proposal;
+      if (!row || !authorOf(row, userId) || !['changes-requested', 'rejected'].includes(proposed(row).status))
+        throw refused();
+      const here = and(eq(registryItems.kind, kind), eq(registryItems.id, id));
+      const round = sql`${registryItems.reviewRound} + 1`;
+      // An edit of a published item goes back to review as an edit: the published version stays live.
+      if (p)
+        await tx
+          .update(registryItems)
+          .set({
+            proposal: {
+              ...p,
+              status: 'pending',
+              revision: Math.max(row.revision, p.revision) + 1,
+              summary: summary ?? p.summary,
+              at: new Date().toISOString(),
+            },
+            reviewRound: round,
+          })
+          .where(here);
+      else
+        await tx
+          .update(registryItems)
+          .set({
+            status: 'pending',
+            reviewRound: round,
+            revision: sql`${registryItems.revision} + 1`,
+            ...(summary ? { summary } : {}),
+            updatedAt: new Date(),
+            searchVersion: sql`${registryItems.searchVersion} + 1`,
+          })
+          .where(here);
+    });
   }
 
   /**
@@ -233,18 +286,15 @@ export class GovernanceService {
    * and whoever last sent it to review see it in any state), and whether this person can resubmit it.
    */
   async history(userId: string, kind: RegistryKind, id: string): Promise<ReviewHistory> {
-    const [item] = await this.db
-      .select({
-        round: registryItems.reviewRound,
-        status: registryItems.status,
-        ownerId: registryItems.ownerId,
-        submittedBy: registryItems.submittedBy,
-      })
+    const [row] = await this.db
+      .select()
       .from(registryItems)
       .where(and(eq(registryItems.kind, kind), eq(registryItems.id, id)));
-    const theirs = !!item && (item.ownerId === userId || item.submittedBy === userId);
-    const visible = item && (['published', 'pending'].includes(item.status) || theirs);
-    if (!visible) throw new NotFoundException(`No ${kind} with that id`);
+    const theirs = !!row && authorOf(row, userId);
+    if (!row || !(['published', 'pending'].includes(row.status) || theirs))
+      throw new NotFoundException(`No ${kind} with that id`);
+    // Its author sees their edit's status; everyone else, the published version's.
+    const status = seenBy(row, userId).shown.status;
     const rows = await this.db
       .select()
       .from(registryReviews)
@@ -253,8 +303,8 @@ export class GovernanceService {
     return {
       kind,
       id,
-      round: item.round,
-      canResubmit: theirs && (item.status === 'changes-requested' || item.status === 'rejected'),
+      round: row.reviewRound,
+      canResubmit: theirs && (status === 'changes-requested' || status === 'rejected'),
       records: rows.map((r) => ({
         round: r.round,
         revision: r.revision,

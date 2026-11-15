@@ -39,7 +39,9 @@
             <li>
               <div class="q-main">
                 <h2>
-                  <a [routerLink]="link(q)">{{ q.item.name }}</a>
+                  <a [routerLink]="link(q)" [queryParams]="q.item.liveVersion ? { proposed: 1 } : null">{{
+                    q.item.name
+                  }}</a>
                 </h2>
                 <span class="tags">
                   <span class="tag">{{ q.item.kind }}</span>
@@ -47,7 +49,8 @@
                 </span>
                 <p class="small">{{ q.why }} {{ q.item.summary }}</p>
                 <p class="small">
-                  {{ q.item.owner.name }} · {{ when(q.submittedAt) }}
+                  {{ q.item.owner.name }} · {{ when(q.submittedAt) }} ·
+                  {{ q.item.liveVersion ? q.item.version + ', an edit of ' + q.item.liveVersion : q.item.version }}
                   @if (q.round > 1) {
                     · round {{ q.round }}
                   }

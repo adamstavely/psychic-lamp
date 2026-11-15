@@ -40,6 +40,7 @@ describe('workflows on the canvas', () => {
         submittedBy: null,
         reviewRound: 1,
         details: seed.details,
+        proposal: null,
       })
       .where(and(eq(registryItems.kind, 'workflow'), eq(registryItems.id, 'sku')));
     await t.app.close();
@@ -281,7 +282,7 @@ describe('workflows on the canvas', () => {
         .send({ revision: saved.revision, decision: 'changes', note: 'Name the schedule.' })
         .expect(200);
 
-      // The editor still sees it, in Mine, with the reason and the right to resubmit; nobody else sees it.
+      // The editor still sees it, in Mine, with the reason and the right to resubmit; everyone else sees the published v1.
       const back = RegistryItem.parse(
         (await http.get(`/api/registry/workflow/${id}`).auth(editor, bearer).expect(200)).body,
       );
@@ -293,8 +294,13 @@ describe('workflows on the canvas', () => {
       const history = (await http.get(`/api/governance/history/workflow/${id}`).auth(editor, bearer).expect(200))
         .body as { canResubmit: boolean; records: { note: string }[] };
       expect(history).toMatchObject({ canResubmit: true, records: [{ note: 'Name the schedule.' }] });
-      await http.get(`/api/registry/workflow/${id}`).auth(other, bearer).expect(404);
-      await http.get(`/api/governance/history/workflow/${id}`).auth(other, bearer).expect(404);
+      const seen = RegistryItem.parse(
+        (await http.get(`/api/registry/workflow/${id}`).auth(other, bearer).expect(200)).body,
+      );
+      expect(seen).toMatchObject({ status: 'published', version: 'v1', editInReview: null });
+      const theirs = (await http.get(`/api/governance/history/workflow/${id}`).auth(other, bearer).expect(200))
+        .body as { canResubmit: boolean };
+      expect(theirs.canResubmit).toBe(false);
 
       // They revise it, which sends it back to review as the next version.
       const revised = RegistryItem.parse(
@@ -316,6 +322,163 @@ describe('workflows on the canvas', () => {
     } finally {
       await db.delete(registryItems).where(and(eq(registryItems.kind, 'workflow'), eq(registryItems.id, id)));
     }
+  });
+
+  /** A published team workflow of one step, removed after the test. */
+  const teamFlow = async (run: (id: string) => Promise<void>) => {
+    const db = t.app.get<Db>(DB);
+    const id = `live-flow-${randomUUID().slice(0, 8)}`;
+    await db.insert(registryItems).values({
+      kind: 'workflow',
+      id,
+      name: 'Live flow',
+      slug: `platform/${id}`,
+      version: 'v1',
+      sensitivity: 'Internal',
+      summary: 'A team workflow.',
+      ownerTeam: 'Platform',
+      ownerId: null,
+      ownerName: 'Platform',
+      status: 'published',
+      details: {
+        state: 'Active',
+        schedule: 'daily',
+        nodes: [step('start', 'Trigger', 'Schedule')],
+        edges: [],
+      } as never,
+    });
+    try {
+      await run(id);
+    } finally {
+      await db.delete(registryItems).where(and(eq(registryItems.kind, 'workflow'), eq(registryItems.id, id)));
+    }
+  };
+  const view = async (token: string, id: string) =>
+    RegistryItem.parse((await http.get(`/api/registry/workflow/${id}`).auth(token, bearer).expect(200)).body);
+  const subs = (w: RegistryItem) => (w.kind === 'workflow' ? w.details.nodes.map((n) => n.sub) : []);
+  const editTo = async (token: string, id: string, sub: string, revision: number) =>
+    RegistryItem.parse(
+      (
+        await http
+          .put(`/api/registry/workflow/${id}/graph`)
+          .auth(token, bearer)
+          .send({ ...graph([step('start', 'Trigger', sub)], [], revision), name: 'Live flow' })
+          .expect(200)
+      ).body,
+    );
+  const decideOn = (token: string, id: string, revision: number, decision: string, note = '') =>
+    http
+      .post(`/api/governance/queue/workflow/${id}/decisions`)
+      .auth(token, bearer)
+      .send({ revision, decision, note })
+      .expect(200);
+
+  it('keeps the published version live for everyone else while an edit of it is in review, and after a rejection', async () => {
+    await teamFlow(async (id) => {
+      const [editor, reviewer, other] = [await person('liveedit'), await person('liverev'), await person('liveother')];
+      const v2 = await editTo(editor, id, 'Webhook', 1);
+      expect(v2).toMatchObject({ status: 'pending', version: 'v2', liveVersion: 'v1' });
+      expect(subs(v2)).toEqual(['Webhook']);
+
+      // Everyone else still sees and runs v1, and is told v2 is in review.
+      const seen = await view(other, id);
+      expect(seen).toMatchObject({ status: 'published', version: 'v1', liveVersion: null, editInReview: 'v2' });
+      expect(subs(seen)).toEqual(['Schedule']);
+      const listed = (await http.get('/api/registry?kind=workflow').auth(other, bearer).expect(200)).body as {
+        id: string;
+        version: string;
+      }[];
+      expect(listed.find((i) => i.id === id)?.version).toBe('v1');
+
+      // The review queue shows reviewers the edit, as an edit of v1.
+      const queued = (
+        (await http.get('/api/governance/queue').auth(reviewer, bearer).expect(200)).body as {
+          items: { item: { id: string; version: string; revision: number; liveVersion: string | null } }[];
+        }
+      ).items.find((q) => q.item.id === id)!;
+      expect(queued.item).toMatchObject({ version: 'v2', revision: v2.revision, liveVersion: 'v1' });
+      // Reviewers can open the edit itself.
+      const proposed = RegistryItem.parse(
+        (await http.get(`/api/registry/workflow/${id}/proposed`).auth(reviewer, bearer).expect(200)).body,
+      );
+      expect(proposed).toMatchObject({ status: 'pending', version: 'v2', liveVersion: 'v1' });
+      expect(subs(proposed)).toEqual(['Webhook']);
+
+      // Someone else can't start a second edit over it while it's in review.
+      const second = await http
+        .put(`/api/registry/workflow/${id}/graph`)
+        .auth(other, bearer)
+        .send({ ...graph([step('start', 'Trigger', 'Chat command')], [], seen.revision), name: 'Live flow' })
+        .expect(409);
+      expect(second.body.message).toMatch(/v2 is in review/);
+
+      // Rejected: v1 stays published for everyone; the editor sees their rejected v2, and can resubmit it.
+      await decideOn(reviewer, id, v2.revision, 'reject', 'Not a webhook.');
+      const after = await view(other, id);
+      expect(after).toMatchObject({ status: 'published', version: 'v1', editInReview: null });
+      expect(subs(after)).toEqual(['Schedule']);
+      await http.get(`/api/registry/workflow/${id}/proposed`).auth(other, bearer).expect(404);
+      expect(await view(editor, id)).toMatchObject({ status: 'rejected', version: 'v2', liveVersion: 'v1' });
+      const history = (await http.get(`/api/governance/history/workflow/${id}`).auth(editor, bearer).expect(200))
+        .body as { canResubmit: boolean; records: { version: string; decision: string }[] };
+      expect(history).toMatchObject({ canResubmit: true, records: [{ version: 'v2', decision: 'reject' }] });
+      const theirs = (await http.get(`/api/governance/history/workflow/${id}`).auth(other, bearer).expect(200))
+        .body as { canResubmit: boolean };
+      expect(theirs.canResubmit).toBe(false);
+    });
+  });
+
+  it('publishes an edit of a published workflow in place of the old version once two people approve it', async () => {
+    await teamFlow(async (id) => {
+      const [editor, a, b, other] = [
+        await person('pubedit'),
+        await person('pubra'),
+        await person('pubrb'),
+        await person('pubother'),
+      ];
+      const v2 = await editTo(editor, id, 'Webhook', 1);
+      await decideOn(a, id, v2.revision, 'approve');
+      expect(subs(await view(other, id))).toEqual(['Schedule']);
+      expect((await decideOn(b, id, v2.revision, 'approve')).body.status).toBe('published');
+
+      const seen = await view(other, id);
+      expect(seen).toMatchObject({
+        status: 'published',
+        version: 'v2',
+        revision: v2.revision,
+        liveVersion: null,
+        editInReview: null,
+      });
+      expect(subs(seen)).toEqual(['Webhook']);
+      expect(await view(editor, id)).toMatchObject({ status: 'published', version: 'v2', liveVersion: null });
+
+      // The next edit builds on v2, and is v3.
+      expect(await editTo(other, id, 'Chat command', seen.revision)).toMatchObject({
+        version: 'v3',
+        liveVersion: 'v2',
+      });
+    });
+  });
+
+  it('leaves the published version live when an edit of it is sent back, until its editor revises it', async () => {
+    await teamFlow(async (id) => {
+      const [editor, reviewer, other] = [await person('backedit'), await person('backrev'), await person('backother')];
+      const v2 = await editTo(editor, id, 'Webhook', 1);
+      await decideOn(reviewer, id, v2.revision, 'changes', 'Name the hook.');
+      expect(await view(other, id)).toMatchObject({ status: 'published', version: 'v1', editInReview: null });
+      const back = await view(editor, id);
+      expect(back).toMatchObject({ status: 'changes-requested', version: 'v2', liveVersion: 'v1' });
+
+      // A save from a screen still showing v1 is stale: their v2 came after it.
+      await http
+        .put(`/api/registry/workflow/${id}/graph`)
+        .auth(editor, bearer)
+        .send({ ...graph([step('start', 'Trigger', 'Webhook · orders')], [], 1), name: 'Live flow' })
+        .expect(409);
+      const v3 = await editTo(editor, id, 'Webhook · orders', back.revision);
+      expect(v3).toMatchObject({ status: 'pending', version: 'v3', liveVersion: 'v1' });
+      expect(await view(other, id)).toMatchObject({ version: 'v1', editInReview: 'v3' });
+    });
   });
 
   it("refuses to change someone else's own workflow", async () => {
