@@ -19,7 +19,7 @@
   gap: var(--tc-space-3);
 }
 
-.tool-head h2 {
+.tool-head h3 {
   margin: 0;
   font-size: var(--tc-font-size-md);
 }
@@ -62,9 +62,24 @@
   vertical-align: top;
 }
 
-.cli {
+/* The aside's Install card: the CLI command, then where you've installed it. */
+.install {
+  display: grid;
+  gap: var(--tc-space-3);
+}
+
+.install h2 {
+  margin: 0;
+}
+
+.install tc-code-block {
   display: block;
-  margin-block: var(--tc-space-3) var(--tc-space-5);
+}
+
+.install h3 {
+  margin: var(--tc-space-2) 0 0;
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-semibold);
 }
 
 @media (max-width: 600px) {

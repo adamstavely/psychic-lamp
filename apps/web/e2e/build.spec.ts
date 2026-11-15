@@ -80,12 +80,17 @@ test.describe('server and agent pages', () => {
     await expectNoAxeViolations(page);
   });
 
-  test("a server's overview and install tabs say how it's reached and added", async ({ page }) => {
+  test('a server shows how it is reached and how to add it on one page, with no tabs', async ({ page }) => {
     await signIn(page, 'alex', '/build/servers/filesystem');
-    await page.getByRole('tab', { name: 'Overview' }).click();
-    await expect(page.getByRole('tabpanel')).toContainText('Calls run through the Donovan gateway');
-    await page.getByRole('tab', { name: 'Install' }).click();
-    await expect(page.getByRole('tabpanel')).toContainText('donovan servers add anthropic/filesystem@v0.9.4');
+    await expect(page.getByRole('tab')).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Tools · 3' })).toContainText(
+      'Calls run through the Donovan gateway',
+    );
+    const install = page
+      .getByRole('complementary', { name: 'About this server' })
+      .getByRole('region', { name: 'Install' });
+    await expect(install).toContainText('donovan servers add anthropic/filesystem@v0.9.4');
+    await expect(install).toContainText('Not installed in any of your clients yet.');
   });
 
   test('an agent links what it is built from, and Run in chat starts a chat with its model', async ({ page }) => {
@@ -119,7 +124,6 @@ test.describe('server and agent pages', () => {
       await expect(dialog).toBeHidden();
 
       await page.reload();
-      await page.getByRole('tab', { name: 'Install' }).click();
       const remove = page.getByRole('button', { name: 'Remove from Cursor' });
       await expect(remove).toBeVisible();
       await remove.click();

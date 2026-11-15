@@ -17,8 +17,6 @@ import { Dialog } from '@adamstavely/trenchcoat/angular/dialog';
 import { RadioGroup } from '@adamstavely/trenchcoat/angular/radio-group';
 import type { SettingsRadioOption } from '@adamstavely/trenchcoat/radio-group';
 import { CodeBlock } from '@adamstavely/trenchcoat/angular/code-block';
-import { SegmentedControl } from '@adamstavely/trenchcoat/angular/segmented-control';
-import type { SegmentOption } from '@adamstavely/trenchcoat/segmented-control';
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import type { InstallClient, RegistryInstall, RegistryItem, TryResult } from '@donovan/contracts';
 import { INSTALL_CLIENTS } from '@donovan/contracts/defaults';
@@ -28,12 +26,11 @@ import { chatStart } from './use-in-chat';
 
 type Server = Extract<RegistryItem, { kind: 'server' }>;
 type Tool = Server['details']['tools'][number];
-type Tab = 'tools' | 'overview' | 'install';
 
-/** An MCP server: its tools (each can be tried in a sandbox), what it is, and where you've installed it. */
+/** An MCP server on one page: its tools (each can be tried in a sandbox) beside how to install it and its details. */
 @Component({
   selector: 'dn-server-detail',
-  imports: [Button, CodeBlock, Dialog, RadioGroup, SegmentedControl],
+  imports: [Button, CodeBlock, Dialog, RadioGroup],
   templateUrl: './server-detail.html',
   styleUrls: ['./detail.css', './server-detail.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -42,16 +39,6 @@ export class ServerDetail {
   readonly item = input.required<Server>();
   readonly #http = inject(HttpClient);
   readonly #injector = inject(Injector);
-
-  protected readonly tab = signal<Tab>('tools');
-  protected readonly tabs = computed<SegmentOption[]>(() => [
-    { value: 'tools', label: `Tools · ${this.item().details.tools.length}`, controls: 'server-panel' },
-    { value: 'overview', label: 'Overview', controls: 'server-panel' },
-    { value: 'install', label: 'Install', controls: 'server-panel' },
-  ]);
-  protected pick(event: CustomEvent<{ value: unknown }>): void {
-    this.tab.set(event.detail.value as Tab);
-  }
 
   readonly #router = inject(Router);
   protected useInChat(): void {

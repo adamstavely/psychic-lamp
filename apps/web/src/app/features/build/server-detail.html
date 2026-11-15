@@ -29,113 +29,65 @@
       </dl>
     </header>
 
-    <tc-segmented-control
-      class="tabs"
-      kind="tabs"
-      variant="underline"
-      [options]="tabs()"
-      [value]="tab()"
-      (tc-value-change)="pick($event)"
-    />
-
-    <div
-      id="server-panel"
-      role="tabpanel"
-      [attr.aria-label]="tab() === 'tools' ? 'Tools' : tab() === 'overview' ? 'Overview' : 'Install'"
-    >
-      @switch (tab()) {
-        @case ('tools') {
-          <p class="note">
-            Tools are what an agent can call on this server. Under the <strong>{{ s.sensitivity }}</strong> tier, write
-            tools wait for approval in the chat that calls them.
-          </p>
-          <ul class="tools">
-            @for (t of s.details.tools; track t.name) {
-              <li class="tool">
-                <div class="tool-head">
-                  <h2>
-                    <code>{{ t.name }}</code>
-                  </h2>
-                  @if (t.write) {
-                    <span class="tag" data-tone="warn">Write</span>
+    <section class="tools-section" aria-labelledby="tools-h">
+      <h2 id="tools-h" class="section">Tools · {{ s.details.tools.length }}</h2>
+      <p class="note">
+        Calls run through the Donovan gateway and are logged against the chat or workflow that made them. Under the
+        <strong>{{ s.sensitivity }}</strong> tier, write tools wait for approval in the chat that calls them.
+      </p>
+      <ul class="tools">
+        @for (t of s.details.tools; track t.name) {
+          <li class="tool">
+            <div class="tool-head">
+              <h3>
+                <code>{{ t.name }}</code>
+              </h3>
+              @if (t.write) {
+                <span class="tag" data-tone="warn">Write</span>
+              }
+              <span class="calls">{{ t.calls }}</span>
+              <tc-button size="sm" variant="secondary" [label]="'Try ' + t.name" (click)="openTry(t)" />
+            </div>
+            <p class="signature">
+              <code>{{ t.signature }}</code>
+            </p>
+            <p class="desc">{{ t.description }}</p>
+            @if (t.params.length) {
+              <table class="params">
+                <caption class="sr-only">
+                  Parameters of
+                  {{
+                    t.name
+                  }}
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Parameter</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Required</th>
+                    <th scope="col">What it is</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (p of t.params; track p.name) {
+                    <tr>
+                      <td>
+                        <code>{{ p.name }}</code>
+                      </td>
+                      <td>{{ p.type }}</td>
+                      <td>{{ p.required ? 'Required' : 'Optional' }}</td>
+                      <td>{{ p.description }}</td>
+                    </tr>
                   }
-                  <span class="calls">{{ t.calls }}</span>
-                  <tc-button size="sm" variant="secondary" [label]="'Try ' + t.name" (click)="openTry(t)" />
-                </div>
-                <p class="signature">
-                  <code>{{ t.signature }}</code>
-                </p>
-                <p class="desc">{{ t.description }}</p>
-                @if (t.params.length) {
-                  <table class="params">
-                    <caption class="sr-only">
-                      Parameters of
-                      {{
-                        t.name
-                      }}
-                    </caption>
-                    <thead>
-                      <tr>
-                        <th scope="col">Parameter</th>
-                        <th scope="col">Type</th>
-                        <th scope="col">Required</th>
-                        <th scope="col">What it is</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (p of t.params; track p.name) {
-                        <tr>
-                          <td>
-                            <code>{{ p.name }}</code>
-                          </td>
-                          <td>{{ p.type }}</td>
-                          <td>{{ p.required ? 'Required' : 'Optional' }}</td>
-                          <td>{{ p.description }}</td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                }
-              </li>
-            } @empty {
-              <li class="small">This server lists no tools.</li>
+                </tbody>
+              </table>
             }
-          </ul>
+          </li>
+        } @empty {
+          <li class="small">This server lists no tools.</li>
         }
-        @case ('overview') {
-          <p class="summary">
-            {{ s.summary }} Calls run through the Donovan gateway, so each one is logged against the chat or workflow
-            that made it, and the {{ s.sensitivity }} tier decides which tools need approval.
-          </p>
-        }
-        @case ('install') {
-          <p class="summary">Add it with the Donovan CLI, or install it in a client with its configuration.</p>
-          <tc-code-block class="cli" language="shell" filename="Terminal" [code]="cli()" />
-          <h2 class="section">Installed in</h2>
-          @if (installs.hasValue()) {
-            @if (installedIn().length) {
-              <ul class="installed">
-                @for (c of installedIn(); track c) {
-                  <li>
-                    <span>{{ label(c) }}</span>
-                    <tc-button size="sm" variant="ghost" [label]="'Remove from ' + label(c)" (click)="uninstall(c)" />
-                  </li>
-                }
-              </ul>
-            } @else {
-              <p class="small">Not installed in any of your clients yet.</p>
-            }
-          } @else if (installs.error()) {
-            <p class="small" role="alert">Where you've installed it didn't load. Try again in a moment.</p>
-          } @else {
-            <p class="small" role="status">Loading…</p>
-          }
-          @if (s.status === 'published') {
-            <tc-button variant="secondary" label="Install in a client" (click)="openInstall()" />
-          }
-        }
-      }
-    </div>
+      </ul>
+    </section>
   </div>
 
   <aside class="aside" aria-label="About this server">
@@ -145,6 +97,30 @@
     } @else {
       <p class="small">You can use it in chat and install it once it's published.</p>
     }
+    <section class="card install" aria-labelledby="install-h">
+      <h2 id="install-h">Install</h2>
+      <p class="small">Add it with the Donovan CLI, or install it in a client with its configuration.</p>
+      <tc-code-block language="shell" filename="Terminal" [code]="cli()" />
+      <h3>Installed in</h3>
+      @if (installs.hasValue()) {
+        @if (installedIn().length) {
+          <ul class="installed">
+            @for (c of installedIn(); track c) {
+              <li>
+                <span>{{ label(c) }}</span>
+                <tc-button size="sm" variant="ghost" [label]="'Remove from ' + label(c)" (click)="uninstall(c)" />
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="small">Not installed in any of your clients yet.</p>
+        }
+      } @else if (installs.error()) {
+        <p class="small" role="alert">Where you've installed it didn't load. Try again in a moment.</p>
+      } @else {
+        <p class="small" role="status">Loading…</p>
+      }
+    </section>
     <section class="card">
       <h2>Specification</h2>
       <dl class="spec">
