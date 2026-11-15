@@ -1,0 +1,228 @@
+@let s = item();
+<div class="layout">
+  <div>
+    <header class="head">
+      <h1>{{ s.name }}</h1>
+      <span class="tags">
+        <span class="tag">Server</span>
+        @if (s.details.verified) {
+          <span class="tag" data-tone="ok">Verified</span>
+        } @else {
+          <span class="tag" data-tone="warn">Unverified</span>
+        }
+        @if (s.details.official) {
+          <span class="tag">Official</span>
+        }
+      </span>
+      <p class="meta">{{ s.slug }} · {{ s.version }} · {{ s.owner.name }}</p>
+      <p class="summary">{{ s.summary }}</p>
+      <dl class="figures">
+        <div>
+          <dt>Installs</dt>
+          <dd>{{ s.details.installs }}</dd>
+        </div>
+        <div>
+          <dt>Calls</dt>
+          <dd>{{ s.details.calls }}</dd>
+        </div>
+      </dl>
+    </header>
+
+    <tc-segmented-control
+      class="tabs"
+      kind="tabs"
+      variant="underline"
+      [options]="tabs()"
+      [value]="tab()"
+      (tc-value-change)="pick($event)"
+    />
+
+    <div
+      id="server-panel"
+      role="tabpanel"
+      [attr.aria-label]="tab() === 'tools' ? 'Tools' : tab() === 'overview' ? 'Overview' : 'Install'"
+    >
+      @switch (tab()) {
+        @case ('tools') {
+          <p class="note">
+            Tools are what an agent can call on this server. Under the <strong>{{ s.sensitivity }}</strong> tier, write
+            tools wait for approval in the chat that calls them.
+          </p>
+          <ul class="tools">
+            @for (t of s.details.tools; track t.name) {
+              <li class="tool">
+                <div class="tool-head">
+                  <h2>
+                    <code>{{ t.name }}</code>
+                  </h2>
+                  @if (t.write) {
+                    <span class="tag" data-tone="warn">Write</span>
+                  }
+                  <span class="calls">{{ t.calls }}</span>
+                  <tc-button size="sm" variant="secondary" [label]="'Try ' + t.name" (click)="openTry(t)" />
+                </div>
+                <p class="signature">
+                  <code>{{ t.signature }}</code>
+                </p>
+                <p class="desc">{{ t.description }}</p>
+                @if (t.params.length) {
+                  <table class="params">
+                    <caption class="sr-only">
+                      Parameters of
+                      {{
+                        t.name
+                      }}
+                    </caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Parameter</th>
+                        <th scope="col">Type</th>
+                        <th scope="col">Required</th>
+                        <th scope="col">What it is</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (p of t.params; track p.name) {
+                        <tr>
+                          <td>
+                            <code>{{ p.name }}</code>
+                          </td>
+                          <td>{{ p.type }}</td>
+                          <td>{{ p.required ? 'Required' : 'Optional' }}</td>
+                          <td>{{ p.description }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
+              </li>
+            } @empty {
+              <li class="small">This server lists no tools.</li>
+            }
+          </ul>
+        }
+        @case ('overview') {
+          <p class="summary">
+            {{ s.summary }} Calls run through the Donovan gateway, so each one is logged against the chat or workflow
+            that made it, and the {{ s.sensitivity }} tier decides which tools need approval.
+          </p>
+        }
+        @case ('install') {
+          <p class="summary">Add it with the Donovan CLI, or install it in a client with its configuration.</p>
+          <tc-code-block class="cli" language="shell" filename="Terminal" [code]="cli()" />
+          <h2 class="sub">Installed in</h2>
+          @if (installedIn().length) {
+            <ul class="installed">
+              @for (c of installedIn(); track c) {
+                <li>
+                  <span>{{ label(c) }}</span>
+                  <tc-button size="sm" variant="ghost" [label]="'Remove from ' + label(c)" (click)="uninstall(c)" />
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="small">Not installed in any of your clients yet.</p>
+          }
+          <tc-button variant="secondary" label="Install in a client" (click)="openInstall()" />
+        }
+      }
+    </div>
+  </div>
+
+  <aside class="aside" aria-label="About this server">
+    <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
+    <tc-button variant="secondary" label="Install in a client" (click)="openInstall()" />
+    <h2>Specification</h2>
+    <dl class="spec">
+      <dt>Publisher</dt>
+      <dd>{{ publisher() }}</dd>
+      <dt>Transport</dt>
+      <dd>{{ s.details.transport }}</dd>
+      <dt>Auth</dt>
+      <dd>{{ s.details.auth }}</dd>
+      <dt>Tier</dt>
+      <dd>
+        <span class="dn-sens" [attr.data-level]="s.sensitivity">{{ s.sensitivity }}</span>
+      </dd>
+      <dt>Version</dt>
+      <dd>{{ s.version }}</dd>
+    </dl>
+    <h2>Source</h2>
+    <p class="small">{{ s.details.source }}</p>
+  </aside>
+</div>
+
+<dialog #tryDialog class="dialog" aria-labelledby="try-h" (close)="trying.set(null)">
+  @if (trying(); as t) {
+    <form (submit)="$event.preventDefault(); runTry()">
+      <h2 id="try-h">
+        Try <code>{{ t.name }}</code>
+      </h2>
+      <p class="small">
+        {{ s.name }} · {{ s.details.transport }}. A sandbox run: it answers like the real tool, but nothing is called
+        and nothing changes{{ t.write ? ', even though this is a write tool' : '' }}.
+      </p>
+      @for (p of t.params; track p.name) {
+        <label>
+          <span
+            ><code>{{ p.name }}</code> · {{ p.type }}{{ p.required ? ' · required' : '' }}</span
+          >
+          <input
+            type="text"
+            [name]="p.name"
+            [(ngModel)]="args[p.name]"
+            [placeholder]="p.description"
+            [required]="p.required"
+          />
+        </label>
+      } @empty {
+        <p class="small">This tool takes no arguments.</p>
+      }
+      @if (tryError()) {
+        <p class="error" role="alert">{{ tryError() }}</p>
+      }
+      @if (result(); as r) {
+        <p class="small" role="status">Result · {{ r.status }} · {{ r.durationMs / 1000 }}s</p>
+        <pre class="result">{{ r.result }}</pre>
+      }
+      <div class="dialog-actions">
+        <tc-button variant="ghost" label="Close" (click)="closeTry()" />
+        <tc-button
+          type="submit"
+          variant="primary"
+          [label]="running() ? 'Running…' : 'Run tool'"
+          [loading]="running()"
+        />
+      </div>
+    </form>
+  }
+</dialog>
+
+<dialog #installDialog class="dialog" aria-labelledby="install-h">
+  <form (submit)="$event.preventDefault(); install()">
+    <h2 id="install-h">Install {{ s.name }}</h2>
+    <fieldset class="clients">
+      <legend>Client</legend>
+      @for (c of clients; track c.id) {
+        <label class="client">
+          <input type="radio" name="client" [value]="c.id" [(ngModel)]="client" (ngModelChange)="updateSnippet()" />
+          {{ c.label }}
+        </label>
+      }
+    </fieldset>
+    <tc-code-block language="json" filename="MCP configuration" [code]="snippet()" />
+    <p class="small">
+      @if (needsSignIn()) {
+        Signs in with {{ s.details.auth }} through the Donovan gateway; you're asked to authorize it the first time it's
+        used.
+      } @else {
+        Runs locally and needs no sign-in.
+      }
+      The {{ s.sensitivity }} tier still applies.
+    </p>
+    <div class="dialog-actions">
+      <tc-button variant="ghost" label="Cancel" (click)="closeInstall()" />
+      <tc-button type="submit" variant="primary" label="Install" [loading]="installing()" />
+    </div>
+  </form>
+</dialog>

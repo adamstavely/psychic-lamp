@@ -1,0 +1,207 @@
+/* Shared by the Build detail pages: the header, the main column beside its aside, the spec list and the dialogs. */
+:host {
+  display: block;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  gap: var(--tc-space-8);
+  align-items: start;
+}
+
+.head h1 {
+  display: inline;
+  margin: 0;
+  font-size: var(--tc-font-size-2xl);
+}
+
+.tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--tc-space-2);
+  margin-inline-start: var(--tc-space-3);
+  vertical-align: 0.3em;
+}
+
+.tag {
+  padding: 1px var(--tc-space-2);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-sm);
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+  font-weight: var(--tc-font-weight-semibold);
+}
+
+.tag[data-tone='ok'] {
+  color: var(--tc-status-success-fg);
+}
+
+.tag[data-tone='warn'] {
+  color: var(--tc-status-warning-fg);
+}
+
+.meta {
+  margin: var(--tc-space-1) 0 0;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-sm);
+}
+
+.summary {
+  margin: var(--tc-space-3) 0 0;
+  max-width: 44rem;
+  line-height: 1.5;
+}
+
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tc-space-6);
+  margin: var(--tc-space-4) 0 0;
+}
+
+.figures div {
+  display: grid;
+}
+
+.figures dt {
+  order: 2;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+}
+
+.figures dd {
+  margin: 0;
+  font-size: var(--tc-font-size-lg);
+  font-weight: var(--tc-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.tabs {
+  display: block;
+  margin-block: var(--tc-space-6) var(--tc-space-4);
+}
+
+.note {
+  margin: 0 0 var(--tc-space-4);
+  padding: var(--tc-space-3) var(--tc-space-4);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-sm);
+  line-height: 1.5;
+}
+
+.aside {
+  display: grid;
+  gap: var(--tc-space-3);
+  padding: var(--tc-space-4);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+}
+
+.aside h2 {
+  margin: var(--tc-space-2) 0 0;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+  font-weight: var(--tc-font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.spec {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--tc-space-2) var(--tc-space-4);
+  margin: 0;
+  font-size: var(--tc-font-size-sm);
+}
+
+.spec dt {
+  color: var(--tc-text-secondary);
+}
+
+.spec dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.small {
+  margin: 0;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+  line-height: 1.5;
+}
+
+.dialog {
+  width: min(34rem, calc(100vw - 2 * var(--tc-space-4)));
+  max-height: calc(100vh - 2 * var(--tc-space-6));
+  padding: var(--tc-space-6);
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-primary);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 40%);
+}
+
+.dialog form {
+  display: grid;
+  gap: var(--tc-space-3);
+}
+
+.dialog h2 {
+  margin: 0;
+  font-size: var(--tc-font-size-lg);
+}
+
+.dialog label {
+  display: grid;
+  gap: var(--tc-space-1);
+  font-size: var(--tc-font-size-sm);
+}
+
+.dialog input[type='text'] {
+  min-height: 32px;
+  padding: 0 var(--tc-space-2);
+  border: 1px solid var(--tc-border-control);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-control);
+  color: var(--tc-text-primary);
+  font: inherit;
+}
+
+.dialog :is(input, button):focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--tc-space-2);
+  margin-top: var(--tc-space-2);
+}
+
+.result {
+  margin: 0;
+  padding: var(--tc-space-3);
+  overflow: auto;
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-sunken);
+  font-family: var(--tc-font-mono);
+  font-size: var(--tc-font-size-xs);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

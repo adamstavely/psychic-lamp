@@ -15,6 +15,8 @@ const paths = [
   '/artifacts/rollout-note-fraud-sentinel-v3-2',
   '/projects',
   '/projects/fraud-rollout',
+  '/build/servers/filesystem',
+  '/build/agents/release',
 ];
 
 for (const width of [640, 320]) {

@@ -1,0 +1,62 @@
+@let a = item();
+<div class="layout">
+  <div>
+    <header class="head">
+      <h1>{{ a.name }}</h1>
+      <span class="tags">
+        <span class="tag">Agent</span>
+        <span class="tag"
+          ><span class="dn-sens" [attr.data-level]="a.sensitivity">{{ a.sensitivity }}</span></span
+        >
+      </span>
+      <p class="meta">{{ a.slug }} · {{ a.version }} · {{ a.owner.name }}</p>
+      <p class="summary">{{ a.summary }}</p>
+      <dl class="figures">
+        <div>
+          <dt>Runs</dt>
+          <dd>{{ a.details.runs }}</dd>
+        </div>
+        <div>
+          <dt>Success</dt>
+          <dd>{{ a.details.success }}</dd>
+        </div>
+        <div>
+          <dt>Autonomy</dt>
+          <dd>{{ a.details.autonomy }}</dd>
+        </div>
+      </dl>
+    </header>
+
+    <h2 class="section">What it's built from</h2>
+    <ul class="parts">
+      @for (p of parts(); track p.kind + p.name) {
+        <li>
+          <span class="kind">{{ p.kind }}</span>
+          @if (p.link) {
+            <a [routerLink]="p.link">{{ p.name }}</a>
+          } @else {
+            <span>{{ p.name }}</span>
+          }
+        </li>
+      }
+    </ul>
+  </div>
+
+  <aside class="aside" aria-label="About this agent">
+    <tc-button variant="primary" label="Run in chat" (click)="runInChat()" />
+    <p class="small">
+      Runs under the <strong>{{ a.sensitivity }}</strong> tier. Its writes wait for approval in the chat where it runs.
+    </p>
+    <h2>Specification</h2>
+    <dl class="spec">
+      <dt>Model</dt>
+      <dd>{{ a.details.model }}</dd>
+      <dt>Autonomy</dt>
+      <dd>{{ a.details.autonomy }}</dd>
+      <dt>Owner</dt>
+      <dd>{{ a.owner.name }}</dd>
+      <dt>Version</dt>
+      <dd>{{ a.version }}</dd>
+    </dl>
+  </aside>
+</div>

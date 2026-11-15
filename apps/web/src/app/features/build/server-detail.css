@@ -1,0 +1,131 @@
+.tools {
+  display: grid;
+  gap: var(--tc-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tool {
+  padding: var(--tc-space-4);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+}
+
+.tool-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tc-space-3);
+}
+
+.tool-head h2 {
+  margin: 0;
+  font-size: var(--tc-font-size-md);
+}
+
+.calls {
+  margin-inline-start: auto;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+}
+
+.signature {
+  margin: var(--tc-space-2) 0 0;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.desc {
+  margin: var(--tc-space-2) 0 0;
+  font-size: var(--tc-font-size-sm);
+}
+
+.params {
+  width: 100%;
+  margin-top: var(--tc-space-3);
+  border-collapse: collapse;
+  font-size: var(--tc-font-size-sm);
+}
+
+.params th {
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+  font-weight: var(--tc-font-weight-semibold);
+  text-align: start;
+}
+
+.params :is(th, td) {
+  padding: var(--tc-space-1) var(--tc-space-3) var(--tc-space-1) 0;
+  border-bottom: 1px solid var(--tc-border-subtle);
+  vertical-align: top;
+}
+
+.cli {
+  display: block;
+  margin-block: var(--tc-space-3) var(--tc-space-5);
+}
+
+.sub {
+  margin: 0 0 var(--tc-space-2);
+  font-size: var(--tc-font-size-sm);
+}
+
+.installed {
+  display: grid;
+  gap: var(--tc-space-2);
+  margin: 0 0 var(--tc-space-4);
+  padding: 0;
+  list-style: none;
+}
+
+.installed li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tc-space-3);
+  font-size: var(--tc-font-size-sm);
+}
+
+.clients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tc-space-2) var(--tc-space-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.clients legend {
+  margin-bottom: var(--tc-space-2);
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-semibold);
+}
+
+.dialog .client {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tc-space-1);
+}
+
+.error {
+  margin: 0;
+  color: var(--tc-status-danger-fg);
+  font-size: var(--tc-font-size-sm);
+}
+
+@media (max-width: 600px) {
+  .params thead {
+    display: none;
+  }
+  .params tr {
+    display: grid;
+    padding-block: var(--tc-space-2);
+    border-bottom: 1px solid var(--tc-border-subtle);
+  }
+  .params td {
+    padding: 0;
+    border: 0;
+  }
+}
