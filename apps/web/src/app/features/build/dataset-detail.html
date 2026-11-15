@@ -2,11 +2,11 @@
 <div class="layout">
   <div>
     <header class="head">
-      <h1>{{ d.name }}</h1>
-      <span class="tags">
+      <div class="title-row">
+        <h1>{{ d.name }}</h1>
         <span class="tag">Dataset</span>
-        <span class="tag">{{ d.details.format }}</span>
-      </span>
+        <span class="tag dn-sens" [attr.data-level]="d.sensitivity">{{ d.sensitivity }}</span>
+      </div>
       <p class="meta">{{ d.slug }} · {{ d.version }} · {{ d.owner.name }}</p>
       <p class="summary">{{ d.summary }}</p>
       <dl class="figures">
@@ -23,8 +23,8 @@
           <dd>{{ d.details.pulls }}</dd>
         </div>
         <div>
-          <dt>Updated</dt>
-          <dd>{{ d.details.updated }}</dd>
+          <dt>Format</dt>
+          <dd>{{ d.details.format }}</dd>
         </div>
       </dl>
     </header>
@@ -65,34 +65,36 @@
 
   <aside class="aside" aria-label="About this dataset">
     <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
-    <h2>Specification</h2>
-    <dl class="spec">
-      <dt>Format</dt>
-      <dd>{{ d.details.format }}</dd>
-      <dt>Splits</dt>
-      <dd>{{ d.details.splits }}</dd>
-      <dt>Tier</dt>
-      <dd>
-        <span class="dn-sens" [attr.data-level]="d.sensitivity">{{ d.sensitivity }}</span>
-      </dd>
-      <dt>Version</dt>
-      <dd>{{ d.version }}</dd>
-    </dl>
-    <h2>Used by</h2>
-    @if (usedBy().length) {
-      <ul class="links">
-        @for (u of usedBy(); track u.name) {
-          <li>
-            @if (u.link) {
-              <a [routerLink]="u.link">{{ u.name }}</a>
-            } @else {
-              {{ u.name }}
-            }
-          </li>
-        }
-      </ul>
-    } @else {
-      <p class="small">No model uses it yet.</p>
-    }
+    <section class="card">
+      <h2>Details</h2>
+      <dl class="spec">
+        <div>
+          <dt>Splits</dt>
+          <dd>{{ d.details.splits }}</dd>
+        </div>
+        <div>
+          <dt>Updated</dt>
+          <dd>{{ d.details.updated }}</dd>
+        </div>
+      </dl>
+    </section>
+    <section class="card">
+      <h2>Used by</h2>
+      @if (usedBy().length) {
+        <ul class="links">
+          @for (u of usedBy(); track u.name) {
+            <li>
+              @if (u.link) {
+                <a [routerLink]="u.link">{{ u.name }}</a>
+              } @else {
+                {{ u.name }}
+              }
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="small">No model uses it yet.</p>
+      }
+    </section>
   </aside>
 </div>

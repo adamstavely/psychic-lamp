@@ -1,7 +1,9 @@
-<section class="page" aria-labelledby="register-h">
-  <a class="back" routerLink="/build/skills">Back to Build</a>
-  <h1 id="register-h">Register</h1>
-  <p class="meta">It goes to review when you submit; nothing is published until two other people approve it.</p>
+<section class="dn-build-page" aria-labelledby="register-h">
+  <a class="dn-back" [routerLink]="backLink().path" [attr.aria-label]="'Back to ' + backLink().label"
+    ><span dnIcon="chevron-left" [iconSize]="14"></span>{{ backLink().label }}</a
+  >
+  <h1 id="register-h" class="dn-page-title">Register</h1>
+  <p class="dn-blurb">It goes to review when you submit; nothing is published until two other people approve it.</p>
 
   @if (made(); as m) {
     <div class="done" role="status">

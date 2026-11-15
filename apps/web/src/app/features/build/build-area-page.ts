@@ -12,7 +12,7 @@ import { InsightsPage } from './insights-page';
   selector: 'dn-build-area-page',
   imports: [RouterLink, Catalog, GovernancePage, InsightsPage],
   template: `
-    <section class="page">
+    <section class="dn-build-page">
       @if (buildArea(); as a) {
         @if (a.kind) {
           <dn-catalog [area]="a" [scope]="scopeValue()" [view]="viewValue()" [task]="task() ?? null" />
@@ -28,21 +28,12 @@ import { InsightsPage } from './insights-page';
     </section>
   `,
   styles: `
-    .page {
-      max-width: 75rem;
-      padding: var(--tc-space-8) var(--tc-space-10, 2.5rem);
-    }
     h1 {
       display: flex;
       align-items: center;
       gap: var(--tc-space-2);
       margin: 0 0 var(--tc-space-2);
       font-size: var(--tc-font-size-2xl);
-    }
-    @media (max-width: 600px) {
-      .page {
-        padding-inline: var(--tc-space-4);
-      }
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,

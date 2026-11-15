@@ -29,7 +29,8 @@ import type {
 import { firstValueFrom } from 'rxjs';
 import { Session } from '../../core/session';
 import { SENSITIVITIES } from '../../core/sensitivities';
-import { buildAreaFor } from '../../shell/areas';
+import { BUILD_AREAS, buildAreaFor } from '../../shell/areas';
+import { IconDirective } from '../../core/icon.directive';
 
 interface KindOption {
   id: RegistrableKind;
@@ -78,7 +79,7 @@ const RANK = (s: Sensitivity) => SENSITIVITIES.findIndex((t) => t.id === s);
  */
 @Component({
   selector: 'dn-register-page',
-  imports: [FormsModule, RouterLink, Button, Switch],
+  imports: [FormsModule, RouterLink, Button, IconDirective, Switch],
   templateUrl: './register-page.html',
   styleUrls: ['./detail.css', './register-page.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -91,6 +92,11 @@ export default class RegisterPage {
   readonly #injector = inject(Injector);
 
   protected readonly kinds = KINDS;
+  /** Back to the area Register was opened from (its kind's), else Build's first area. */
+  protected readonly backLink = computed(() => {
+    const a = BUILD_AREAS.find((x) => x.kind === this.kind()) ?? BUILD_AREAS[0]!;
+    return { path: a.path, label: a.label };
+  });
   protected readonly tiers = SENSITIVITIES;
   protected readonly accessOptions = ACCESS;
   protected readonly picked = linkedSignal<RegistrableKind>(

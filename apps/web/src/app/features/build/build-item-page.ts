@@ -2,6 +2,7 @@ import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
+import { IconDirective } from '../../core/icon.directive';
 import type { RegistryItem } from '@donovan/contracts';
 import { BUILD_AREAS } from '../../shell/areas';
 import { AgentDetail } from './agent-detail';
@@ -20,6 +21,7 @@ import { ServerDetail } from './server-detail';
   selector: 'dn-build-item-page',
   imports: [
     RouterLink,
+    IconDirective,
     AgentDetail,
     CollectionDetail,
     DatasetDetail,
@@ -32,9 +34,11 @@ import { ServerDetail } from './server-detail';
     WorkflowDetail,
   ],
   template: `
-    <section class="page">
+    <section class="dn-build-page">
       @if (buildArea(); as a) {
-        <a class="back" [routerLink]="a.path">Back to {{ a.label }}</a>
+        <a class="dn-back" [routerLink]="a.path" [attr.aria-label]="'Back to ' + a.label"
+          ><span dnIcon="chevron-left" [iconSize]="14"></span>{{ a.label }}</a
+        >
         @if (item.hasValue()) {
           @let i = item.value();
           @if (i.status !== 'published') {
@@ -82,22 +86,9 @@ import { ServerDetail } from './server-detail';
     </section>
   `,
   styles: `
-    .page {
-      max-width: 72rem;
-      padding: var(--tc-space-8);
-    }
-    .back {
-      display: inline-block;
-      margin-block-end: var(--tc-space-4);
-    }
     h1 {
       margin: 0 0 var(--tc-space-4);
-      font-size: var(--tc-font-size-2xl);
-    }
-    @media (max-width: 600px) {
-      .page {
-        padding-inline: var(--tc-space-4);
-      }
+      font-size: var(--tc-font-size-3xl);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,

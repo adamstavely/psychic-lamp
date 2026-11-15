@@ -1,24 +1,10 @@
 :host {
   display: block;
 }
-.eyebrow {
-  margin: 0;
-  color: var(--tc-accent-text);
-  font-size: var(--tc-font-size-sm);
-  font-weight: var(--tc-font-weight-semibold);
-}
-h1 {
-  margin: var(--tc-space-1) 0;
-  font-size: var(--tc-font-size-2xl);
-}
-.blurb,
 .meta,
 .empty,
 .figures {
   color: var(--tc-text-secondary);
-}
-.blurb {
-  margin: 0;
 }
 .bar {
   display: flex;

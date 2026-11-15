@@ -162,7 +162,7 @@ test.describe('model, dataset, space and collection pages', () => {
     const result = page.getByRole('region', { name: /^Result/ });
     await expect(result).toContainText('0.971');
     await expectNoAxeViolations(page);
-    await page.getByRole('link', { name: 'Open the model' }).click();
+    await page.getByRole('button', { name: 'Open the model' }).click();
     await expect(page.getByRole('heading', { name: 'Fraud Sentinel', level: 1 })).toBeVisible();
   });
 

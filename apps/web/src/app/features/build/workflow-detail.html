@@ -2,13 +2,13 @@
 <div class="layout">
   <div>
     <header class="head">
-      <h1>{{ w.name }}</h1>
-      <span class="tags">
+      <div class="title-row">
+        <h1>{{ w.name }}</h1>
         <span class="tag">Workflow</span>
         <span class="tag" [attr.data-tone]="w.details.state === 'Active' ? 'ok' : null">{{ w.details.state }}</span>
-      </span>
+        <span class="tag dn-sens" [attr.data-level]="w.sensitivity">{{ w.sensitivity }}</span>
+      </div>
       <p class="meta">{{ w.slug }} · {{ w.version }} · {{ w.owner.name }} · {{ w.details.schedule }}</p>
-      <p class="summary">{{ w.summary }}</p>
     </header>
 
     <h2 class="section">The flow</h2>
@@ -47,18 +47,14 @@
   <aside class="aside" aria-label="About this workflow">
     <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
     <p class="small">Running and editing workflows comes with the workflow canvas.</p>
-    <h2>Specification</h2>
-    <dl class="spec">
-      <dt>State</dt>
-      <dd>{{ w.details.state }}</dd>
-      <dt>Last run</dt>
-      <dd>{{ w.details.schedule }}</dd>
-      <dt>Steps</dt>
-      <dd>{{ w.details.nodes.length }}</dd>
-      <dt>Tier</dt>
-      <dd>
-        <span class="dn-sens" [attr.data-level]="w.sensitivity">{{ w.sensitivity }}</span>
-      </dd>
-    </dl>
+    <section class="card">
+      <h2>Details</h2>
+      <dl class="spec">
+        <div>
+          <dt>Steps</dt>
+          <dd>{{ w.details.nodes.length }}</dd>
+        </div>
+      </dl>
+    </section>
   </aside>
 </div>

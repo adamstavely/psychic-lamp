@@ -78,7 +78,7 @@ const DECISION: Record<ReviewDecision, string> = {
       margin-bottom: var(--tc-space-6);
       padding: var(--tc-space-4);
       border: 1px solid var(--tc-border-subtle);
-      border-radius: var(--tc-radius-lg);
+      border-radius: var(--tc-radius-md);
       background: var(--tc-surface-raised);
       font-size: var(--tc-font-size-sm);
     }

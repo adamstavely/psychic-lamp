@@ -1,19 +1,5 @@
-.page {
-  max-width: 64rem;
-  padding: var(--tc-space-8);
-}
-
-.back {
-  display: inline-block;
-  margin-block-end: var(--tc-space-4);
-}
-
-h1 {
-  margin: 0;
-  font-size: var(--tc-font-size-2xl);
-}
-
 .wizard {
+  max-width: 64rem;
   display: grid;
   grid-template-columns: 13rem minmax(0, 1fr);
   gap: var(--tc-space-8);
@@ -221,11 +207,5 @@ legend {
   .steps {
     grid-auto-flow: column;
     overflow-x: auto;
-  }
-}
-
-@media (max-width: 600px) {
-  .page {
-    padding-inline: var(--tc-space-4);
   }
 }

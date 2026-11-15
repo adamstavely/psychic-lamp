@@ -3,13 +3,14 @@
 <div class="layout">
   <div>
     <header class="head">
-      <h1>{{ p.name }}</h1>
-      <span class="tags">
+      <div class="title-row">
+        <h1>{{ p.name }}</h1>
         <span class="tag">Prompt</span>
         @for (t of p.details.tags; track t) {
           <span class="tag">{{ t }}</span>
         }
-      </span>
+        <span class="tag dn-sens" [attr.data-level]="p.sensitivity">{{ p.sensitivity }}</span>
+      </div>
       <p class="meta">{{ p.slug }} · {{ v.version }} published · {{ p.owner.name }}</p>
       <p class="summary">{{ p.summary }}</p>
       <dl class="figures">
@@ -31,13 +32,13 @@
     </header>
 
     <h2 class="section">Published version · {{ v.version }}</h2>
-    <h3 class="sub">System</h3>
+    <h3 class="section">System</h3>
     <tc-code-block language="text" filename="System" [code]="v.system" />
-    <h3 class="sub">Template</h3>
+    <h3 class="section">Template</h3>
     <tc-code-block language="text" filename="Template" [code]="v.template" />
 
     @if (variables().length) {
-      <h3 class="sub">Variables</h3>
+      <h3 class="section">Variables</h3>
       <dl class="spec">
         @for (e of variables(); track e[0]) {
           <dt>
@@ -49,7 +50,7 @@
     }
 
     @if (output(); as out) {
-      <h3 class="sub">Sample output</h3>
+      <h3 class="section">Sample output</h3>
       <pre class="result">{{ out }}</pre>
     }
 
@@ -102,9 +103,9 @@
               <span>{{ h.note }}</span>
               <span class="small">{{ h.when }} · {{ h.by }}{{ h.score !== null ? ' · score ' + h.score : '' }}</span>
             </summary>
-            <h3 class="sub">System</h3>
+            <h3 class="section">System</h3>
             <pre class="result">{{ h.system }}</pre>
-            <h3 class="sub">Template</h3>
+            <h3 class="section">Template</h3>
             <pre class="result">{{ h.template }}</pre>
           </details>
         </li>
@@ -115,18 +116,22 @@
   <aside class="aside" aria-label="About this prompt">
     <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
     <p class="small">Editing prompts comes with Prompt Studio.</p>
-    <h2>Specification</h2>
-    <dl class="spec">
-      <dt>Model</dt>
-      <dd>{{ p.details.model }}</dd>
-      <dt>Temperature</dt>
-      <dd>{{ p.details.temperature }}</dd>
-      <dt>Max tokens</dt>
-      <dd>{{ p.details.maxTokens }}</dd>
-      <dt>Tier</dt>
-      <dd>
-        <span class="dn-sens" [attr.data-level]="p.sensitivity">{{ p.sensitivity }}</span>
-      </dd>
-    </dl>
+    <section class="card">
+      <h2>Settings</h2>
+      <dl class="spec">
+        <div>
+          <dt>Model</dt>
+          <dd>{{ p.details.model }}</dd>
+        </div>
+        <div>
+          <dt>Temperature</dt>
+          <dd>{{ p.details.temperature }}</dd>
+        </div>
+        <div>
+          <dt>Max tokens</dt>
+          <dd>{{ p.details.maxTokens }}</dd>
+        </div>
+      </dl>
+    </section>
   </aside>
 </div>

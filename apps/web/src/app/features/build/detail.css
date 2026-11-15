@@ -1,35 +1,53 @@
 /* Shared by the Build detail pages: the header, the main column beside its aside, the spec list and the dialogs. */
+/*
+ * Build's pages share the prototype's frame: two equal columns (the page and its aside) up to 1100px, a header with a
+ * 24px title, a type tag and a tier badge, a meta line and a summary; uppercase section headings; stat tiles; and an
+ * aside of actions and info cards.
+ */
 :host {
   display: block;
 }
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 18rem;
-  gap: var(--tc-space-8);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: var(--tc-space-7);
   align-items: start;
+  max-width: 1100px;
+}
+
+/* Both columns may shrink below their content (code blocks and tables scroll inside themselves). */
+.layout > * {
+  min-width: 0;
 }
 
 .head h1 {
-  display: inline;
   margin: 0;
-  font-size: var(--tc-font-size-2xl);
+  font-size: var(--tc-font-size-3xl);
+  font-weight: var(--tc-font-weight-semibold);
+  line-height: 1.2;
 }
 
-.tags {
-  display: inline-flex;
+.title-row {
+  display: flex;
   flex-wrap: wrap;
-  gap: var(--tc-space-2);
-  margin-inline-start: var(--tc-space-3);
-  vertical-align: 0.3em;
+  align-items: center;
+  gap: var(--tc-space-2) 10px;
 }
 
+/* One tag for a type or state, bordered; with a tone (or a tier, through .dn-sens) it takes that colour. */
 .tag {
-  padding: 1px var(--tc-space-2);
+  padding: 2px var(--tc-space-2);
   border: 1px solid var(--tc-border-subtle);
-  border-radius: var(--tc-radius-sm);
+  border-radius: 4px;
   color: var(--tc-text-secondary);
-  font-size: var(--tc-font-size-xs);
+  font-size: var(--tc-font-size-sm);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.tag:is([data-tone], .dn-sens) {
+  border-color: currentcolor;
   font-weight: var(--tc-font-weight-semibold);
 }
 
@@ -41,40 +59,67 @@
   color: var(--tc-status-warning-fg);
 }
 
+.tag[data-tone='info'] {
+  color: var(--tc-accent-text);
+}
+
 .meta {
   margin: var(--tc-space-1) 0 0;
   color: var(--tc-text-secondary);
-  font-size: var(--tc-font-size-sm);
+  font-size: var(--tc-font-size-md);
 }
 
 .summary {
-  margin: var(--tc-space-3) 0 0;
-  max-width: 44rem;
-  line-height: 1.5;
+  margin: 10px 0 0;
+  max-width: 66ch;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xl);
+  line-height: 1.55;
 }
 
+/* Section headings: small, uppercase and muted, as the prototype's. */
+.section,
+.card h2 {
+  margin: var(--tc-space-6) 0 10px;
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Stat tiles: the value large, its label under it. */
 .figures {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--tc-space-6);
-  margin: var(--tc-space-4) 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--tc-space-3);
+  margin: var(--tc-space-5) 0 0;
 }
 
 .figures div {
   display: grid;
+  gap: 2px;
+  padding: var(--tc-space-4) 18px;
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-sunken);
 }
 
 .figures dt {
   order: 2;
-  color: var(--tc-text-secondary);
-  font-size: var(--tc-font-size-xs);
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-sm);
 }
 
 .figures dd {
   margin: 0;
-  font-size: var(--tc-font-size-lg);
+  font-size: var(--tc-font-size-2xl);
   font-weight: var(--tc-font-weight-semibold);
   font-variant-numeric: tabular-nums;
+}
+
+.figures dd.word {
+  font-size: var(--tc-font-size-xl);
 }
 
 .tabs {
@@ -84,54 +129,75 @@
 
 .note {
   margin: 0 0 var(--tc-space-4);
-  padding: var(--tc-space-3) var(--tc-space-4);
+  padding: var(--tc-space-3) 14px;
   border: 1px solid var(--tc-border-subtle);
   border-radius: var(--tc-radius-md);
-  background: var(--tc-surface-raised);
+  background: var(--tc-surface-sunken);
   color: var(--tc-text-secondary);
-  font-size: var(--tc-font-size-sm);
+  font-size: var(--tc-font-size-md);
   line-height: 1.5;
 }
 
+/* The aside: its actions full width, then info cards. */
 .aside {
   display: grid;
-  gap: var(--tc-space-3);
-  padding: var(--tc-space-4);
+  gap: 14px;
+  align-content: start;
+}
+
+.card {
+  padding: var(--tc-space-4) 18px;
   border: 1px solid var(--tc-border-subtle);
-  border-radius: var(--tc-radius-lg);
+  border-radius: var(--tc-radius-md);
   background: var(--tc-surface-raised);
+  font-size: var(--tc-font-size-md);
 }
 
-.aside h2 {
-  margin: var(--tc-space-2) 0 0;
-  color: var(--tc-text-secondary);
-  font-size: var(--tc-font-size-xs);
-  font-weight: var(--tc-font-weight-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.card h2 {
+  margin-top: 0;
 }
 
-.spec {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: var(--tc-space-2) var(--tc-space-4);
+.card p {
   margin: 0;
-  font-size: var(--tc-font-size-sm);
+}
+
+/* Key and value rows, as the prototype's specification card. */
+.spec {
+  margin: 0;
+  font-size: var(--tc-font-size-md);
+}
+
+.spec > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--tc-space-4);
+  padding: var(--tc-space-2) 0;
+  border-top: 1px solid var(--tc-border-subtle);
+}
+
+.spec > div:first-child {
+  border-top: 0;
+  padding-top: 0;
 }
 
 .spec dt {
-  color: var(--tc-text-secondary);
+  min-width: 0;
+  color: var(--tc-text-muted);
+  overflow-wrap: anywhere;
 }
 
 .spec dd {
+  min-width: 0;
   margin: 0;
+  font-weight: var(--tc-font-weight-semibold);
+  text-align: end;
   overflow-wrap: anywhere;
 }
 
 .small {
   margin: 0;
   color: var(--tc-text-secondary);
-  font-size: var(--tc-font-size-xs);
+  font-size: var(--tc-font-size-sm);
   line-height: 1.5;
 }
 
@@ -200,11 +266,7 @@
   white-space: pre-wrap;
 }
 
-.section {
-  margin: var(--tc-space-8) 0 var(--tc-space-3);
-  font-size: var(--tc-font-size-md);
-}
-
+/* Rows of related items: what an agent is built from, a collection's members, a workflow's steps. */
 .parts {
   display: grid;
   gap: var(--tc-space-2);
@@ -217,45 +279,55 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  overflow-wrap: anywhere;
-  gap: var(--tc-space-3);
-  padding: var(--tc-space-3) var(--tc-space-4);
+  gap: var(--tc-space-2) var(--tc-space-3);
+  padding: var(--tc-space-3) 14px;
   border: 1px solid var(--tc-border-subtle);
   border-radius: var(--tc-radius-md);
-  font-size: var(--tc-font-size-sm);
+  background: var(--tc-surface-raised);
+  font-size: var(--tc-font-size-lg);
+  overflow-wrap: anywhere;
 }
 
 .kind {
-  min-width: 4rem;
-  color: var(--tc-text-secondary);
-  font-size: var(--tc-font-size-xs);
-  font-weight: var(--tc-font-weight-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  min-width: 70px;
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-md);
 }
 
-.sub {
-  margin: var(--tc-space-5) 0 var(--tc-space-2);
-  font-size: var(--tc-font-size-sm);
-}
-
+/* Tables: a bordered box with a shaded header row. */
 .grid {
   width: 100%;
-  border-collapse: collapse;
-  font-size: var(--tc-font-size-sm);
+  overflow: hidden;
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--tc-font-size-md);
 }
 
 .grid th {
-  color: var(--tc-text-secondary);
-  font-size: var(--tc-font-size-xs);
+  background: var(--tc-surface-sunken);
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-sm);
   font-weight: var(--tc-font-weight-semibold);
   text-align: start;
 }
 
+.grid tbody th {
+  background: none;
+  color: var(--tc-text-primary);
+  font-size: var(--tc-font-size-md);
+}
+
 .grid :is(th, td) {
-  padding: var(--tc-space-2) var(--tc-space-4) var(--tc-space-2) 0;
-  border-bottom: 1px solid var(--tc-border-subtle);
+  padding: 10px var(--tc-space-4);
+  overflow-wrap: anywhere;
+  border-top: 1px solid var(--tc-border-subtle);
   vertical-align: top;
+}
+
+.grid thead th {
+  border-top: 0;
 }
 
 .links,
@@ -266,12 +338,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: var(--tc-font-size-sm);
-}
-
-.installed,
-.attached {
-  margin-bottom: var(--tc-space-4);
+  font-size: var(--tc-font-size-md);
 }
 
 :is(.installed, .attached) li {
@@ -280,14 +347,6 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--tc-space-2);
-}
-
-.aside p {
-  margin: 0;
-}
-
-.aside-link {
-  font-weight: var(--tc-font-weight-semibold);
 }
 
 .try {
