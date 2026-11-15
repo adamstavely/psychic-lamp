@@ -1082,3 +1082,7 @@ input[type='checkbox'] {
     padding: var(--tc-space-4);
   }
 }
+
+.new-chat {
+  justify-self: start;
+}

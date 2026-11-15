@@ -42,6 +42,7 @@ import type {
 import { UPLOAD_LIMIT_BYTES } from '@donovan/contracts/defaults';
 import { firstValueFrom } from 'rxjs';
 import { IconDirective } from '../../core/icon.directive';
+import { ProjectsStore } from '../../core/projects-store';
 import type { IconName } from '../../core/icons';
 import { clockTime } from '../brief/format';
 import { claimsFor } from '../chats/blocks';
@@ -120,6 +121,7 @@ export default class ProjectPage {
   readonly #http = inject(HttpClient);
   readonly #title = inject(Title);
   readonly #router = inject(Router);
+  readonly #projects = inject(ProjectsStore);
 
   protected readonly project = httpResource<Project>(() =>
     this.libraryId()
@@ -277,6 +279,8 @@ export default class ProjectPage {
   protected async setCalibrated(event: CustomEvent<{ value: unknown }>): Promise<void> {
     event.preventDefault();
     await this.change(() => this.#http.patch(this.url(''), { calibrated: event.detail.value === true }));
+    // New chats started in it follow the project's mode.
+    this.#projects.overview.reload();
   }
 
   protected async addSources(sources: SourceCandidate[]): Promise<void> {
@@ -530,6 +534,7 @@ export default class ProjectPage {
         }),
       );
       toast.success(`Copied ${p.name} to your projects`);
+      this.#projects.overview.reload();
       await this.#router.navigate(['/projects', made.id]);
     } catch {
       toast.error("Couldn't copy the library", { description: 'Try again in a moment.' });

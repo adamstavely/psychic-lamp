@@ -1,12 +1,13 @@
-import { HttpClient, httpResource } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { toast } from '@adamstavely/trenchcoat/toaster';
-import type { ProjectsOverview, ProjectSummary, Sensitivity } from '@donovan/contracts';
+import type { ProjectSummary, Sensitivity } from '@donovan/contracts';
 import { firstValueFrom } from 'rxjs';
 import { IconDirective } from '../../core/icon.directive';
+import { ProjectsStore } from '../../core/projects-store';
 import { initials } from '../brief/format';
 
 const DATE = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -23,7 +24,9 @@ export default class ProjectsPage {
   readonly #http = inject(HttpClient);
   readonly #router = inject(Router);
 
-  protected readonly overview = httpResource<ProjectsOverview>(() => '/api/projects');
+  // Shared with the rail, whose folders are these projects: one made here shows there too.
+  readonly #projects = inject(ProjectsStore);
+  protected readonly overview = this.#projects.overview;
   protected readonly filter = signal('');
   protected readonly initials = initials;
 
@@ -77,6 +80,7 @@ export default class ProjectsPage {
     try {
       const p = await firstValueFrom(this.#http.post<ProjectSummary>('/api/projects', body));
       toast.success(`Created ${p.name}`);
+      this.overview.reload();
       await this.#router.navigate(['/projects', p.id]);
     } catch {
       toast.error("Couldn't create the project", { description: 'Try again in a moment.' });

@@ -22,10 +22,22 @@
       disclaimer="AI-generated claims can be wrong. Verify before acting."
     />
     <div class="composer-meta">
+      @if (projectOptions().length > 1) {
+        <tc-select
+          class="project"
+          label="Project"
+          label-placement="start"
+          align="end"
+          [options]="projectOptions()"
+          [value]="projectId()"
+          (tc-value-change)="onProject($event)"
+        />
+      }
       <tc-switch
         label="Calibrated"
         title="Label every claim and add verification checkpoints"
-        [value]="calibrated()"
+        [value]="calibrated() || projectCalibrated()"
+        [disabled]="projectCalibrated()"
         (tc-value-change)="calibrated.set($event.detail.value === true)"
       />
       <tc-sensitivity-label-picker
