@@ -202,4 +202,117 @@ describe('/api/registry', () => {
     expect((await http.get(url).auth(other, bearer).expect(200)).body).toEqual([]);
     expect((await http.delete(`${url}/${project.id}`).auth(token, bearer).expect(200)).body).toEqual([]);
   });
+
+  describe('registering', () => {
+    // Submissions are visible to everyone while pending, so they'd change the catalog counts above on the next run.
+    afterAll(async () => {
+      const db = t.app.get<Db>(DB);
+      await db
+        .delete(registryItems)
+        .where(sql`${registryItems.ownerId} in (select id from users where subject like 'registrar-%')`);
+    });
+    const access = { readOnly: true, approval: true, internalOnly: false, audit: true };
+    const server = (name: string) => ({
+      kind: 'server',
+      name,
+      summary: 'Reads tickets.',
+      team: null,
+      sensitivity: 'Internal',
+      access,
+      transport: 'HTTP',
+      auth: 'OAuth 2.1',
+      endpoint: 'https://mcp.example.com/sse',
+    });
+
+    it("saves a submission as pending, the person's own, and lists it in their Mine", async () => {
+      const sub = `registrar-${randomUUID()}`;
+      const token = await t.token({ sub, name: 'Robin Reyes' });
+      const name = `Ticket reader ${sub.slice(-6)}`;
+      const made = RegistryItem.parse(
+        (await http.post('/api/registry').auth(token, bearer).send(server(name)).expect(201)).body,
+      );
+      expect(made).toMatchObject({
+        kind: 'server',
+        status: 'pending',
+        version: 'v1',
+        slug: expect.stringMatching(/^robin-reyes\/ticket-reader-/),
+        owner: { team: null, name: 'Robin Reyes' },
+        access,
+        details: { verified: false, transport: 'HTTP', tools: [] },
+      });
+      expect((await list(token, '?scope=mine')).map((i) => [i.id, i.status])).toEqual([[made.id, 'pending']]);
+      await http.post('/api/registry').auth(token, bearer).send(server(name)).expect(409);
+      await http
+        .post('/api/registry')
+        .auth(token, bearer)
+        .send({ ...server(''), name: '  ' })
+        .expect(400);
+    });
+
+    it("raises a collection to its most sensitive member, and refuses members the registry doesn't have", async () => {
+      const token = await t.token({ sub: `registrar-${randomUUID()}` });
+      const collection = (members: { kind: string; name: string }[]) => ({
+        kind: 'collection',
+        name: `Bundle ${randomUUID().slice(0, 6)}`,
+        summary: 'Two things.',
+        team: 'Risk ML',
+        sensitivity: 'Public',
+        access,
+        members,
+      });
+      const made = RegistryItem.parse(
+        (
+          await http
+            .post('/api/registry')
+            .auth(token, bearer)
+            .send(
+              collection([
+                { kind: 'server', name: 'Filesystem' },
+                { kind: 'dataset', name: 'Transaction graph 2026-Q3' },
+              ]),
+            )
+            .expect(201)
+        ).body,
+      );
+      expect(made).toMatchObject({ sensitivity: 'Restricted', owner: { team: 'Risk ML' } });
+      const missing = await http
+        .post('/api/registry')
+        .auth(token, bearer)
+        .send(
+          collection([
+            { kind: 'server', name: 'Filesystem' },
+            { kind: 'server', name: 'Nope' },
+          ]),
+        )
+        .expect(400);
+      expect(missing.body.message).toBe('Not in the registry: Nope');
+    });
+
+    it("reads a skill's principles from its SKILL.md", async () => {
+      const token = await t.token({ sub: `registrar-${randomUUID()}` });
+      const made = RegistryItem.parse(
+        (
+          await http
+            .post('/api/registry')
+            .auth(token, bearer)
+            .send({
+              kind: 'skill',
+              name: `Release summary ${randomUUID().slice(0, 6)}`,
+              summary: 'Summarizes a release.',
+              team: null,
+              sensitivity: 'Internal',
+              access,
+              triggers: 'release summary',
+              skillMd:
+                '---\nname: x\n---\n\n# Release summary\n\n## Lead with the date\n\nSay when.\n\n## Keep it short\n\nThree lines.\n',
+            })
+            .expect(201)
+        ).body,
+      );
+      expect(made.kind === 'skill' && made.details.principles).toEqual([
+        { title: 'Lead with the date', text: 'Say when.' },
+        { title: 'Keep it short', text: 'Three lines.' },
+      ]);
+    });
+  });
 });

@@ -6,6 +6,7 @@ import type {
   CitedText,
   Claim,
   Preferences,
+  RegistryAccess,
   RegistryItem,
   Route,
   SessionIntent,
@@ -340,6 +341,7 @@ export const registryItems = pgTable(
     ownerId: uuid().references(() => users.id, { onDelete: 'set null' }),
     ownerName: text().notNull(),
     status: text({ enum: ['draft', 'pending', 'changes-requested', 'published', 'rejected'] }).notNull(),
+    access: jsonb().$type<RegistryAccess>(),
     details: jsonb().$type<RegistryItem['details']>().notNull(),
     /** Bumped with every change, in the same transaction; search records the version it indexed (see SearchBackfill). */
     searchVersion: integer().notNull().default(0),

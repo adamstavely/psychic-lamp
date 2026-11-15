@@ -1,0 +1,231 @@
+.page {
+  max-width: 64rem;
+  padding: var(--tc-space-8);
+}
+
+.back {
+  display: inline-block;
+  margin-block-end: var(--tc-space-4);
+}
+
+h1 {
+  margin: 0;
+  font-size: var(--tc-font-size-2xl);
+}
+
+.wizard {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  gap: var(--tc-space-8);
+  margin-top: var(--tc-space-6);
+  align-items: start;
+}
+
+.steps {
+  display: grid;
+  gap: var(--tc-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--tc-font-size-sm);
+}
+
+.steps li > :is(button, span) {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+  width: 100%;
+  padding: var(--tc-space-2) var(--tc-space-3);
+  border: 0;
+  border-radius: var(--tc-radius-md);
+  background: none;
+  color: var(--tc-text-secondary);
+  font: inherit;
+  text-align: start;
+}
+
+.steps button {
+  cursor: pointer;
+}
+
+.steps button:hover {
+  background: var(--tc-fill-hover);
+}
+
+.steps li.on > span {
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-primary);
+  font-weight: var(--tc-font-weight-semibold);
+}
+
+.num {
+  min-width: 2.5rem;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+}
+
+.step {
+  display: grid;
+  gap: var(--tc-space-4);
+}
+
+.step h2,
+.done h2 {
+  margin: 0;
+  font-size: var(--tc-font-size-xl);
+}
+
+.step h2:focus,
+.done h2:focus {
+  outline: none;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--tc-accent-text);
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-semibold);
+}
+
+.step > label {
+  display: grid;
+  gap: var(--tc-space-1);
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-semibold);
+}
+
+.step :is(input[type='text'], textarea, select) {
+  min-height: 34px;
+  padding: var(--tc-space-1-5) var(--tc-space-2);
+  border: 1px solid var(--tc-border-control);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-control);
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-weight: normal;
+}
+
+.step .mono {
+  font-family: var(--tc-font-mono);
+  font-size: var(--tc-font-size-sm);
+}
+
+.step :is(input, textarea, select, button):focus-visible,
+.steps button:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+legend {
+  margin-bottom: var(--tc-space-2);
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-semibold);
+}
+
+.kinds,
+.tiers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--tc-space-3);
+}
+
+.kind-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--tc-space-1) var(--tc-space-2);
+  padding: var(--tc-space-3) var(--tc-space-4);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+  cursor: pointer;
+}
+
+.kind-card.on {
+  border-color: var(--tc-accent-text);
+  background: var(--tc-surface-raised);
+}
+
+.kind-card .small {
+  grid-column: 2;
+}
+
+.kind-name {
+  font-weight: var(--tc-font-weight-semibold);
+}
+
+.choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tc-space-2) var(--tc-space-4);
+  font-size: var(--tc-font-size-sm);
+}
+
+.choice legend {
+  width: 100%;
+}
+
+.picker {
+  display: grid;
+  gap: var(--tc-space-2);
+  max-height: 20rem;
+  padding: var(--tc-space-3);
+  overflow: auto;
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+  font-size: var(--tc-font-size-sm);
+}
+
+.toggles {
+  display: grid;
+  gap: var(--tc-space-4);
+}
+
+.review {
+  padding: var(--tc-space-4);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+}
+
+.nav {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--tc-space-2);
+}
+
+.done {
+  display: grid;
+  gap: var(--tc-space-3);
+  max-width: 40rem;
+  margin-top: var(--tc-space-8);
+}
+
+.done p {
+  margin: 0;
+}
+
+.done .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tc-space-4);
+}
+
+@media (max-width: 800px) {
+  .wizard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .steps {
+    grid-auto-flow: column;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .page {
+    padding-inline: var(--tc-space-4);
+  }
+}

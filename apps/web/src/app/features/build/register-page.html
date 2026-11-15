@@ -1,0 +1,304 @@
+<section class="page" aria-labelledby="register-h">
+  <a class="back" routerLink="/build/skills">Back to Build</a>
+  <h1 id="register-h">Register</h1>
+  <p class="meta">It goes to review when you submit; nothing is published until two other people approve it.</p>
+
+  @if (made(); as m) {
+    <div class="done" role="status">
+      <h2 #stepHeading tabindex="-1">Submitted for review</h2>
+      <p>
+        <strong>{{ m.name }}</strong> is waiting for review as a {{ pickedKind().label.toLowerCase() }} at the
+        <span class="dn-sens" [attr.data-level]="m.sensitivity">{{ m.sensitivity }}</span> tier. It's in your Mine with
+        its status, and reviewers are notified.
+      </p>
+      <div class="actions">
+        <a [routerLink]="madeLink()">Open it</a>
+        <a [routerLink]="mineLink()" [queryParams]="{ scope: 'mine' }">See your submissions</a>
+      </div>
+    </div>
+  } @else {
+    <div class="wizard">
+      <nav aria-label="Steps">
+        <ol class="steps">
+          @for (label of steps(); track $index) {
+            <li [attr.aria-current]="$index === step() ? 'step' : null" [class.on]="$index === step()">
+              @if ($index <= reached() && $index !== step()) {
+                <button type="button" (click)="goTo($index)">
+                  <span class="num">{{ $index < step() ? 'Done' : $index + 1 }}</span> {{ label }}
+                </button>
+              } @else {
+                <span
+                  ><span class="num">{{ $index + 1 }}</span> {{ label }}</span
+                >
+              }
+            </li>
+          }
+        </ol>
+      </nav>
+
+      <form class="step" (submit)="$event.preventDefault(); step() === 4 ? submit() : next()">
+        <p class="eyebrow">Step {{ step() + 1 }} of 5</p>
+        @switch (step()) {
+          @case (0) {
+            <h2 #stepHeading tabindex="-1">What are you registering?</h2>
+            <p class="small">Every kind shares identity, governance and review; the middle step depends on the kind.</p>
+            <fieldset class="kinds">
+              <legend class="sr-only">Kind</legend>
+              @for (k of kinds; track k.id) {
+                <label class="kind-card" [class.on]="picked() === k.id">
+                  <input
+                    type="radio"
+                    name="kind"
+                    [value]="k.id"
+                    [checked]="picked() === k.id"
+                    (change)="pickKind(k.id)"
+                  />
+                  <span class="kind-name">{{ k.label }}</span>
+                  <span class="small">{{ k.description }}</span>
+                </label>
+              }
+            </fieldset>
+            <p class="small">Workflows and prompts are made in their builders, which come later.</p>
+          }
+          @case (1) {
+            <h2 #stepHeading tabindex="-1">Give it a name</h2>
+            <label>
+              Name
+              <input type="text" name="name" required [(ngModel)]="f.name" (ngModelChange)="updateSlug()" />
+            </label>
+            <label>
+              Summary
+              <textarea name="summary" rows="3" required [(ngModel)]="f.summary"></textarea>
+              <span class="small">One or two sentences: it's what people see in search and in chat routing.</span>
+            </label>
+            <label>
+              Owner
+              <select name="team" [(ngModel)]="f.team" (ngModelChange)="updateSlug()">
+                <option value="">You</option>
+                @for (t of teams(); track t) {
+                  <option [value]="t">{{ t }}</option>
+                }
+              </select>
+            </label>
+            <p class="small">
+              Slug: <code>{{ slug() }}</code> (it can't change once it's published)
+            </p>
+          }
+          @case (2) {
+            <h2 #stepHeading tabindex="-1">{{ pickedKind().step }}</h2>
+            @switch (picked()) {
+              @case ('server') {
+                <fieldset class="choice">
+                  <legend>Transport</legend>
+                  @for (o of ['HTTP', 'STDIO', 'SSE']; track o) {
+                    <label><input type="radio" name="transport" [value]="o" [(ngModel)]="f.transport" /> {{ o }}</label>
+                  }
+                </fieldset>
+                <fieldset class="choice">
+                  <legend>Authentication</legend>
+                  @for (o of ['OAuth 2.1', 'API key', 'Service account', 'None']; track o) {
+                    <label><input type="radio" name="auth" [value]="o" [(ngModel)]="f.auth" /> {{ o }}</label>
+                  }
+                </fieldset>
+                <label>
+                  Endpoint
+                  <input
+                    type="text"
+                    name="endpoint"
+                    required
+                    [(ngModel)]="f.endpoint"
+                    placeholder="https://mcp.example.com/sse"
+                  />
+                  <span class="small">The gateway must be able to reach it.</span>
+                </label>
+                <label>
+                  Source repository <span class="small">(optional)</span>
+                  <input type="text" name="source" [(ngModel)]="f.source" placeholder="github.com/org/mcp-server" />
+                </label>
+              }
+              @case ('skill') {
+                <label>
+                  Trigger phrases
+                  <input
+                    type="text"
+                    name="triggers"
+                    [(ngModel)]="f.triggers"
+                    placeholder="rollout note, release note"
+                  />
+                  <span class="small">Comma-separated; auto-routing matches on these.</span>
+                </label>
+                <label>
+                  SKILL.md
+                  <textarea class="mono" name="skillMd" rows="10" required [(ngModel)]="f.skillMd"></textarea>
+                  <span class="small">Its "## " headings become the principles shown on its page.</span>
+                </label>
+              }
+              @case ('agent') {
+                <label>
+                  Model
+                  <select name="model" [(ngModel)]="f.model">
+                    @for (m of models(); track m.id) {
+                      <option [value]="m.name">{{ m.name }}</option>
+                    }
+                  </select>
+                </label>
+                <fieldset class="choice">
+                  <legend>Autonomy</legend>
+                  @for (o of ['Read-only', 'Approval on writes', 'Autonomous']; track o) {
+                    <label><input type="radio" name="autonomy" [value]="o" [(ngModel)]="f.autonomy" /> {{ o }}</label>
+                  }
+                </fieldset>
+                <fieldset class="picker">
+                  <legend>Servers and skills · {{ picks().size }} picked</legend>
+                  @for (i of servers().concat(skills()); track i.kind + i.id) {
+                    <label>
+                      <input type="checkbox" [checked]="isPicked(i)" (change)="togglePick(i)" />
+                      {{ i.name }}
+                      <span class="small">{{ i.kind === 'server' ? 'Server' : 'Skill' }} · {{ i.sensitivity }}</span>
+                    </label>
+                  }
+                </fieldset>
+              }
+              @case ('model') {
+                <fieldset class="choice">
+                  <legend>Task</legend>
+                  @for (o of ['Foundation', 'Classification', 'Forecasting', 'Documents', 'Vision']; track o) {
+                    <label><input type="radio" name="task" [value]="o" [(ngModel)]="f.task" /> {{ o }}</label>
+                  }
+                </fieldset>
+                <fieldset class="choice">
+                  <legend>Framework</legend>
+                  @for (o of ['PyTorch', 'Transformers', 'scikit-learn', 'ONNX']; track o) {
+                    <label><input type="radio" name="framework" [value]="o" [(ngModel)]="f.framework" /> {{ o }}</label>
+                  }
+                </fieldset>
+                <label>
+                  Base model or architecture
+                  <input type="text" name="base" [(ngModel)]="f.base" placeholder="XGBoost + GNN" />
+                </label>
+              }
+              @case ('dataset') {
+                <fieldset class="choice">
+                  <legend>Format</legend>
+                  @for (o of ['Parquet', 'JSONL', 'CSV', 'PDF + JSON']; track o) {
+                    <label><input type="radio" name="format" [value]="o" [(ngModel)]="f.format" /> {{ o }}</label>
+                  }
+                </fieldset>
+                <label>Rows <input type="text" name="rows" [(ngModel)]="f.rows" placeholder="48M" /></label>
+                <label>
+                  Splits
+                  <input
+                    type="text"
+                    name="splits"
+                    [(ngModel)]="f.splits"
+                    placeholder="train / val / test (time-based)"
+                  />
+                </label>
+              }
+              @case ('space') {
+                <label>
+                  Model
+                  <select name="spaceModel" required [(ngModel)]="f.spaceModel">
+                    <option value="" disabled>Pick a model</option>
+                    @for (m of models(); track m.id) {
+                      <option [value]="m.name">{{ m.name }}</option>
+                    }
+                  </select>
+                </label>
+                <label>
+                  What people give it
+                  <input
+                    type="text"
+                    name="inputLabel"
+                    required
+                    [(ngModel)]="f.inputLabel"
+                    placeholder="Customer message"
+                  />
+                </label>
+                <label>
+                  Example input <span class="small">(optional)</span>
+                  <input type="text" name="placeholder" [(ngModel)]="f.placeholder" />
+                </label>
+              }
+              @case ('collection') {
+                <fieldset class="picker">
+                  <legend>Members · {{ picks().size }} picked</legend>
+                  @for (i of memberOptions(); track i.kind + i.id) {
+                    <label>
+                      <input type="checkbox" [checked]="isPicked(i)" (change)="togglePick(i)" />
+                      {{ i.name }} <span class="small">{{ i.kind }} · {{ i.sensitivity }}</span>
+                    </label>
+                  }
+                </fieldset>
+                @if (picks().size) {
+                  <p class="small" role="status">
+                    Ceiling tier from members: <strong>{{ ceiling() }}</strong>. A collection is as sensitive as its
+                    most sensitive member.
+                  </p>
+                }
+              }
+            }
+          }
+          @case (3) {
+            <h2 #stepHeading tabindex="-1">Access and review</h2>
+            <p class="small">
+              Least privilege is the default. You can tighten any of this later; loosening it needs a reviewer.
+            </p>
+            <fieldset class="tiers">
+              <legend>Tier</legend>
+              @for (t of tiers; track t.id) {
+                <label class="kind-card" [class.on]="f.sensitivity === t.id">
+                  <input type="radio" name="tier" [value]="t.id" [(ngModel)]="f.sensitivity" />
+                  <span class="kind-name"
+                    ><span class="dn-sens" [attr.data-level]="t.id">{{ t.label }}</span></span
+                  >
+                  <span class="small">{{ t.description }}</span>
+                </label>
+              }
+            </fieldset>
+            @if (picked() === 'collection' && tierFor() !== f.sensitivity) {
+              <p class="small" role="status">Its members make it {{ tierFor() }}; it's submitted at that tier.</p>
+            }
+            <div class="toggles">
+              @for (a of accessOptions; track a.key) {
+                <tc-switch
+                  [label]="a.label"
+                  [description]="a.description"
+                  [value]="access[a.key]"
+                  (tc-value-change)="access[a.key] = $event.detail.value === true"
+                />
+              }
+            </div>
+          }
+          @case (4) {
+            <h2 #stepHeading tabindex="-1">Review and submit</h2>
+            <dl class="spec review">
+              @for (r of review(); track r.label) {
+                <dt>{{ r.label }}</dt>
+                <dd>{{ r.value }}</dd>
+              }
+            </dl>
+            @if (risk(); as r) {
+              <p class="note">{{ r }}</p>
+            }
+          }
+        }
+
+        @if (error()) {
+          <p class="error" role="alert">{{ error() }}</p>
+        }
+        <div class="nav">
+          @if (step() > 0) {
+            <tc-button variant="ghost" label="Back" (click)="goTo(step() - 1)" />
+          }
+          <tc-button
+            type="submit"
+            variant="primary"
+            [label]="step() === 4 ? 'Submit for review' : 'Continue'"
+            [loading]="submitting()"
+          />
+        </div>
+      </form>
+    </div>
+  }
+</section>

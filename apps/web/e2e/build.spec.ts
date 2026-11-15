@@ -229,3 +229,46 @@ test.describe('skill, prompt and workflow pages', () => {
     await expectNoAxeViolations(page);
   });
 });
+
+test.describe('registering', () => {
+  test.skip(({ colorScheme }) => colorScheme !== 'light', 'state-changing; runs once');
+
+  test('registering a server takes five steps, and it waits for review in Mine', async ({ page }) => {
+    await signIn(page, 'devon', '/build/servers');
+    await resetUser(page);
+    await page.getByRole('button', { name: 'Register' }).click();
+    await expect(page).toHaveURL(/\/build\/register\?kind=server$/);
+    await expect(page.getByRole('radio', { name: /^MCP server/ })).toBeChecked();
+    await expectNoAxeViolations(page);
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Give it a name' })).toBeFocused();
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.locator('.step').getByRole('alert')).toHaveText('Name it.');
+    const name = `Ticket reader ${Date.now()}`;
+    await page.getByRole('textbox', { name: 'Name' }).fill(name);
+    await page.getByRole('textbox', { name: /^Summary/ }).fill('Reads support tickets.');
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    await page.getByRole('textbox', { name: /^Endpoint/ }).fill('https://mcp.example.com/sse');
+    await page.getByRole('radio', { name: 'API key' }).check();
+    await expectNoAxeViolations(page);
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    await page.getByRole('radio', { name: /^Confidential/ }).check();
+    await expectNoAxeViolations(page);
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Review and submit' })).toBeVisible();
+    await expect(page.locator('.review')).toContainText('API key');
+    await expectNoAxeViolations(page);
+    await page.getByRole('button', { name: 'Submit for review' }).click();
+    await expect(page.getByRole('heading', { name: 'Submitted for review' })).toBeVisible();
+
+    await page.getByRole('link', { name: 'See your submissions' }).click();
+    await expect(page).toHaveURL(/\/build\/servers\?scope=mine$/);
+    const card = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name }) });
+    await expect(card).toContainText('Waiting for review');
+    await resetUser(page);
+  });
+});

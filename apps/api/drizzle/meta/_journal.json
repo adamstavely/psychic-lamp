@@ -134,6 +134,13 @@
       "when": 1794710182262,
       "tag": "0018_project_collections",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794711136613,
+      "tag": "0019_registry_access",
+      "breakpoints": true
     }
   ]
 }

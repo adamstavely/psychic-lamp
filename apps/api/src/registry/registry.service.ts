@@ -5,6 +5,7 @@ import {
   type AttachResult,
   type CollectionAttachment,
   type InstallClient,
+  type NewRegistryItem,
   type RegistryCounts,
   type RegistryInstall,
   type SpaceRunResult,
@@ -14,6 +15,7 @@ import {
 } from '@donovan/contracts';
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   Logger,
@@ -25,6 +27,7 @@ import { DB, type Db } from '../db/db.module.js';
 import { projectCollections, projects, registryInstalls, registryItems } from '../db/schema.js';
 import { cardFor, type CardInput } from './registry-card.js';
 import { REGISTRY_SEED } from './registry.fixture.js';
+import { detailsFor, slugify } from './registration.js';
 import { missingArgs, mockToolResult } from './registry-try.js';
 
 /** What can be installed in a client: servers (as MCP config) and skills (into a skill index). */
@@ -118,6 +121,86 @@ export class RegistryService implements OnApplicationBootstrap {
     const missing = missingArgs(tool, args);
     if (missing.length) throw new BadRequestException(`Fill in ${missing.join(', ')}`);
     return { status: '200 OK', durationMs: 400, result: mockToolResult(tool, args) };
+  }
+
+  /**
+   * Registers an item for review: it's saved as pending, owned by the person (for their team, if they named one), and
+   * shows in their Mine with its status. Nothing is published until two other people approve it (step 8). An agent's
+   * servers and skills and a collection's members must be in the registry; a collection is at least as sensitive as
+   * its most sensitive member.
+   */
+  async register(userId: string, ownerName: string, body: NewRegistryItem): Promise<RegistryItem> {
+    let sensitivity = body.sensitivity;
+    if (body.kind === 'agent') {
+      await this.requireNamed(userId, [
+        ...body.servers.map((name) => ({ kind: 'server' as const, name })),
+        ...body.skills.map((name) => ({ kind: 'skill' as const, name })),
+      ]);
+    }
+    if (body.kind === 'collection') {
+      const members = await this.requireNamed(userId, body.members);
+      const rank = (s: Sensitivity) => Sensitivity.options.indexOf(s);
+      for (const m of members) if (rank(m.sensitivity) > rank(sensitivity)) sensitivity = m.sensitivity;
+    }
+    const base = slugify(body.name);
+    const slug = `${slugify(body.team ?? ownerName)}/${base}`;
+    const [taken] = await this.db
+      .select({ id: registryItems.id })
+      .from(registryItems)
+      .where(and(eq(registryItems.kind, body.kind), eq(registryItems.slug, slug)));
+    if (taken) throw new ConflictException(`There's already a ${body.kind} called ${slug}`);
+    // Ids are unique per kind; a name someone else used gets a number.
+    const used = await this.db
+      .select({ id: registryItems.id })
+      .from(registryItems)
+      .where(and(eq(registryItems.kind, body.kind), sql`${registryItems.id} like ${`${base}%`}`));
+    const ids = new Set(used.map((u) => u.id));
+    let id = base;
+    for (let n = 2; ids.has(id); n++) id = `${base}-${n}`;
+
+    const [row] = await this.db
+      .insert(registryItems)
+      .values({
+        kind: body.kind,
+        id,
+        name: body.name,
+        slug,
+        version: 'v1',
+        sensitivity,
+        summary: body.summary,
+        ownerTeam: body.team,
+        ownerId: userId,
+        ownerName: body.team ?? ownerName,
+        status: 'pending',
+        access: body.access,
+        details: detailsFor(body),
+      })
+      .returning();
+    await this.indexQuietly([row!]);
+    return toItem(row!);
+  }
+
+  /** The named items, which must all be in the registry and visible to the person. */
+  private async requireNamed(
+    userId: string,
+    named: { kind: RegistryKind; name: string }[],
+  ): Promise<{ kind: RegistryKind; name: string; sensitivity: Sensitivity }[]> {
+    if (named.length === 0) return [];
+    const rows = await this.db
+      .select({ kind: registryItems.kind, name: registryItems.name, sensitivity: registryItems.sensitivity })
+      .from(registryItems)
+      .where(
+        and(
+          this.visibleTo(userId),
+          inArray(
+            registryItems.name,
+            named.map((n) => n.name),
+          ),
+        ),
+      );
+    const missing = named.filter((n) => !rows.some((r) => r.kind === n.kind && r.name === n.name));
+    if (missing.length) throw new BadRequestException(`Not in the registry: ${missing.map((m) => m.name).join(', ')}`);
+    return rows.filter((r) => named.some((n) => n.kind === r.kind && n.name === r.name));
   }
 
   /** Runs a space on what the person gave it: simulated, so its model's usual answer comes back. */
@@ -294,6 +377,7 @@ function toSummary(r: Row): RegistrySummary {
     summary: r.summary,
     owner: { team: r.ownerTeam, personId: r.ownerId, name: r.ownerName },
     status: r.status,
+    access: r.access ?? null,
     updatedAt: r.updatedAt.toISOString(),
     // A row's details belong to its kind (checked on the way in), which the table's types can't say.
     card: cardFor({
