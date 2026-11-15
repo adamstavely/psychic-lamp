@@ -30,7 +30,11 @@
   </div>
 
   <aside class="aside" aria-label="About this collection">
-    <tc-button variant="primary" label="Attach to a project" (click)="openAttach()" />
+    @if (c.status === 'published') {
+      <tc-button variant="primary" label="Attach to a project" (click)="openAttach()" />
+    } @else {
+      <p class="small">You can attach it to a project once it's published.</p>
+    }
     <section class="card">
       <h2>Ceiling tier</h2>
       <p>

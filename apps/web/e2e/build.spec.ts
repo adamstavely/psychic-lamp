@@ -242,7 +242,8 @@ test.describe('registering', () => {
   test.skip(({ colorScheme }) => colorScheme !== 'light', 'state-changing; runs once');
 
   test('a new workflow is built on the canvas, checked, and sent to review', async ({ page }) => {
-    await signIn(page, 'devon', '/build/workflows');
+    // Not devon: the server test resets devon in parallel, which would take this draft with it.
+    await signIn(page, 'priya', '/build/workflows');
     await resetUser(page);
     await page.getByRole('button', { name: 'New workflow' }).click();
     await expect(page).toHaveURL(/\/build\/workflows\/[a-z0-9-]+\?mode=edit$/);
@@ -276,8 +277,11 @@ test.describe('registering', () => {
   test('registering a server takes five steps, and it waits for review in Mine', async ({ page }) => {
     await signIn(page, 'devon', '/build/servers');
     await resetUser(page);
+    const rail = page.getByRole('navigation', { name: 'Build' }).getByRole('link', { name: /^MCP Servers/ });
+    await expect(rail).toHaveText(/\d+\s*$/);
+    const before = Number(/(\d+)\s*$/.exec(await rail.innerText())![1]);
     await page.getByRole('button', { name: 'Register' }).click();
-    await expect(page).toHaveURL(/\/build\/register\?kind=server$/);
+    await expect(page).toHaveURL(/\/build\/register\?kind=server&from=servers$/);
     await expect(page.getByRole('radio', { name: /^MCP server/ })).toBeChecked();
     await expectNoAxeViolations(page);
     await page.getByRole('button', { name: 'Continue' }).click();
@@ -295,6 +299,16 @@ test.describe('registering', () => {
     await expectNoAxeViolations(page);
     await page.getByRole('button', { name: 'Continue' }).click();
 
+    // The step list can't skip a step that's since lost what it needs.
+    const steps = page.getByRole('navigation', { name: 'Steps' });
+    await steps.getByRole('button', { name: /Identity/ }).click();
+    await page.getByRole('textbox', { name: 'Name' }).fill('');
+    await steps.getByRole('button', { name: /Governance/ }).click();
+    await expect(page.locator('.step').getByRole('alert')).toHaveText('Name it.');
+    await expect(page.getByRole('heading', { name: 'Give it a name' })).toBeVisible();
+    await page.getByRole('textbox', { name: 'Name' }).fill(name);
+    await steps.getByRole('button', { name: /Governance/ }).click();
+
     await page.getByRole('radio', { name: /^Confidential/ }).check();
     await expectNoAxeViolations(page);
     await page.getByRole('button', { name: 'Continue' }).click();
@@ -304,6 +318,7 @@ test.describe('registering', () => {
     await expectNoAxeViolations(page);
     await page.getByRole('button', { name: 'Submit for review' }).click();
     await expect(page.getByRole('heading', { name: 'Submitted for review' })).toBeVisible();
+    await expect(rail).toHaveText(new RegExp(`${before + 1}\\s*$`));
 
     await page.getByRole('link', { name: 'See your submissions' }).click();
     await expect(page).toHaveURL(/\/build\/servers\?scope=mine$/);

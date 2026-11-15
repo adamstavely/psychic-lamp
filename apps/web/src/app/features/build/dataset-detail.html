@@ -64,7 +64,11 @@
   </div>
 
   <aside class="aside" aria-label="About this dataset">
-    <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
+    @if (d.status === 'published') {
+      <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
+    } @else {
+      <p class="small">You can use it in chat once it's published.</p>
+    }
     <section class="card">
       <h2>Details</h2>
       <dl class="spec">

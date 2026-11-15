@@ -41,7 +41,11 @@
   </div>
 
   <aside class="aside" aria-label="About this agent">
-    <tc-button variant="primary" label="Run in chat" (click)="runInChat()" />
+    @if (a.status === 'published') {
+      <tc-button variant="primary" label="Run in chat" (click)="runInChat()" />
+    } @else {
+      <p class="small">You can run it in chat once it's published.</p>
+    }
     <p class="note">
       Runs under the <strong>{{ a.sensitivity }}</strong> tier. Its writes wait for approval in the chat where it runs.
     </p>

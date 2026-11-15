@@ -4,6 +4,9 @@
   >
   <h1 id="register-h" class="dn-page-title">Register</h1>
   <p class="dn-blurb">It goes to review when you submit; nothing is published until two other people approve it.</p>
+  @if (builtElsewhere(); as note) {
+    <p class="dn-blurb">{{ note }}, not registered here. Anything else can be.</p>
+  }
 
   @if (made(); as m) {
     <div class="done" role="status">
@@ -25,7 +28,7 @@
           @for (label of steps(); track $index) {
             <li [attr.aria-current]="$index === step() ? 'step' : null" [class.on]="$index === step()">
               @if ($index <= reached() && $index !== step()) {
-                <button type="button" (click)="goTo($index)">
+                <button type="button" (click)="jump($index)">
                   <span class="num">{{ $index < step() ? 'Done' : $index + 1 }}</span> {{ label }}
                 </button>
               } @else {

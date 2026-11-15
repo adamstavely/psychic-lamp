@@ -105,6 +105,8 @@ test.describe('Governance', () => {
       await reviewer.context().close();
 
       await page.goto(`/build/models/${id}`);
+      await expect(page.getByText("You can use it in chat once it's published.")).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Use in chat' })).toHaveCount(0);
       const review = page.getByRole('region', { name: 'Changes requested' });
       await expect(review).toContainText('asked for changes');
       await expect(review).toContainText('Add its evals first.');

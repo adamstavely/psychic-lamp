@@ -26,6 +26,7 @@ import type {
 } from '@donovan/contracts';
 import { firstValueFrom } from 'rxjs';
 import { buildAreaFor } from '../../shell/areas';
+import { RegistryCountsStore } from '../../core/registry-counts-store';
 
 type Tab = 'queue' | 'policies' | 'tiers';
 
@@ -57,6 +58,7 @@ export class GovernancePage {
   /** From the URL (?tab=), so a tab can be linked to. */
   readonly tab = input<string>();
   readonly #http = inject(HttpClient);
+  readonly #counts = inject(RegistryCountsStore);
   readonly #router = inject(Router);
 
   protected readonly current = computed<Tab>(() => {
@@ -133,6 +135,7 @@ export class GovernancePage {
     } finally {
       this.deciding.set(null);
       this.queue.reload();
+      this.#counts.changed();
     }
   }
 

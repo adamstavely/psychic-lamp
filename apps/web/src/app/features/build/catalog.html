@@ -73,7 +73,7 @@
               </td>
             }
             <td class="actions">
-              @if (primaryLabel(item) !== 'Open') {
+              @if (primaryLabel(item) !== 'Open' && item.status === 'published') {
                 <tc-button size="sm" variant="primary" [label]="primaryLabel(item)" (click)="primary(item)" />
               }
             </td>
@@ -100,7 +100,7 @@
             }
           </p>
           <div class="actions">
-            @if (primaryLabel(item) !== 'Open') {
+            @if (primaryLabel(item) !== 'Open' && item.status === 'published') {
               <tc-button size="sm" variant="primary" [label]="primaryLabel(item)" (click)="primary(item)" />
             }
             <a class="open" [routerLink]="link(item)" [attr.aria-label]="'Open ' + item.name">Open</a>

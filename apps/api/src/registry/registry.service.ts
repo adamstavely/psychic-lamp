@@ -187,6 +187,8 @@ export class RegistryService implements OnApplicationBootstrap {
   async register(userId: string, ownerName: string, body: NewRegistryItem): Promise<RegistryItem> {
     let sensitivity = body.sensitivity;
     if (body.kind === 'agent') {
+      if (!body.servers.length && !body.skills.length)
+        throw new BadRequestException('An agent needs at least one server or skill.');
       await this.requireNamed(userId, [
         ...body.servers.map((name) => ({ kind: 'server' as const, name })),
         ...body.skills.map((name) => ({ kind: 'skill' as const, name })),
@@ -238,14 +240,18 @@ export class RegistryService implements OnApplicationBootstrap {
   }
 
   /** Starts a workflow: a draft of the person's own, with no steps yet, to build on the canvas and then send to review. */
-  async createWorkflow(userId: string, ownerName: string, name: string): Promise<RegistryItem> {
-    const base = slugify(name);
-    const slug = `${slugify(ownerName)}/${base}`;
+  async createWorkflow(userId: string, ownerName: string, requested: string): Promise<RegistryItem> {
+    // A second "Untitled workflow" of the person's own is "Untitled workflow 2", not a conflict.
+    const owner = slugify(ownerName);
     const used = await this.db
       .select({ id: registryItems.id, slug: registryItems.slug })
       .from(registryItems)
-      .where(and(eq(registryItems.kind, 'workflow'), sql`${registryItems.id} like ${`${base}%`}`));
-    if (used.some((u) => u.slug === slug)) throw new ConflictException(`There's already a workflow called ${slug}`);
+      .where(and(eq(registryItems.kind, 'workflow'), sql`${registryItems.id} like ${`${slugify(requested)}%`}`));
+    const slugs = new Set(used.map((u) => u.slug));
+    let name = requested;
+    for (let n = 2; slugs.has(`${owner}/${slugify(name)}`); n++) name = `${requested} ${n}`;
+    const base = slugify(name);
+    const slug = `${owner}/${base}`;
     const ids = new Set(used.map((u) => u.id));
     let id = base;
     for (let n = 2; ids.has(id); n++) id = `${base}-${n}`;
