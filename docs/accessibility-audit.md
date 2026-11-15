@@ -88,8 +88,8 @@ What Build adds, and how it meets the criteria:
 
 | Issue                                                                                               | Criterion     | Fix                                                                                    |
 | --------------------------------------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------- |
-| A closed `tc-select` list stayed in the layout and widened pages at 320px                           | 1.4.10        | Not laid out while closed (global CSS; a Trench Coat fix to follow)                    |
-| `tc-select` can't open upward, so the reply box's pickers opened off the bottom of the window       | 1.4.10, 2.1.1 | The reply box's pickers open upward (global CSS; a Trench Coat fix to follow)          |
+| A closed `tc-select` list stayed in the layout and widened pages at 320px                           | 1.4.10        | Fixed in Trench Coat 0.29.1: the closed list isn't laid out                            |
+| `tc-select` can't open upward, so the reply box's pickers opened off the bottom of the window       | 1.4.10, 2.1.1 | Fixed in Trench Coat 0.29.1: the list opens upward when there's no room below          |
 | The Try dialog opened before its form rendered, so focus landed nowhere                             | 2.4.3         | It opens after the next render and focuses the first field                             |
 | The token meter's accessible name didn't contain its visible text                                   | 2.5.3         | The visible "640 / 200k tokens" is the name, with "Context window:" for screen readers |
 | The taller reply box covered focused controls at the bottom of a chat                               | 2.4.11        | More bottom scroll padding                                                             |
@@ -98,8 +98,6 @@ What Build adds, and how it meets the criteria:
 
 ### Open for Build
 
-- **Trench Coat `tc-select`**: the two workarounds above should move into Trench Coat (closed list out of the layout,
-  and opening upward when there's no room below).
 - **Bookmarks on the question rail**: bookmarks are Donovan's own toggles; `tc-chat-minimap` has no bookmark of its own.
 
 ## Fixed in Trench Coat
@@ -116,12 +114,17 @@ What Build adds, and how it meets the criteria:
 - The bell's unread badge was below 4.5:1 (1.4.3).
 - Angular 22 is in its supported range, so Donovan no longer overrides Trench Coat's Angular peer.
 
+0.29.1 ([legendary-chainsaw#145](https://github.com/adamstavely/legendary-chainsaw/pull/145)):
+
+- A closed Select's list stayed in the layout and widened narrow pages (1.4.10); it couldn't open upward, so a select
+  at the bottom of the window opened off-screen.
+
 0.28.3 ([legendary-chainsaw#141](https://github.com/adamstavely/legendary-chainsaw/pull/141)):
 
 - An icon-only button's native button was 0×0 (clicks reached it through the chip), so voice control and screen
   magnifiers might not find a target. It now fills the chip.
 
-Donovan vendors 0.28.3, so the workarounds are gone. `apps/web/e2e/trenchcoat-known.ts` lists any Trench Coat issue
+Donovan vendors 0.29.1, so the workarounds are gone. `apps/web/e2e/trenchcoat-known.ts` lists any Trench Coat issue
 still worked around, with the release that fixes it, and a test fails once that release is installed.
 
 ## Open
