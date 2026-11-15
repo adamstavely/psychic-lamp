@@ -133,16 +133,17 @@ test.describe('server and agent pages', () => {
 });
 
 test.describe('model, dataset, space and collection pages', () => {
-  test("a model's card, how to call it, and its evals", async ({ page }) => {
+  test("a model's figures, evals, code and files on one page, with no tabs", async ({ page }) => {
     await signIn(page, 'alex', '/build/models/sonnet');
     await matchTheme(page);
     await expect(page.getByRole('heading', { name: 'claude-sonnet-4.5', level: 1 })).toBeVisible();
-    await expect(page.getByRole('tabpanel', { name: 'Card' })).toContainText('SWE-bench');
-    await expectNoAxeViolations(page);
-    await page.getByRole('tab', { name: 'Use' }).click();
-    await expect(page.getByRole('tabpanel', { name: 'Use' })).toContainText('anthropic/claude-sonnet-4-5');
-    await page.getByRole('tab', { name: /^Evals/ }).click();
+    await expect(page.getByRole('tab')).toHaveCount(0);
+    await expect(page.getByRole('main')).toContainText('SWE-bench');
     await expect(page.getByRole('table', { name: 'Evals of claude-sonnet-4.5' })).toContainText('SWE-bench Verified');
+    await expect(page.getByRole('region', { name: 'Call it from code' })).toContainText('anthropic/claude-sonnet-4-5');
+    await expect(
+      page.getByRole('complementary', { name: 'About this model' }).getByRole('region', { name: /^Files · / }),
+    ).toBeVisible();
     await expectNoAxeViolations(page);
   });
 
@@ -218,13 +219,12 @@ test.describe('model, dataset, space and collection pages', () => {
 });
 
 test.describe('skill, prompt and workflow pages', () => {
-  test("a skill's SKILL.md and its tests", async ({ page }) => {
+  test("a skill's tests and its SKILL.md on one page, with no tabs", async ({ page }) => {
     await signIn(page, 'alex', '/build/skills/rollout');
     await matchTheme(page);
     await expect(page.getByRole('heading', { name: 'Rollout note', level: 1 })).toBeVisible();
-    await expect(page.getByRole('tabpanel', { name: 'SKILL.md' })).toContainText('## Lead with the decision');
-    await expectNoAxeViolations(page);
-    await page.getByRole('tab', { name: /^Tests/ }).click();
+    await expect(page.getByRole('tab')).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Instructions' })).toContainText('## Lead with the decision');
     const tests = page.getByRole('table', { name: 'Tests of Rollout note' });
     await expect(tests.getByRole('row', { name: /Empty findings/ })).toContainText('Fail');
     await expectNoAxeViolations(page);
