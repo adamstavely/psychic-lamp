@@ -21,7 +21,7 @@ const TREND: Record<Model['details']['evals'][number]['trend'], string> = {
   selector: 'dn-model-detail',
   imports: [Button, CodeBlock, SegmentedControl],
   templateUrl: './model-detail.html',
-  styleUrls: ['./detail.css', './model-detail.css'],
+  styleUrl: './detail.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ModelDetail {

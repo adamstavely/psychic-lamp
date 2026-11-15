@@ -1,0 +1,64 @@
+@let w = item();
+<div class="layout">
+  <div>
+    <header class="head">
+      <h1>{{ w.name }}</h1>
+      <span class="tags">
+        <span class="tag">Workflow</span>
+        <span class="tag" [attr.data-tone]="w.details.state === 'Active' ? 'ok' : null">{{ w.details.state }}</span>
+      </span>
+      <p class="meta">{{ w.slug }} · {{ w.version }} · {{ w.owner.name }} · {{ w.details.schedule }}</p>
+      <p class="summary">{{ w.summary }}</p>
+    </header>
+
+    <h2 class="section">The flow</h2>
+    <div class="canvas" role="group" aria-label="The flow, as a graph" tabindex="0">
+      <svg [attr.viewBox]="box().view" [attr.width]="box().w" [attr.height]="box().h" aria-hidden="true">
+        @for (e of edges(); track e.key) {
+          <path class="edge" [attr.d]="e.d" />
+        }
+        @for (n of w.details.nodes; track n.id) {
+          <g [attr.transform]="'translate(' + n.x + ',' + n.y + ')'" [attr.data-kind]="n.kind" class="node">
+            <rect [attr.width]="node.w" [attr.height]="node.h" rx="8" />
+            <text x="14" y="24" class="node-kind">{{ n.kind }}</text>
+            <text x="14" y="48" class="node-label">{{ n.label }}</text>
+            <text x="14" y="70" class="node-sub">{{ n.sub }}</text>
+          </g>
+        }
+      </svg>
+    </div>
+
+    <h2 class="section">Steps</h2>
+    <ol class="steps">
+      @for (s of steps(); track s.id) {
+        <li>
+          <span class="kind">{{ s.kind }}</span>
+          <span>
+            <strong>{{ s.label }}</strong> · {{ s.sub }}
+            @if (s.next.length) {
+              <span class="small"> Then: {{ s.next.join(', ') }}.</span>
+            }
+          </span>
+        </li>
+      }
+    </ol>
+  </div>
+
+  <aside class="aside" aria-label="About this workflow">
+    <tc-button variant="primary" label="Use in chat" (click)="useInChat()" />
+    <p class="small">Running and editing workflows comes with the workflow canvas.</p>
+    <h2>Specification</h2>
+    <dl class="spec">
+      <dt>State</dt>
+      <dd>{{ w.details.state }}</dd>
+      <dt>Last run</dt>
+      <dd>{{ w.details.schedule }}</dd>
+      <dt>Steps</dt>
+      <dd>{{ w.details.nodes.length }}</dd>
+      <dt>Tier</dt>
+      <dd>
+        <span class="dn-sens" [attr.data-level]="w.sensitivity">{{ w.sensitivity }}</span>
+      </dd>
+    </dl>
+  </aside>
+</div>

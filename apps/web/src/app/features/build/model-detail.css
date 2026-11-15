@@ -1,7 +1,0 @@
-td[data-trend='up'] {
-  color: var(--tc-status-success-fg);
-}
-
-td[data-trend='down'] {
-  color: var(--tc-status-danger-fg);
-}
