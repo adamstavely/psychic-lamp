@@ -30,13 +30,18 @@ test.describe('the Build catalog', () => {
 
     await page.getByRole('radio', { name: 'Mine' }).click();
     await expect(page).toHaveURL(/scope=mine/);
-    await expect(page.getByText('Nothing in mine yet.')).toBeVisible();
+    await expect(page.getByText("You haven't registered any MCP servers yet.")).toBeVisible();
+    await expect(page.getByRole('link', { name: 'See all MCP servers' })).toBeVisible();
     await expectNoAxeViolations(page);
 
     // The address keeps the view: reloading shows the same.
     await page.reload();
     await expect(page.getByRole('radio', { name: 'Mine' })).toBeChecked();
     await expect(page.getByRole('radio', { name: 'List view' })).toBeChecked();
+
+    // An empty Mine leads on to registering one of that kind.
+    await page.getByRole('link', { name: 'Register one' }).click();
+    await expect(page).toHaveURL(/\/build\/register\?kind=server&from=servers$/);
   });
 
   test('filters models by task, and uses one in a new chat', async ({ page }) => {

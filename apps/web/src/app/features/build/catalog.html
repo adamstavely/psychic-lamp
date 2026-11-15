@@ -37,7 +37,25 @@
 @if (items.hasValue()) {
   <p class="sr-only" role="status">{{ shown().length }} {{ shown().length === 1 ? 'item' : 'items' }}</p>
   @if (shown().length === 0) {
-    <p class="empty">Nothing in {{ scopeLabel().toLowerCase() }} yet. Switch to All, or register one.</p>
+    <div class="empty">
+      <p>{{ emptyText() }}</p>
+      <p class="next">
+        @if (scope() !== 'all') {
+          <a [routerLink]="[]" [queryParams]="{ scope: null }" queryParamsHandling="merge">See all {{ noun() }}</a>
+        }
+        @switch (area().kind) {
+          @case ('workflow') {
+            <span>Start one with New workflow.</span>
+          }
+          @case ('prompt') {
+            <span>Prompts will be written in Prompt Studio.</span>
+          }
+          @default {
+            <a routerLink="/build/register" [queryParams]="{ kind: area().kind, from: area().id }">Register one</a>
+          }
+        }
+      </p>
+    </div>
   } @else if (view() === 'list') {
     <table class="list">
       <caption class="sr-only">

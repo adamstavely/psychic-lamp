@@ -77,6 +77,25 @@ export class Catalog {
     { value: 'list', icon: icon('list', 14), ariaLabel: 'List view' },
   ];
   protected readonly scopeLabel = computed(() => SCOPE_LABEL[this.scope()]);
+  /** The area's items mid-sentence: "skills", "MCP servers". */
+  protected readonly noun = computed(() =>
+    this.area()
+      .label.split(' ')
+      .map((w) => (/^[A-Z]+$/.test(w) ? w : w.toLowerCase()))
+      .join(' '),
+  );
+  /** What an empty catalog says, for the scope it's showing. */
+  protected readonly emptyText = computed(() => {
+    const made = this.area().kind === 'workflow' || this.area().kind === 'prompt' ? 'made' : 'registered';
+    switch (this.scope()) {
+      case 'mine':
+        return `You haven't ${made} any ${this.noun()} yet.`;
+      case 'team':
+        return `No team has any ${this.noun()} yet.`;
+      default:
+        return `There are no ${this.noun()} yet.`;
+    }
+  });
 
   protected primaryLabel(item: RegistrySummary): string {
     return PRIMARY[item.kind];

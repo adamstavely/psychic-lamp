@@ -47,17 +47,23 @@
     </section>
     <section class="card">
       <h2>Attached to</h2>
-      @if (attached.hasValue() && attached.value().length) {
-        <ul class="attached">
-          @for (a of attached.value(); track a.projectId) {
-            <li>
-              <a [routerLink]="['/projects', a.projectId]">{{ a.project }}</a>
-              <tc-button size="sm" variant="ghost" [label]="'Take off ' + a.project" (click)="detach(a)" />
-            </li>
-          }
-        </ul>
+      @if (attached.hasValue()) {
+        @if (attached.value().length) {
+          <ul class="attached">
+            @for (a of attached.value(); track a.projectId) {
+              <li>
+                <a [routerLink]="['/projects', a.projectId]">{{ a.project }}</a>
+                <tc-button size="sm" variant="ghost" [label]="'Take off ' + a.project" (click)="detach(a)" />
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="small">None of your projects yet.</p>
+        }
+      } @else if (attached.error()) {
+        <p class="small" role="alert">Where it's attached didn't load. Try again in a moment.</p>
       } @else {
-        <p class="small">None of your projects yet.</p>
+        <p class="small" role="status">Loading…</p>
       }
     </section>
   </aside>
