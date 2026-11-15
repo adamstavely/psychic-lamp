@@ -11,7 +11,7 @@ import { Notifications } from '@adamstavely/trenchcoat/angular/notifications';
 import { SegmentedControl } from '@adamstavely/trenchcoat/angular/segmented-control';
 import { SideNav } from '@adamstavely/trenchcoat/angular/side-nav';
 import { Toaster } from '@adamstavely/trenchcoat/angular/toaster';
-import type { ChatConversation } from '@adamstavely/trenchcoat/chat-history';
+import type { ChatConversation, ChatFolder } from '@adamstavely/trenchcoat/chat-history';
 import type { CommandMenuGroup, CommandMenuRun } from '@adamstavely/trenchcoat/command-menu';
 import type { HeaderNavAccountSelect } from '@adamstavely/trenchcoat/header-nav';
 import type { NotificationCategory, NotificationItem } from '@adamstavely/trenchcoat/notifications';
@@ -23,6 +23,7 @@ import type { RegistryCounts, RegistrySummary, SearchResults } from '@donovan/co
 import { catchError, debounceTime, filter, forkJoin, map, of, Subject, switchMap } from 'rxjs';
 import { IconDirective } from '../core/icon.directive';
 import { ChatsStore } from '../core/chats-store';
+import { ProjectsStore } from '../core/projects-store';
 import { NotificationsStore } from '../core/notifications-store';
 import { brandMark, icon } from '../core/icons';
 import { Session } from '../core/session';
@@ -60,6 +61,7 @@ export class Shell {
   protected readonly session = inject(Session);
   protected readonly theme = inject(ThemeService);
   protected readonly chats = inject(ChatsStore);
+  readonly #projects = inject(ProjectsStore);
   protected readonly notifications = inject(NotificationsStore);
 
   protected readonly notificationCategories: NotificationCategory[] = [
@@ -175,7 +177,17 @@ export class Shell {
   );
 
   protected readonly conversations = computed<ChatConversation[]>(() =>
-    this.chats.chats().map((c) => ({ id: c.id, title: c.title, updatedAt: c.updatedAt, pinned: c.pinned })),
+    this.chats.chats().map((c) => ({
+      id: c.id,
+      title: c.title,
+      updatedAt: c.updatedAt,
+      pinned: c.pinned,
+      folder: c.projectId,
+    })),
+  );
+  /** The person's projects, as the list's folders: chats filed under one are grouped there, and can be moved. */
+  protected readonly folders = computed<ChatFolder[]>(() =>
+    this.#projects.mine().map((p) => ({ id: p.id, label: p.name })),
   );
 
   protected openChat(event: CustomEvent<{ value: string | null }>): void {
@@ -201,6 +213,11 @@ export class Shell {
     const id = String(event.detail.id);
     void this.chats.archive(id);
     if (this.currentChat() === id) void this.#router.navigateByUrl('/chats');
+  }
+
+  protected onMove(event: CustomEvent<{ id: unknown; folder: unknown }>): void {
+    const folder = event.detail.folder;
+    void this.chats.update(String(event.detail.id), { projectId: typeof folder === 'string' ? folder : null });
   }
 
   protected onRestore(event: CustomEvent<{ id: unknown }>): void {

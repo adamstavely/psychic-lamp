@@ -73,11 +73,13 @@
           <tc-chat-history
             heading="Chats"
             [conversations]="conversations()"
+            [folders]="folders()"
             [value]="currentChat()"
             (tc-value-change)="openChat($event)"
             (tc-conversations-change)="keepConversations($event)"
             (tc-pin)="onPin($event)"
             (tc-rename)="onRename($event)"
+            (tc-move)="onMove($event)"
             (tc-delete)="onDelete($event)"
             (tc-restore)="onRestore($event)"
             (tc-new-chat)="newChat()"

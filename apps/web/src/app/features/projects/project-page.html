@@ -395,6 +395,11 @@
                 }
               </ul>
 
+              @if (p.access === 'owner') {
+                <a class="pill new-chat" [routerLink]="['/chats/new']" [queryParams]="{ project: p.id }"
+                  ><span dnIcon="plus" [iconSize]="14"></span>New chat in this project</a
+                >
+              }
               @if (p.chats.length) {
                 <div>
                   <h3 class="label">Earlier chats in this project</h3>

@@ -4,14 +4,17 @@ import { Router } from '@angular/router';
 import { ChatComposer } from '@adamstavely/trenchcoat/angular/chat-composer';
 import { PromptStarters } from '@adamstavely/trenchcoat/angular/prompt-starters';
 import { SensitivityLabelPicker } from '@adamstavely/trenchcoat/angular/sensitivity-label-picker';
+import { Select } from '@adamstavely/trenchcoat/angular/select';
 import { Switch } from '@adamstavely/trenchcoat/angular/switch';
 import type { ChatSendDetails } from '@adamstavely/trenchcoat/chat-composer';
 import type { PromptStarter } from '@adamstavely/trenchcoat/prompt-starters';
+import type { SelectOption } from '@adamstavely/trenchcoat/select';
 import type { SensitivityLabel } from '@adamstavely/trenchcoat/sensitivity-label-picker';
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import type { ChatSummary, ModelChoice, Sensitivity } from '@donovan/contracts';
 import { firstValueFrom } from 'rxjs';
 import { ChatsStore } from '../../core/chats-store';
+import { ProjectsStore } from '../../core/projects-store';
 import { dictate } from '../../core/dictation';
 import { Session } from '../../core/session';
 import { COMPOSER_MODELS, PENDING_SEND, type PendingSend } from './composer';
@@ -54,7 +57,7 @@ const STARTERS: PromptStarter[] = [
 /** Where a new chat starts: the composer, with routing on Auto, and a few ways in. */
 @Component({
   selector: 'dn-chats-home-page',
-  imports: [ChatComposer, PromptStarters, SensitivityLabelPicker, Switch],
+  imports: [ChatComposer, PromptStarters, Select, SensitivityLabelPicker, Switch],
   templateUrl: './chats-home-page.html',
   styleUrl: './chats-home-page.css',
   providers: [ComposerFiles],
@@ -63,6 +66,8 @@ const STARTERS: PromptStarter[] = [
 export default class ChatsHomePage {
   /** A question handed over in the URL (from the Daily Brief's ask box, or Build's Use in chat), to start with. */
   readonly q = input<string>();
+  /** A project to start in (from a project's New chat), by id; ignored unless it's one of the person's. */
+  readonly project = input<string>();
   /** A model to start with, from Build's Use in chat; ignored unless the composer offers it. */
   readonly model = input<string>();
   protected readonly startModel = computed(() => {
@@ -81,8 +86,31 @@ export default class ChatsHomePage {
   protected readonly starters = STARTERS;
   protected readonly sensitivities = SENSITIVITIES;
   protected readonly sensitivity = signal<Sensitivity>('Internal');
+  readonly #projects = inject(ProjectsStore);
+  /** The project picked here, or else the one the URL named. */
+  readonly #picked = signal<string | null>(null);
+  protected readonly projectId = computed(() => {
+    const id = this.#picked() ?? this.project() ?? '';
+    return this.#projects.mine().some((p) => p.id === id) ? id : '';
+  });
+  protected readonly projectOptions = computed<SelectOption[]>(() => [
+    { value: '', label: 'No project' },
+    ...this.#projects.mine().map((p) => ({
+      value: p.id,
+      label: p.name,
+      ...(p.calibrated ? { description: 'Calibrated' } : {}),
+    })),
+  ]);
+  /** A Calibrated project's chats are Calibrated; otherwise the person chooses. */
+  protected readonly projectCalibrated = computed(
+    () => this.#projects.mine().find((p) => p.id === this.projectId())?.calibrated ?? false,
+  );
   /** Start the chat Calibrated: its answers label each claim. */
   protected readonly calibrated = signal(false);
+
+  protected onProject(event: CustomEvent<{ value: unknown }>): void {
+    this.#picked.set(String(event.detail.value));
+  }
   protected readonly date = new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
     month: 'long',
@@ -118,7 +146,8 @@ export default class ChatsHomePage {
         this.#http.post<ChatSummary>('/api/chats', {
           text,
           sensitivity: this.sensitivity(),
-          calibrated: this.calibrated(),
+          calibrated: this.calibrated() || this.projectCalibrated(),
+          ...(this.projectId() ? { projectId: this.projectId() } : {}),
         }),
       );
       this.#chats.list.reload();

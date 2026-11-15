@@ -21,7 +21,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module.js';
-import { type AnswerBody, artifacts, chats, checkpoints, claimReviews, messages } from '../db/schema.js';
+import { type AnswerBody, artifacts, chats, checkpoints, claimReviews, messages, projects } from '../db/schema.js';
 import { SeedService } from '../seed/seed.service.js';
 import { ChatSearch, chatText } from '../search/chat-search.js';
 import { calibrateReply } from './claims.js';
@@ -179,11 +179,18 @@ export class ChatsService {
 
   async update(userId: string, id: string, patch: ChatPatch): Promise<ChatSummary> {
     await this.seeds.ensureChats(userId);
+    const filed =
+      patch.projectId === undefined
+        ? {}
+        : patch.projectId === null
+          ? { projectId: null, project: null }
+          : await this.project(userId, patch.projectId).then((p) => ({ projectId: p.id, project: p.name }));
     const [row] = await this.db
       .update(chats)
-      // Renaming or pinning isn't activity, so updatedAt (and the chat's place in the list) stays.
+      // Renaming, pinning or filing isn't activity, so updatedAt (and the chat's place in the list) stays.
       .set({
         ...patch,
+        ...filed,
         updatedAt: sql`${chats.updatedAt}`,
         ...(patch.title ? { searchVersion: sql`${chats.searchVersion} + 1` } : {}),
       })
@@ -194,9 +201,10 @@ export class ChatsService {
     return toSummary(row);
   }
 
-  /** Starts a chat titled from its first message; the message itself is sent with `send`. */
+  /** Starts a chat titled from its first message, in a project if asked; the message itself is sent with `send`. */
   async create(userId: string, body: NewChat): Promise<ChatSummary> {
     await this.seeds.ensureChats(userId);
+    const project = body.projectId ? await this.project(userId, body.projectId) : null;
     const [row] = await this.db
       .insert(chats)
       .values({
@@ -204,7 +212,9 @@ export class ChatsService {
         id: newChatId(),
         title: titleFrom(body.text),
         sensitivity: body.sensitivity,
-        calibrated: body.calibrated,
+        calibrated: body.calibrated || !!project?.calibrated,
+        projectId: project?.id ?? null,
+        project: project?.name ?? null,
       })
       .returning();
     await this.reindex(userId, row!.id);
@@ -263,6 +273,16 @@ export class ChatsService {
     });
     await this.reindex(userId, chatId);
     return sent;
+  }
+
+  /** One of the person's own projects, to file a chat under; someone else's can't be. */
+  private async project(userId: string, id: string): Promise<{ id: string; name: string; calibrated: boolean }> {
+    const [p] = await this.db
+      .select({ id: projects.id, name: projects.name, calibrated: projects.calibrated })
+      .from(projects)
+      .where(and(eq(projects.ownerId, userId), eq(projects.id, id)));
+    if (!p) throw new BadRequestException("That isn't one of your projects");
+    return p;
   }
 
   /** The person's own artifacts, in the order asked for; any other id is refused rather than dropped. */

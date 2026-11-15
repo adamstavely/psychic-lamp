@@ -161,6 +161,34 @@ describe('sending, approving and voting', () => {
     expect(after.messages).toEqual([]);
   });
 
+  it("starts a chat in a project (Calibrated if the project is), moves it out and back, and refuses others' projects", async () => {
+    const token = await t.token({ sub: 'project-chats' });
+    const project = (
+      await http.post('/api/projects').auth(token, bearer).send({ name: 'Pricing study', calibrated: true }).expect(201)
+    ).body as { id: string };
+    const started = ChatSummary.parse(
+      (await http.post('/api/chats').auth(token, bearer).send({ text: 'Hi', projectId: project.id }).expect(201)).body,
+    );
+    expect(started).toMatchObject({ projectId: project.id, project: 'Pricing study', calibrated: true });
+
+    const out = ChatSummary.parse(
+      (await http.patch(`/api/chats/${started.id}`).auth(token, bearer).send({ projectId: null }).expect(200)).body,
+    );
+    expect(out).toMatchObject({ projectId: null, project: null, calibrated: true });
+    const back = ChatSummary.parse(
+      (await http.patch(`/api/chats/${started.id}`).auth(token, bearer).send({ projectId: project.id }).expect(200))
+        .body,
+    );
+    expect(back).toMatchObject({ projectId: project.id, project: 'Pricing study' });
+
+    const other = await t.token({ sub: 'project-chats-other' });
+    await http.post('/api/chats').auth(other, bearer).send({ text: 'Hi', projectId: project.id }).expect(400);
+    const theirs = ChatSummary.parse(
+      (await http.post('/api/chats').auth(other, bearer).send({ text: 'Hi' }).expect(201)).body,
+    );
+    await http.patch(`/api/chats/${theirs.id}`).auth(other, bearer).send({ projectId: project.id }).expect(400);
+  });
+
   it('starts a chat Calibrated, labels its answers, takes an intent, and turns it off for later answers', async () => {
     const token = await t.token({ sub: 'calibrated-chat' });
     const ask = async (id: string) =>

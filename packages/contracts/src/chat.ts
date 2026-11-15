@@ -213,6 +213,8 @@ export const ChatPatch = z.strictObject({
   calibrated: z.boolean().optional(),
   /** What the session is for (null clears it). */
   intent: SessionIntentInput.nullable().optional(),
+  /** Files the chat under one of the person's projects (by id), or takes it out (null). */
+  projectId: z.string().min(1).max(64).nullable().optional(),
 });
 export type ChatPatch = z.infer<typeof ChatPatch>;
 
@@ -235,8 +237,10 @@ export const NewChat = z.strictObject({
   /** The first message; the chat is titled from it. */
   text: z.string().trim().min(1).max(8000),
   sensitivity: Sensitivity.default('Internal'),
-  /** Start in Calibrated mode: answers label each claim. */
+  /** Start in Calibrated mode: answers label each claim. A chat started in a Calibrated project is Calibrated too. */
   calibrated: z.boolean().default(false),
+  /** Start it in one of the person's projects, by id. */
+  projectId: z.string().min(1).max(64).optional(),
 });
 export type NewChat = z.infer<typeof NewChat>;
 

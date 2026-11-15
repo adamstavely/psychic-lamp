@@ -67,6 +67,31 @@ test.describe('Projects', () => {
       await expect(page.getByRole('region', { name: 'Studio' }).getByText('Why did returns CSAT drop?')).toBeVisible();
     });
 
+    test('a chat started from a project is filed there, Calibrated like it, and can be moved out', async ({ page }) => {
+      await signIn(page, 'kemi', '/projects/supplier-risk');
+      await resetUser(page);
+      await page.getByRole('link', { name: 'New chat in this project' }).click();
+      await expect(page.getByRole('switch', { name: 'Calibrated' })).toBeChecked();
+      await expect(page.getByRole('switch', { name: 'Calibrated' })).toBeDisabled();
+      await page.getByRole('textbox', { name: 'Message' }).fill('What changed in rare earth supply?');
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(/\/chats\/[a-z0-9]{8}$/);
+      await expect(page.locator('tc-thread-header')).toContainText('Supplier risk');
+      await expect(
+        page.getByRole('complementary', { name: 'Session panel' }).getByRole('switch', { name: 'Calibrated' }),
+      ).toBeChecked();
+
+      const list = page.locator('tc-chat-history');
+      const row = list.getByRole('treeitem', { name: /What changed in rare earth supply/ });
+      await row.focus();
+      await page.keyboard.press('Shift+F10');
+      const moved = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/api/chats/'));
+      await page.getByRole('menuitemradio', { name: 'No folder' }).click();
+      await moved;
+      await page.goto('/projects/supplier-risk');
+      await expect(page.getByRole('link', { name: /What changed in rare earth supply/ })).toHaveCount(0);
+    });
+
     test('Calibrated answers label their claims, and the chat is kept until cleared', async ({ page }) => {
       await signIn(page, 'kemi', '/projects/fraud-rollout');
       await resetUser(page);
