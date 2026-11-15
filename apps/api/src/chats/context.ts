@@ -8,13 +8,14 @@ const tokens = (chars: number) => Math.round(chars / 4);
 
 /**
  * What the latest answer was given to read, estimated from the thread: the system prompt, the project's instructions,
- * the turns before it, documents its tools retrieved and the tool results.
+ * the turns before it, files sent with them, documents its tools retrieved and the tool results.
  */
 export function contextFor(chat: Pick<Chat, 'calibrated' | 'project'>, messages: Message[]): Chat['context'] {
   const lastAnswer = messages.findLastIndex((m) => m.role === 'assistant');
   const before = lastAnswer < 0 ? messages : messages.slice(0, lastAnswer);
   const answer = lastAnswer < 0 ? null : messages[lastAnswer];
   const tools = answer?.role === 'assistant' ? answer.blocks.filter((b) => b.type === 'tool') : [];
+  const files = before.flatMap((m) => (m.role === 'user' ? (m.attachments ?? []) : []));
   const retrieved = tools.filter((t) => /search|read|query/.test(t.name));
 
   const parts = [
@@ -29,6 +30,14 @@ export function contextFor(chat: Pick<Chat, 'calibrated' | 'project'>, messages:
         before.reduce((n, m) => n + (m.role === 'user' ? m.text.length : JSON.stringify(m.blocks).length), 0),
       ),
     },
+    ...(files.length
+      ? [
+          {
+            label: `Attached · ${files.length} ${files.length === 1 ? 'file' : 'files'}`,
+            tokens: files.reduce((n, f) => n + f.tokens, 0),
+          },
+        ]
+      : []),
     ...(retrieved.length
       ? [{ label: `Retrieved · ${retrieved.length} sources`, tokens: retrieved.length * 1100 }]
       : []),

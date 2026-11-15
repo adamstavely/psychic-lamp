@@ -1,4 +1,4 @@
-import type { Block, ModelChoice, Route } from '@donovan/contracts';
+import type { Attachment, Block, ModelChoice, Route } from '@donovan/contracts';
 
 // Canned answers: Donovan doesn't call a model yet. Each reply says honestly what was "routed", and is streamed as if
 // it were being written (see stream.ts).
@@ -30,6 +30,21 @@ export function pickReply(text: string, model: ModelChoice, variant = 0): Reply 
         };
       return b;
     }),
+  };
+}
+
+/** An answer to a message with files: it says which it read first, so the person can tell they arrived. */
+export function withFiles(reply: Reply, files: Attachment[]): Reply {
+  if (files.length === 0) return reply;
+  const names = files.map((f) => f.name);
+  const list = names.length === 1 ? names[0]! : `${names.slice(0, -1).join(', ')} and ${names.at(-1)!}`;
+  const tokens = files.reduce((n, f) => n + f.tokens, 0);
+  return {
+    ...reply,
+    blocks: [
+      { type: 'text', text: `I read ${list} (about ${tokens.toLocaleString('en-US')} tokens).` },
+      ...reply.blocks,
+    ],
   };
 }
 

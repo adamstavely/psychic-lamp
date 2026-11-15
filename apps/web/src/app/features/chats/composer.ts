@@ -22,4 +22,6 @@ export const PENDING_SEND = 'donovanPendingSend';
 export interface PendingSend {
   text: string;
   model: ModelChoice;
+  /** Artifacts attached on the home page, by id. */
+  attachments: string[];
 }

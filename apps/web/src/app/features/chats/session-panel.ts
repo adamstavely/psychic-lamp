@@ -6,7 +6,15 @@ import { SegmentedControl } from '@adamstavely/trenchcoat/angular/segmented-cont
 import type { ContextPart } from '@adamstavely/trenchcoat/context-window';
 import type { SegmentOption } from '@adamstavely/trenchcoat/segmented-control';
 import type { Claim } from '@donovan/contracts';
-import { allClaims, chatArtifacts, chatSources, CLAIM_KIND, claimSummary, routingSummary } from './session';
+import {
+  allClaims,
+  chatArtifacts,
+  chatAttachments,
+  chatSources,
+  CLAIM_KIND,
+  claimSummary,
+  routingSummary,
+} from './session';
 import { ThreadStore } from './thread-store';
 
 type Tab = 'session' | 'artifacts' | 'sources' | 'metadata';
@@ -32,6 +40,7 @@ export class SessionPanel {
   protected readonly summary = computed(() => claimSummary(this.claims()));
   protected readonly artifacts = computed(() => chatArtifacts(this.thread.messages()));
   protected readonly sources = computed(() => chatSources(this.thread.messages()));
+  protected readonly attached = computed(() => chatAttachments(this.thread.messages()));
   protected readonly routing = computed(() => routingSummary(this.sources()));
   protected readonly contextParts = computed<ContextPart[]>(
     () =>

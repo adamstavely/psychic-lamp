@@ -1,5 +1,6 @@
 import type {
   AssistantMessage,
+  Attachment,
   Block,
   ModelChoice,
   Chat,
@@ -17,14 +18,14 @@ import type {
   Vote,
 } from '@donovan/contracts';
 import { createHash, randomBytes } from 'node:crypto';
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module.js';
-import { type AnswerBody, chats, checkpoints, claimReviews, messages } from '../db/schema.js';
+import { type AnswerBody, artifacts, chats, checkpoints, claimReviews, messages } from '../db/schema.js';
 import { SeedService } from '../seed/seed.service.js';
 import { ChatSearch, chatText } from '../search/chat-search.js';
 import { contextFor } from './context.js';
-import { decisionReply, pickReply, type Reply } from './replies.js';
+import { decisionReply, pickReply, withFiles, type Reply } from './replies.js';
 
 type ChatRow = typeof chats.$inferSelect;
 type MessageRow = typeof messages.$inferSelect;
@@ -210,7 +211,8 @@ export class ChatsService {
     body: SendMessage,
   ): Promise<{ user: UserMessage; answer: AssistantMessage }> {
     await this.get(userId, chatId);
-    const reply = pickReply(body.text, body.model);
+    const files = await this.attachments(userId, body.attachments);
+    const reply = withFiles(pickReply(body.text, body.model), files);
     const sent = await this.db.transaction(async (tx) => {
       await lockChat(tx, userId, chatId);
       const seq = await nextSeq(tx, userId, chatId);
@@ -237,7 +239,7 @@ export class ChatsService {
           chatId,
           seq,
           role: 'user',
-          body: { text: body.text },
+          body: files.length ? { text: body.text, attachments: files } : { text: body.text },
           requestId: body.requestId ?? null,
         })
         .returning();
@@ -253,6 +255,22 @@ export class ChatsService {
     });
     await this.reindex(userId, chatId);
     return sent;
+  }
+
+  /** The person's own artifacts, in the order asked for; any other id is refused rather than dropped. */
+  private async attachments(userId: string, ids: string[]): Promise<Attachment[]> {
+    if (ids.length === 0) return [];
+    const unique = [...new Set(ids)];
+    const rows = await this.db
+      .select({ id: artifacts.id, name: artifacts.name, body: artifacts.body })
+      .from(artifacts)
+      .where(and(eq(artifacts.ownerId, userId), inArray(artifacts.id, unique)));
+    if (rows.length !== unique.length) throw new BadRequestException("An attachment isn't one of your artifacts");
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    return unique.map((id) => {
+      const r = byId.get(id)!;
+      return { artifactId: r.id, name: r.name, tokens: Math.round(JSON.stringify(r.body).length / 4) };
+    });
   }
 
   /** Approves or denies a write tool that's waiting, and adds Donovan's reply to the decision. */
@@ -344,9 +362,9 @@ export class ChatsService {
         .select()
         .from(messages)
         .where(and(eq(messages.ownerId, userId), eq(messages.chatId, chatId), eq(messages.seq, row.seq - 1)));
-      const asked = question && 'text' in question.body ? question.body.text : '';
+      const asked = question && 'text' in question.body ? question.body : { text: '' };
       const versions = versionsOf(row.body);
-      const next = answerBody(pickReply(asked, model, versions.length));
+      const next = answerBody(withFiles(pickReply(asked.text, model, versions.length), asked.attachments ?? []));
       const [saved] = await tx
         .update(messages)
         .set({ body: showing([...versions, next], versions.length + 1), vote: null, voteReason: null })
@@ -513,7 +531,15 @@ function toSummary(row: ChatRow): ChatSummary {
 
 function toMessage(row: MessageRow): Message {
   const at = row.createdAt.toISOString();
-  if ('text' in row.body) return { id: row.id, role: 'user', text: row.body.text, at, requestId: row.requestId };
+  if ('text' in row.body)
+    return {
+      id: row.id,
+      role: 'user',
+      text: row.body.text,
+      ...(row.body.attachments?.length ? { attachments: row.body.attachments } : {}),
+      at,
+      requestId: row.requestId,
+    };
   const versions = versionsOf(row.body);
   return {
     id: row.id,

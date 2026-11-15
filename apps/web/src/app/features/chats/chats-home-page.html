@@ -5,13 +5,20 @@
     Auto-routing is on. Donovan picks skills, tools and a model per message; override any of them in the composer.
   </p>
 
-  <div class="composer">
+  <!-- The composer's tray of attached files says when one is removed (or brought back); it bubbles up to here. -->
+  <div class="composer" (tc-items-change)="files.onChange($event)">
     <tc-chat-composer
       placeholder="Ask anything, or type / for a skill"
       [value]="value()"
       [models]="models"
       [model]="startModel()"
+      hideConnectApps
+      hideProject
+      hideApproval
+      [context]="files.context()"
+      [onDictate]="dictate"
       [onSend]="send"
+      (tc-attach)="files.pick()"
       disclaimer="AI-generated claims can be wrong. Verify before acting."
     />
     <div class="composer-meta">

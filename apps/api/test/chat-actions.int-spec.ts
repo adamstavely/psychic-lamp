@@ -117,6 +117,50 @@ describe('sending, approving and voting', () => {
     await http.post('/api/chats/rfc/messages').auth(token, bearer).send({ text: '   ' }).expect(400);
   });
 
+  it('sends files with a message: the answer reads them, and the chat keeps them and counts them in context', async () => {
+    const token = await t.token();
+    const upload = (name: string, content: string) =>
+      http.post('/api/artifacts').auth(token, bearer).send({ name, content }).expect(201);
+    const notes = (await upload('notes.md', '# Notes\n\nShip on Friday.')).body as { id: string };
+    const data = (await upload('rows.csv', 'a,b\n1,2')).body as { id: string };
+    const created = ChatSummary.parse(
+      (await http.post('/api/chats').auth(token, bearer).send({ text: 'Read these' }).expect(201)).body,
+    );
+
+    const res = await http
+      .post(`/api/chats/${created.id}/messages`)
+      .auth(token, bearer)
+      .send({ text: 'Read these', attachments: [notes.id, data.id] })
+      .expect(200);
+    const done = events(res.text).at(-1);
+    expect(done).toMatchObject({ type: 'done' });
+    const first = done?.type === 'done' ? done.message.blocks[0] : null;
+    expect(first).toMatchObject({ type: 'text', text: expect.stringMatching(/^I read notes\.md and rows\.csv/) });
+
+    const chat = Chat.parse((await http.get(`/api/chats/${created.id}`).auth(token, bearer)).body);
+    const asked = chat.messages[0]!;
+    expect(asked.role === 'user' && asked.attachments?.map((f) => f.name)).toEqual(['notes.md', 'rows.csv']);
+    expect(chat.context.parts.find((p) => p.label === 'Attached · 2 files')?.tokens).toBeGreaterThan(0);
+  });
+
+  it("refuses to attach an artifact that isn't the sender's", async () => {
+    const owner = await t.token({ sub: 'attach-owner' });
+    const other = await t.token({ sub: 'attach-other' });
+    const theirs = (
+      await http.post('/api/artifacts').auth(owner, bearer).send({ name: 'secret.txt', content: 'x' }).expect(201)
+    ).body as { id: string };
+    const chat = ChatSummary.parse(
+      (await http.post('/api/chats').auth(other, bearer).send({ text: 'Hi' }).expect(201)).body,
+    );
+    await http
+      .post(`/api/chats/${chat.id}/messages`)
+      .auth(other, bearer)
+      .send({ text: 'Read it', attachments: [theirs.id] })
+      .expect(400);
+    const after = Chat.parse((await http.get(`/api/chats/${chat.id}`).auth(other, bearer)).body);
+    expect(after.messages).toEqual([]);
+  });
+
   it('approves a waiting write tool once, then refuses a second decision', async () => {
     const token = await t.token();
     const result = ToolDecisionResult.parse(

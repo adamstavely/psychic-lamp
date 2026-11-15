@@ -111,10 +111,20 @@ export const Block = z.discriminatedUnion('type', [
 export type Block = z.infer<typeof Block>;
 export type BlockOf<T extends Block['type']> = Extract<Block, { type: T }>;
 
+/** A file sent with a message: an uploaded artifact, and roughly how much of the context window it takes. */
+export const Attachment = z.object({
+  artifactId: z.string(),
+  name: z.string(),
+  tokens: z.number().int().nonnegative(),
+});
+export type Attachment = z.infer<typeof Attachment>;
+
 export const UserMessage = z.object({
   id: z.string(),
   role: z.literal('user'),
   text: z.string(),
+  /** Files sent with it; left out when there are none. */
+  attachments: z.array(Attachment).optional(),
   at: Iso,
   /** The id the app sent it with (SendMessage.requestId), so it can tell a send it wasn't sure of was saved. */
   requestId: z.string().nullable().optional(),
@@ -201,6 +211,8 @@ export type ModelChoice = z.infer<typeof ModelChoice>;
 export const SendMessage = z.strictObject({
   text: z.string().trim().min(1, 'Write a message first').max(8000),
   model: ModelChoice.default('auto'),
+  /** Artifacts (by id, the sender's own) to send with it, uploaded first. */
+  attachments: z.array(z.string().min(1).max(64)).max(10).default([]),
   /** Chosen by the client for each message; a retry with the same id returns the turn already saved. */
   requestId: z.uuid().optional(),
 });

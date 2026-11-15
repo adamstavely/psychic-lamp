@@ -77,6 +77,15 @@
               <li class="turn user">
                 <h2 class="sr-only">You</h2>
                 <p>{{ m.text }}</p>
+                @if (m.attachments?.length) {
+                  <ul class="attachments" aria-label="Attached files">
+                    @for (f of m.attachments; track f.artifactId) {
+                      <li>
+                        <a class="chip" [routerLink]="['/artifacts', f.artifactId]">{{ f.name }}</a>
+                      </li>
+                    }
+                  </ul>
+                }
               </li>
             }
           }
@@ -98,17 +107,21 @@
         }
       </div>
 
-      <div class="composer">
+      <!-- The composer's tray of attached files says when one is removed (or brought back); it bubbles up to here. -->
+      <div class="composer" (tc-items-change)="files.onChange($event)">
         <tc-chat-composer
           placeholder="Reply…"
           [models]="models"
-          model="auto"
+          [model]="model()"
           hideConnectApps
           hideProject
           hideApproval
+          [context]="files.context()"
           [onDictate]="dictate"
           [onSend]="send"
-          disclaimer="AI-generated claims can be wrong, including plausible ones with no basis in the sources. Verify before acting."
+          (tc-model-change)="onModel($event)"
+          (tc-attach)="files.pick()"
+              disclaimer="AI-generated claims can be wrong, including plausible ones with no basis in the sources. Verify before acting."
         />
       </div>
       <p class="sr-only" role="status" aria-live="polite">{{ thread.status() }}</p>

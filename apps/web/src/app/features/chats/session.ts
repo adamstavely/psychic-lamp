@@ -1,4 +1,4 @@
-import type { Block, BlockOf, Claim, Message, Route } from '@donovan/contracts';
+import type { Attachment, Block, BlockOf, Claim, Message, Route } from '@donovan/contracts';
 
 // What the session panel shows, worked out from the thread.
 
@@ -27,6 +27,13 @@ export function chatSources(messages: Message[]): Route[] {
   const seen = new Map<string, Route>();
   for (const m of messages) if (m.role === 'assistant') for (const r of m.routing) seen.set(`${r.kind}:${r.name}`, r);
   return [...seen.values()];
+}
+
+/** The files sent with the chat's messages, each once. */
+export function chatAttachments(messages: Message[]): Attachment[] {
+  const byId = new Map<string, Attachment>();
+  for (const m of messages) if (m.role === 'user') for (const f of m.attachments ?? []) byId.set(f.artifactId, f);
+  return [...byId.values()];
 }
 
 /** "2 models · 1 skill · 3 servers" */

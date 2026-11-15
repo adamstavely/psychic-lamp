@@ -73,6 +73,23 @@
   line-height: 1.5;
 }
 
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tc-space-2);
+  margin: var(--tc-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--tc-font-size-xs);
+}
+
+.attachments .chip {
+  display: inline-block;
+  border-color: currentcolor;
+  color: inherit;
+  text-underline-offset: 2px;
+}
+
 .turn.assistant {
   display: grid;
   gap: var(--tc-space-3);

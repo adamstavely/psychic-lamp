@@ -121,6 +121,12 @@
       @case ('sources') {
         <div id="panel-sources" role="tabpanel" aria-label="Sources" class="body">
           <ul class="rows">
+            @for (f of attached(); track f.artifactId) {
+              <li>
+                <a [routerLink]="['/artifacts', f.artifactId]">{{ f.name }}</a>
+                <span class="meta">Attached file</span>
+              </li>
+            }
             @for (r of sources(); track r.kind + r.name) {
               <li>
                 <span>{{ r.name }}</span>
