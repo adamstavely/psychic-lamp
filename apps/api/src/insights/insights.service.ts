@@ -9,29 +9,45 @@ export const INSIGHTS_DAYS = 30;
 /**
  * Insights, counted from what's stored rather than the prototype's fixed numbers: the workspace's questions and answers,
  * the models answers were routed to, the tools they called and on which servers, write tools waiting for approval, and
- * registry installs and reviews, over the last 30 days.
+ * registry installs and reviews, over the last 30 days. Each headline figure also has its count for the 30 days before.
  */
 @Injectable()
 export class InsightsService {
   constructor(@Inject(DB) private readonly db: Db) {}
 
   async insights(now = new Date()): Promise<Insights> {
-    const from = new Date(now.getTime() - INSIGHTS_DAYS * 24 * 3600_000);
-    const since = from.toISOString();
+    const period = INSIGHTS_DAYS * 24 * 3600_000;
+    const since = new Date(now.getTime() - period).toISOString();
+    const before = new Date(now.getTime() - 2 * period).toISOString();
     const one = async <T>(query: ReturnType<typeof sql>): Promise<T> => (await this.db.execute(query)).rows[0] as T;
     const many = async <T>(query: ReturnType<typeof sql>): Promise<T[]> => (await this.db.execute(query)).rows as T[];
 
-    const turns = await one<{ questions: number; answers: number; chats: number; people: number }>(sql`
-      select count(*) filter (where role = 'user')::int as questions,
-             count(*) filter (where role = 'assistant')::int as answers,
-             count(distinct (owner_id, chat_id))::int as chats,
-             count(distinct owner_id)::int as people
-      from messages where created_at >= ${since}`);
-    const tools = await one<{ calls: number; waiting: number }>(sql`
-      select count(*) filter (where b->>'status' in ('done', 'running'))::int as calls,
-             count(*) filter (where b->>'status' = 'pending')::int as waiting
-      from messages m, jsonb_array_elements(m.body->'blocks') b
-      where m.role = 'assistant' and m.created_at >= ${since} and b->>'type' = 'tool'`);
+    /** The figures that have a period before to compare with, counted from `start` up to (not including) `end`. */
+    const counts = (start: string, end: string) =>
+      one<{ questions: number; answers: number; chats: number; people: number; calls: number; waiting: number }>(sql`
+        select count(*) filter (where role = 'user')::int as questions,
+               count(*) filter (where role = 'assistant')::int as answers,
+               count(distinct (owner_id, chat_id))::int as chats,
+               count(distinct owner_id)::int as people,
+               (select count(*) from messages m, jsonb_array_elements(m.body->'blocks') b
+                 where m.role = 'assistant' and m.created_at >= ${start} and m.created_at < ${end}
+                   and b->>'type' = 'tool' and b->>'status' in ('done', 'running'))::int as calls,
+               (select count(*) from messages m, jsonb_array_elements(m.body->'blocks') b
+                 where m.role = 'assistant' and m.created_at >= ${start} and m.created_at < ${end}
+                   and b->>'type' = 'tool' and b->>'status' = 'pending')::int as waiting
+        from messages where created_at >= ${start} and created_at < ${end}`);
+    const registryCounts = (start: string, end: string) =>
+      one<{ installs: number; decisions: number }>(sql`
+        select (select count(*) from registry_installs where created_at >= ${start} and created_at < ${end})::int as installs,
+               (select count(*) from registry_reviews where at >= ${start} and at < ${end})::int as decisions`);
+
+    // This period has no end, as before, so what's stored while it's counted still counts.
+    const [turns, prior, reg, priorReg] = await Promise.all([
+      counts(since, 'infinity'),
+      counts(before, since),
+      registryCounts(since, 'infinity'),
+      registryCounts(before, since),
+    ]);
     const byModel = await many<{ name: string; count: number }>(sql`
       select r->>'name' as name, count(*)::int as count
       from messages m, jsonb_array_elements(m.body->'routing') r
@@ -42,10 +58,8 @@ export class InsightsService {
       from messages m, jsonb_array_elements(m.body->'blocks') b
       where m.role = 'assistant' and m.created_at >= ${since} and b->>'type' = 'tool'
       group by 1 order by 2 desc, 1`);
-    const registry = await one<{ installs: number; decisions: number; published: number; waiting: number }>(sql`
-      select (select count(*) from registry_installs where created_at >= ${since})::int as installs,
-             (select count(*) from registry_reviews where at >= ${since})::int as decisions,
-             (select count(*) from registry_items where status = 'published')::int as published,
+    const registry = await one<{ published: number; waiting: number }>(sql`
+      select (select count(*) from registry_items where status = 'published')::int as published,
              (select count(*) from registry_items where status = 'pending')::int as waiting`);
     const installs = await many<{
       kind: Insights['installs'][number]['kind'];
@@ -59,16 +73,32 @@ export class InsightsService {
       group by 1, 2, 3 order by 4 desc, 3 limit 5`);
 
     const kpis: Kpi[] = [
-      { label: 'Questions', value: turns.questions, detail: `in ${turns.chats} chats, by ${turns.people} people` },
-      { label: 'Answers', value: turns.answers, detail: 'including regenerated ones' },
-      { label: 'Tool calls', value: tools.calls, detail: `${tools.waiting} waiting for approval` },
-      { label: 'Installs', value: registry.installs, detail: 'of registry servers and skills' },
+      {
+        label: 'Questions',
+        value: turns.questions,
+        previous: prior.questions,
+        detail: `in ${turns.chats} chats, by ${turns.people} people`,
+      },
+      { label: 'Answers', value: turns.answers, previous: prior.answers, detail: 'including regenerated ones' },
+      {
+        label: 'Tool calls',
+        value: turns.calls,
+        previous: prior.calls,
+        detail: `${turns.waiting} waiting for approval`,
+      },
+      {
+        label: 'Installs',
+        value: reg.installs,
+        previous: priorReg.installs,
+        detail: 'of registry servers and skills',
+      },
       {
         label: 'Review decisions',
-        value: registry.decisions,
+        value: reg.decisions,
+        previous: priorReg.decisions,
         detail: `${registry.waiting} ${registry.waiting === 1 ? 'submission' : 'submissions'} waiting`,
       },
-      { label: 'In the registry', value: registry.published, detail: 'published items' },
+      { label: 'In the registry', value: registry.published, previous: null, detail: 'published items' },
     ];
     return { from: since, to: now.toISOString(), kpis, byModel: shares(byModel), byServer: shares(byServer), installs };
   }

@@ -588,7 +588,8 @@ export class RegistryService implements OnApplicationBootstrap {
 
 function scopeOf(userId: string, scope: RegistryQuery['scope']): SQL | undefined {
   if (scope === 'mine') return eq(registryItems.ownerId, userId);
-  if (scope === 'team') return isNotNull(registryItems.ownerTeam);
+  // Team is what teams own and what's the person's own, as in the prototype; All adds everything else.
+  if (scope === 'team') return or(isNotNull(registryItems.ownerTeam), eq(registryItems.ownerId, userId));
   return undefined;
 }
 

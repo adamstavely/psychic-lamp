@@ -1,15 +1,29 @@
 import { HttpClient, httpResource } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import {
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  type ElementRef,
+  inject,
+  input,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import type { RegistryItem, RegistrySummary, SpaceRunResult } from '@donovan/contracts';
 import { firstValueFrom } from 'rxjs';
 import { linkTo } from './registry-links';
+import { chatStart } from './use-in-chat';
 
 type Space = Extract<RegistryItem, { kind: 'space' }>;
 
-/** A space: a small app on a model, to try with your own input. Runs are simulated. */
+/**
+ * A space: a small app on a model, to try with your own input or use in a chat. Runs are simulated. Opened with
+ * `?try=sample` (the catalog's Try it), its input starts as the space's sample, focused and ready to run.
+ */
 @Component({
   selector: 'dn-space-detail',
   imports: [FormsModule, Button],
@@ -24,6 +38,7 @@ export class SpaceDetail {
   readonly #models = httpResource<RegistrySummary[]>(() => '/api/registry?kind=model');
 
   protected input = '';
+  private readonly field = viewChild.required<ElementRef<HTMLTextAreaElement>>('field');
   protected readonly running = signal(false);
   protected readonly result = signal<SpaceRunResult | null>(null);
   protected readonly error = signal('');
@@ -32,6 +47,20 @@ export class SpaceDetail {
   protected readonly modelLink = computed(() =>
     linkTo(this.#models.hasValue() ? this.#models.value() : [], 'model', this.item().details.model),
   );
+
+  constructor() {
+    const trying = inject(ActivatedRoute).snapshot.queryParamMap.get('try') === 'sample';
+    afterNextRender(() => {
+      if (!trying) return;
+      this.input = this.item().details.placeholder;
+      this.field().nativeElement.value = this.input;
+      this.field().nativeElement.focus();
+    });
+  }
+
+  protected useInChat(): void {
+    void this.#router.navigate(['/chats/new'], { queryParams: chatStart(this.item()) });
+  }
 
   protected open(link: string[]): void {
     void this.#router.navigate(link);

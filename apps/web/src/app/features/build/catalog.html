@@ -41,7 +41,7 @@
       <p>{{ emptyText() }}</p>
       <p class="next">
         @if (scope() !== 'all') {
-          <a [routerLink]="[]" [queryParams]="{ scope: null }" queryParamsHandling="merge">See all {{ noun() }}</a>
+          <a [routerLink]="[]" [queryParams]="{ scope: 'all' }" queryParamsHandling="merge">See all {{ noun() }}</a>
         }
         @switch (area().kind) {
           @case ('workflow') {

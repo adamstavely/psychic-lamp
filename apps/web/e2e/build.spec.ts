@@ -20,6 +20,34 @@ test.describe('the Build catalog', () => {
     await expect(page).toHaveURL(/\/build\/servers\/filesystem$/);
   });
 
+  test('opens on Team, as the prototype does, and All is in the address', async ({ page }) => {
+    await expect(page.getByRole('radio', { name: 'Team' })).toBeChecked();
+    await expect(page.getByText('MCP Servers · Team')).toBeVisible();
+    await page.getByRole('radio', { name: 'All' }).click();
+    await expect(page).toHaveURL(/scope=all/);
+    await page.getByRole('radio', { name: 'Team' }).click();
+    await expect(page).toHaveURL(/\/build\/servers$/);
+  });
+
+  test("a space's Try it opens it with its sample filled in; Open opens it empty", async ({ page }) => {
+    await page.goto('/build/spaces');
+    const card = page
+      .getByRole('listitem')
+      .filter({ has: page.getByRole('heading', { name: 'Fraud score explainer' }) });
+    await card.getByRole('button', { name: 'Try it' }).click();
+    await expect(page).toHaveURL(/\/build\/spaces\/fraud-explainer\?try=sample$/);
+    const input = page.getByRole('textbox', { name: 'Transaction JSON' });
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue(/"merchant_id": "m_88213"/);
+    await page.getByRole('button', { name: 'Run' }).click();
+    await expect(page.getByRole('region', { name: /^Result/ })).toContainText('0.971');
+
+    await page.goto('/build/spaces');
+    await card.getByRole('link', { name: 'Open Fraud score explainer' }).click();
+    await expect(page).toHaveURL(/\/build\/spaces\/fraud-explainer$/);
+    await expect(page.getByRole('textbox', { name: 'Transaction JSON' })).toHaveValue('');
+  });
+
   test('switches to a list, and between Mine, Team and All', async ({ page }) => {
     await page.getByRole('radio', { name: 'List view' }).click();
     await expect(page).toHaveURL(/view=list/);
@@ -186,6 +214,13 @@ test.describe('model, dataset, space and collection pages', () => {
     await expectNoAxeViolations(page);
     await page.getByRole('button', { name: 'Open the model' }).click();
     await expect(page.getByRole('heading', { name: 'Fraud Sentinel', level: 1 })).toBeVisible();
+  });
+
+  test('a space can be used in a chat', async ({ page }) => {
+    await signIn(page, 'alex', '/build/spaces/fraud-explainer');
+    await page.getByRole('button', { name: 'Use in chat' }).click();
+    await expect(page).toHaveURL(/\/chats\/new\?q=Using/);
+    await expect(page.getByRole('textbox')).toHaveValue(/^Using Fraud score explainer \(/);
   });
 
   test.describe('changing state', () => {
@@ -357,6 +392,12 @@ test.describe('Insights', () => {
     await matchTheme(page);
     await expect(page.getByRole('heading', { name: 'Usage, routing and the registry.' })).toBeVisible();
     await expect(page.getByRole('term').filter({ hasText: 'Questions' })).toBeVisible();
+    // Each counted figure says how it changed on the 30 days before; the registry's running total doesn't.
+    const questions = page.locator('.kpis > div').filter({ hasText: 'Questions' });
+    await expect(questions).toContainText(/(Up|Down) .+ the 30 days before|Same as the 30 days before/);
+    await expect(page.locator('.kpis > div').filter({ hasText: 'In the registry' })).not.toContainText(
+      '30 days before',
+    );
     const byModel = page.getByRole('region', { name: 'Answers by model' });
     await expect(byModel.getByRole('listitem').filter({ hasText: 'claude-sonnet-4.5' })).toContainText('%');
     await expectNoAxeViolations(page);

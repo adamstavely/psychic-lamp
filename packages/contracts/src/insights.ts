@@ -3,8 +3,16 @@ import { RegistryKind } from './registry.js';
 
 const Iso = z.iso.datetime({ offset: true });
 
-/** One headline figure, with what it counts. */
-export const Kpi = z.object({ label: z.string(), value: z.number().int().nonnegative(), detail: z.string() });
+/**
+ * One headline figure, with what it counts, and the same count over the period before (null for a figure that's a
+ * running total, such as what's in the registry now).
+ */
+export const Kpi = z.object({
+  label: z.string(),
+  value: z.number().int().nonnegative(),
+  previous: z.number().int().nonnegative().nullable(),
+  detail: z.string(),
+});
 export type Kpi = z.infer<typeof Kpi>;
 
 /** A count for one name (a model, a server), and its share of the total. */
