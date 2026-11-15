@@ -108,7 +108,12 @@ export class RegistryService implements OnApplicationBootstrap {
       if (seed.kind !== 'workflow' || !(seed.details as { nodes: unknown[] }).nodes.length) continue;
       await this.db
         .update(registryItems)
-        .set({ summary: seed.summary, details: seed.details, searchVersion: sql`${registryItems.searchVersion} + 1` })
+        .set({
+          summary: seed.summary,
+          details: seed.details,
+          revision: sql`${registryItems.revision} + 1`,
+          searchVersion: sql`${registryItems.searchVersion} + 1`,
+        })
         .where(
           and(
             eq(registryItems.kind, 'workflow'),
@@ -187,7 +192,11 @@ export class RegistryService implements OnApplicationBootstrap {
               };
       const [updated] = await this.db
         .update(registryItems)
-        .set({ details: details as Row['details'], searchVersion: sql`${registryItems.searchVersion} + 1` })
+        .set({
+          details: details as Row['details'],
+          revision: sql`${registryItems.revision} + 1`,
+          searchVersion: sql`${registryItems.searchVersion} + 1`,
+        })
         .where(and(eq(registryItems.kind, row.kind), eq(registryItems.id, row.id)))
         .returning();
       if (updated) changed.push(updated);
@@ -367,37 +376,53 @@ export class RegistryService implements OnApplicationBootstrap {
   /**
    * Saves a workflow's graph as its next version and sends it to review. Its owner can edit their own; a team's
    * workflow can be edited by anyone, who becomes its submitter (and so can't review it). Blocking checks refuse it.
+   * The save names the revision the editor started from and takes the row's lock: if someone saved since, it's refused
+   * (409) rather than written over theirs, so each accepted save gets its own version.
    */
   async saveWorkflow(userId: string, id: string, body: WorkflowGraph): Promise<RegistryItem> {
-    const item = await this.get(userId, 'workflow', id);
-    if (item.owner.personId && item.owner.personId !== userId)
-      throw new ForbiddenException("Only its owner can change someone's own workflow");
+    await this.get(userId, 'workflow', id);
     const blocking = checkWorkflow(body).filter((c) => c.level === 'block');
     if (blocking.length) throw new BadRequestException(blocking.map((c) => c.message).join(' '));
-    const next = item.status === 'draft' ? item.version : `v${(Number(item.version.replace(/^v/, '')) || 1) + 1}`;
-    const [row] = await this.db
-      .update(registryItems)
-      .set({
-        name: body.name,
-        sensitivity: body.sensitivity,
-        version: next,
-        status: 'pending',
-        submittedBy: userId,
-        reviewRound:
-          item.status === 'draft' ? sql`${registryItems.reviewRound}` : sql`${registryItems.reviewRound} + 1`,
-        details: {
-          ...(item.details as RegistryItem['details'] & object),
-          state: item.status === 'draft' ? 'Active' : (item.details as { state: string }).state,
-          nodes: body.nodes,
-          edges: body.edges,
-        } as RegistryItem['details'],
-        updatedAt: new Date(),
-        searchVersion: sql`${registryItems.searchVersion} + 1`,
-      })
-      .where(and(eq(registryItems.kind, 'workflow'), eq(registryItems.id, id)))
-      .returning();
-    await this.indexQuietly([row!]);
-    return toItem(row!);
+    const row = await this.db.transaction(async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(registryItems)
+        .where(and(eq(registryItems.kind, 'workflow'), eq(registryItems.id, id)))
+        .for('update');
+      const item = toItem(current!);
+      if (item.owner.personId && item.owner.personId !== userId)
+        throw new ForbiddenException("Only its owner can change someone's own workflow");
+      if (item.revision !== body.revision)
+        throw new ConflictException(
+          `Someone saved ${item.version} while you were editing, so yours wasn't saved. Reload to see theirs.`,
+        );
+      const next = item.status === 'draft' ? item.version : `v${(Number(item.version.replace(/^v/, '')) || 1) + 1}`;
+      const [saved] = await tx
+        .update(registryItems)
+        .set({
+          name: body.name,
+          sensitivity: body.sensitivity,
+          version: next,
+          status: 'pending',
+          submittedBy: userId,
+          reviewRound:
+            item.status === 'draft' ? sql`${registryItems.reviewRound}` : sql`${registryItems.reviewRound} + 1`,
+          revision: sql`${registryItems.revision} + 1`,
+          details: {
+            ...(item.details as RegistryItem['details'] & object),
+            state: item.status === 'draft' ? 'Active' : (item.details as { state: string }).state,
+            nodes: body.nodes,
+            edges: body.edges,
+          } as RegistryItem['details'],
+          updatedAt: new Date(),
+          searchVersion: sql`${registryItems.searchVersion} + 1`,
+        })
+        .where(and(eq(registryItems.kind, 'workflow'), eq(registryItems.id, id)))
+        .returning();
+      return saved!;
+    });
+    await this.indexQuietly([row]);
+    return toItem(row);
   }
 
   /** The linked items, which must all be in the registry and visible to the person: in the order given, each once. */

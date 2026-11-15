@@ -51,7 +51,8 @@ const DECISION: Record<ReviewDecision, string> = {
           <ol class="records">
             @for (r of h.records; track r.at + r.reviewer) {
               <li>
-                <strong>{{ r.reviewer }}</strong> {{ decision[r.decision] }} (round {{ r.round }}, {{ when(r.at) }})
+                <strong>{{ r.reviewer }}</strong> {{ decision[r.decision] }}
+                {{ r.version ? r.version + ' ' : '' }}(round {{ r.round }}, {{ when(r.at) }})
                 @if (r.note) {
                   : “{{ r.note }}”
                 }

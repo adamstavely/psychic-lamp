@@ -462,6 +462,7 @@ export class WorkflowDetail {
       return;
     }
     const body: WorkflowGraph = {
+      revision: this.item().revision,
       name: this.name().trim() || this.item().name,
       sensitivity: this.sensitivity(),
       nodes: this.nodes(),

@@ -215,6 +215,11 @@ const Base = z.object({
   status: RegistryStatus,
   /** Set when it was registered through the wizard; the seeded catalog has none. */
   access: RegistryAccess.nullable(),
+  /**
+   * Its content revision: one more with every change to what reviewers judge. A review decision and an edit name the
+   * revision they were made against, so neither lands on a version its author didn't see.
+   */
+  revision: z.number().int().positive(),
   updatedAt: z.iso.datetime({ offset: true }),
 });
 
@@ -390,6 +395,8 @@ export type NewWorkflow = z.infer<typeof NewWorkflow>;
 
 /** A workflow's graph as edited on the canvas, saved as its next version and sent to review. */
 export const WorkflowGraph = z.strictObject({
+  /** The revision the editor started from; a save over a newer one is refused, not merged. */
+  revision: z.number().int().positive(),
   name: z.string().trim().min(1, 'Name it').max(120),
   sensitivity: Sensitivity,
   nodes: z.array(WorkflowNode).min(1, 'Add a step').max(100),

@@ -17,6 +17,7 @@ export function toSummary(r: Row): RegistrySummary {
     owner: { team: r.ownerTeam, personId: r.ownerId, name: r.ownerName },
     status: r.status,
     access: r.access ?? null,
+    revision: r.revision,
     updatedAt: r.updatedAt.toISOString(),
     // A row's details belong to its kind (checked on the way in), which the table's types can't say.
     card: cardFor({

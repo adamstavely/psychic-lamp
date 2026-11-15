@@ -346,6 +346,8 @@ export const registryItems = pgTable(
     access: jsonb().$type<RegistryAccess>(),
     /** Which round of review it's in: 1 at first, one more each time it's resubmitted. */
     reviewRound: integer().notNull().default(1),
+    /** Its content revision: one more with every change to what's reviewed. Decisions and edits must name it. */
+    revision: integer().notNull().default(1),
     details: jsonb().$type<RegistryItem['details']>().notNull(),
     /** Bumped with every change, in the same transaction; search records the version it indexed (see SearchBackfill). */
     searchVersion: integer().notNull().default(0),
@@ -376,11 +378,41 @@ export const registryReviews = pgTable(
     reviewerName: text().notNull(),
     decision: text({ enum: ['approve', 'changes', 'reject'] }).notNull(),
     note: text().notNull().default(''),
+    /** The revision and version decided on (its snapshot is in registry_revisions); null before revisions were kept. */
+    revision: integer(),
+    version: text(),
     at: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     // One decision per reviewer per round.
     primaryKey({ columns: [t.kind, t.itemId, t.round, t.reviewerId] }),
+    foreignKey({ columns: [t.kind, t.itemId], foreignColumns: [registryItems.kind, registryItems.id] }).onDelete(
+      'cascade',
+    ),
+  ],
+);
+
+/**
+ * What an item was at a revision someone decided on: kept for good, so its history shows exactly what was approved,
+ * sent back or rejected, even after later edits.
+ */
+export const registryRevisions = pgTable(
+  'registry_revisions',
+  {
+    kind: text({
+      enum: ['skill', 'server', 'agent', 'workflow', 'model', 'dataset', 'space', 'collection', 'prompt'],
+    }).notNull(),
+    itemId: text().notNull(),
+    revision: integer().notNull(),
+    version: text().notNull(),
+    name: text().notNull(),
+    summary: text().notNull(),
+    sensitivity: text({ enum: ['Public', 'Internal', 'Confidential', 'Restricted'] }).notNull(),
+    details: jsonb().$type<RegistryItem['details']>().notNull(),
+    at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.kind, t.itemId, t.revision] }),
     foreignKey({ columns: [t.kind, t.itemId], foreignColumns: [registryItems.kind, registryItems.id] }).onDelete(
       'cascade',
     ),

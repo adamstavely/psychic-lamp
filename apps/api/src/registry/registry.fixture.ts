@@ -5,7 +5,7 @@ import type { RegistryItem } from '@donovan/contracts';
  * collections and prompts, owned by the teams named in it. Shared by everyone (unlike the per-person Assist seeds), and
  * written once. The invoice-audit skill, a draft in the prototype, is a submission waiting for review.
  */
-export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
+export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access' | 'revision'>[] = [
   {
     kind: 'skill',
     id: 'rollout',

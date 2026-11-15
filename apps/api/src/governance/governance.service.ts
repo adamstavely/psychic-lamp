@@ -19,7 +19,7 @@ import {
 } from '@nestjs/common';
 import { and, asc, count, eq, gte, or, sql } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module.js';
-import { governancePolicies, registryItems, registryReviews } from '../db/schema.js';
+import { governancePolicies, registryItems, registryReviews, registryRevisions } from '../db/schema.js';
 import { toSummary } from '../registry/registry-row.js';
 
 type Row = typeof registryItems.$inferSelect;
@@ -120,7 +120,9 @@ export class GovernanceService {
 
   /**
    * Records a reviewer's decision. The submitter can't review their own submission, a reviewer decides once per round,
-   * and decisions take turns on the item, so two second approvals at once publish it once.
+   * and decisions take turns on the item, so two second approvals at once publish it once. A decision names the
+   * revision it was made on: if the item has changed since, it's refused (409), so an approval from an old screen can't
+   * publish a version nobody reviewed. What was decided on is kept as a snapshot, for the history.
    */
   async decide(
     userId: string,
@@ -141,12 +143,39 @@ export class GovernanceService {
       if (item.status !== 'pending') throw new ConflictException(`It isn't waiting for review: it's ${item.status}`);
       if (item.ownerId === userId || item.submittedBy === userId)
         throw new ForbiddenException("You can't review your own submission");
+      if (item.revision !== body.revision)
+        throw new ConflictException(
+          `It changed while you were looking: ${item.version} is waiting now. Reload to review that version.`,
+        );
       const inserted = await tx
         .insert(registryReviews)
-        .values({ kind, itemId: id, round: item.reviewRound, reviewerId: userId, reviewerName, ...body })
+        .values({
+          kind,
+          itemId: id,
+          round: item.reviewRound,
+          revision: item.revision,
+          version: item.version,
+          reviewerId: userId,
+          reviewerName,
+          decision: body.decision,
+          note: body.note,
+        })
         .onConflictDoNothing()
         .returning();
       if (inserted.length === 0) throw new ConflictException('You already reviewed this round');
+      await tx
+        .insert(registryRevisions)
+        .values({
+          kind,
+          itemId: id,
+          revision: item.revision,
+          version: item.version,
+          name: item.name,
+          summary: item.summary,
+          sensitivity: item.sensitivity,
+          details: item.details,
+        })
+        .onConflictDoNothing();
       const [{ approvals }] = await tx
         .select({ approvals: count() })
         .from(registryReviews)
@@ -182,6 +211,7 @@ export class GovernanceService {
       .set({
         status: 'pending',
         reviewRound: sql`${registryItems.reviewRound} + 1`,
+        revision: sql`${registryItems.revision} + 1`,
         ...(summary ? { summary } : {}),
         updatedAt: new Date(),
         searchVersion: sql`${registryItems.searchVersion} + 1`,
@@ -217,6 +247,8 @@ export class GovernanceService {
       round: item.round,
       records: rows.map((r) => ({
         round: r.round,
+        revision: r.revision,
+        version: r.version,
         reviewer: r.reviewerName,
         decision: r.decision,
         note: r.note,
