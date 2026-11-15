@@ -74,6 +74,19 @@
             </div>
           }
 
+          @if (bookmarks().length) {
+            <div>
+              <h3 id="bookmarks-h">Bookmarks</h3>
+              <ul class="rows" aria-labelledby="bookmarks-h">
+                @for (m of bookmarks(); track m.id) {
+                  <li>
+                    <button type="button" class="jump" (click)="jumpTo(m)">{{ m.text }}</button>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+
           <div>
             <h3 id="claims-h">Claims</h3>
             <p class="meta">

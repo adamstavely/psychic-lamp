@@ -1,0 +1,1 @@
+ALTER TABLE "messages" ADD COLUMN "bookmarked" boolean DEFAULT false NOT NULL;

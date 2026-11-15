@@ -1,6 +1,7 @@
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import {
   type AssistantMessage,
+  Bookmark,
   Chat,
   type UserMessage,
   ChatPatch,
@@ -171,6 +172,17 @@ export class ChatsController {
     @Body({ schema: Vote }) body: Vote,
   ): Promise<void> {
     await this.chats.vote(await this.users.idFor(claims), id, messageId, body);
+  }
+
+  @Put(':id/messages/:messageId/bookmark')
+  @HttpCode(204)
+  async bookmark(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: ChatId }) id: string,
+    @Param('messageId', { schema: z.uuid() }) messageId: string,
+    @Body({ schema: Bookmark }) body: Bookmark,
+  ): Promise<void> {
+    await this.chats.bookmark(await this.users.idFor(claims), id, messageId, body.bookmarked);
   }
 
   @Get()

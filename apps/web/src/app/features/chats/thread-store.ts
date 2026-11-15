@@ -13,6 +13,7 @@ import type {
   StreamEvent,
   ToolDecision,
   ToolDecisionResult,
+  UserMessage,
   Vote,
 } from '@donovan/contracts';
 import { toast } from '@adamstavely/trenchcoat/toaster';
@@ -283,6 +284,24 @@ export class ThreadStore implements OnDestroy {
     a.click();
     URL.revokeObjectURL(url);
     this.status.set('Provenance record downloaded.');
+  }
+
+  async bookmark(message: UserMessage, bookmarked: boolean): Promise<void> {
+    const generation = this.#generation;
+    const { bookmarked: _was, ...rest } = message;
+    this.upsert(bookmarked ? { ...rest, bookmarked } : rest);
+    try {
+      await firstValueFrom(
+        this.#http.put<void>(`/api/chats/${encodeURIComponent(this.chatId())}/messages/${message.id}/bookmark`, {
+          bookmarked,
+        }),
+      );
+      this.status.set(bookmarked ? 'Bookmarked.' : 'Bookmark removed.');
+    } catch {
+      if (!this.#current(generation)) return;
+      this.upsert(message);
+      toast.error("Couldn't save the bookmark", { description: 'Try again in a moment.' });
+    }
   }
 
   async vote(message: AssistantMessage, body: Vote): Promise<void> {

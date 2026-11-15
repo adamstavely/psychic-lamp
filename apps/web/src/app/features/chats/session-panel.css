@@ -184,3 +184,21 @@ h3 {
   display: flex;
   gap: var(--tc-space-2);
 }
+
+.jump {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--tc-accent-text);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
+  text-align: start;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.jump:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}

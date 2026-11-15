@@ -129,6 +129,8 @@ export const UserMessage = z.object({
   text: z.string(),
   /** Files sent with it; left out when there are none. */
   attachments: z.array(Attachment).optional(),
+  /** Marked by its sender to come back to; left out when it isn't. */
+  bookmarked: z.boolean().optional(),
   at: Iso,
   /** The id the app sent it with (SendMessage.requestId), so it can tell a send it wasn't sure of was saved. */
   requestId: z.string().nullable().optional(),
@@ -292,6 +294,9 @@ export const Vote = z.strictObject({
   reason: z.string().max(200).optional(),
 });
 export type Vote = z.infer<typeof Vote>;
+
+export const Bookmark = z.strictObject({ bookmarked: z.boolean() });
+export type Bookmark = z.infer<typeof Bookmark>;
 
 export const ClaimReview = z.strictObject({ review: z.enum(['confirmed', 'disputed']).nullable() });
 export type ClaimReview = z.infer<typeof ClaimReview>;

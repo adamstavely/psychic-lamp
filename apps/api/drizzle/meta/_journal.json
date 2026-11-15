@@ -113,6 +113,13 @@
       "when": 1794704956868,
       "tag": "0015_chat_persona",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794705613718,
+      "tag": "0016_message_bookmark",
+      "breakpoints": true
     }
   ]
 }

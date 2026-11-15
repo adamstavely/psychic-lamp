@@ -1,7 +1,24 @@
 .layout {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   height: 100%;
+}
+
+/* The rail of your questions: at the right edge of the thread, centred on it, clear of the side pane when it's open. */
+.minimap {
+  position: absolute;
+  top: 50%;
+  right: var(--tc-space-2);
+  transform: translateY(-50%);
+}
+
+.with-minimap .thread {
+  padding-inline-end: var(--tc-space-8);
+}
+
+.with-panel .minimap {
+  right: calc(27rem + var(--tc-space-2));
 }
 
 .layout.with-panel {
@@ -12,7 +29,7 @@
   min-height: 0;
   overflow: auto;
   /* Room for the sticky header and composer, so a control that gets focus is scrolled clear of them (WCAG 2.4.11). */
-  scroll-padding-block: 4rem 11rem;
+  scroll-padding-block: 4rem 14rem;
 }
 
 .checkpoint {
@@ -66,6 +83,50 @@
   border-radius: var(--tc-radius-lg);
   background: var(--tc-surface-inverse);
   color: var(--tc-text-on-inverse);
+}
+
+.turn.user {
+  position: relative;
+}
+
+.bookmark {
+  position: absolute;
+  top: var(--tc-space-1);
+  left: calc(-1 * var(--tc-space-8));
+  display: grid;
+  place-items: center;
+  width: var(--tc-space-6);
+  height: var(--tc-space-6);
+  padding: 0;
+  border: 0;
+  border-radius: var(--tc-radius-sm);
+  background: transparent;
+  color: var(--tc-text-secondary);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.turn.user:hover .bookmark,
+.bookmark:focus-visible,
+.bookmark[aria-pressed='true'] {
+  opacity: 1;
+}
+
+.bookmark[aria-pressed='true'] {
+  color: var(--tc-accent-text);
+}
+
+.bookmark[aria-pressed='true'] svg {
+  fill: currentcolor;
+}
+
+.bookmark:hover {
+  background: var(--tc-fill-hover);
+}
+
+.bookmark:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
 }
 
 .turn.user p {
@@ -170,7 +231,8 @@
   width: 100%;
   max-width: 52rem;
   margin: auto auto 0;
-  padding: 0 var(--tc-space-6) var(--tc-space-4);
+  /* The fade sits above the answer settings, so the thread doesn't show through them. */
+  padding: var(--tc-space-4) var(--tc-space-6) var(--tc-space-4);
   background: linear-gradient(transparent, var(--dn-canvas) var(--tc-space-4));
 }
 
