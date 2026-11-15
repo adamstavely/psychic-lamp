@@ -25,6 +25,9 @@ h1 {
 
 .composer-meta {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
+  gap: var(--tc-space-4);
   margin-top: var(--tc-space-2);
 }

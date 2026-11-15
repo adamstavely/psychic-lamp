@@ -4,6 +4,7 @@ import type {
   AssistantMessage,
   Block,
   Chat,
+  ChatPatch,
   ClaimReview,
   Message,
   NewCheckpoint,
@@ -106,7 +107,7 @@ export class ThreadStore implements OnDestroy {
    * in the same chat again, as Send again or the composer does after a failure, reuses it. Once the chat shows the
    * turn, or the send finishes, it's forgotten, and the same text sent later is a new message.
    */
-  async send(text: string, model: ModelChoice): Promise<void> {
+  async send(text: string, model: ModelChoice, attachments: string[] = []): Promise<void> {
     const generation = this.#generation;
     const chatId = this.chatId();
     this.streaming.set(true);
@@ -119,7 +120,7 @@ export class ThreadStore implements OnDestroy {
     pendingSends.set(chatId, { text, requestId });
     try {
       await lastValueFrom(
-        streamMessage(this.#http, chatId, { text, model, requestId }).pipe(
+        streamMessage(this.#http, chatId, { text, model, attachments, requestId }).pipe(
           takeUntil(this.#cancel),
           tap((e) => {
             if (!this.#current(generation)) return;
@@ -143,7 +144,7 @@ export class ThreadStore implements OnDestroy {
       this.#chats.list.reload();
       toast.error("Donovan couldn't finish answering", {
         description: "Your message may have been saved. Send it again: it won't be saved twice.",
-        action: { label: 'Send again', onClick: () => void this.send(text, model).catch(() => undefined) },
+        action: { label: 'Send again', onClick: () => void this.send(text, model, attachments).catch(() => undefined) },
       });
       throw new Error('send failed');
     } finally {
@@ -250,6 +251,18 @@ export class ThreadStore implements OnDestroy {
       this.#reviews.set(before);
       toast.error("Couldn't save your verdict", { description: 'Try again in a moment.' });
     }
+  }
+
+  /** Changes the chat's mode or intent, then shows the chat as the server has it. */
+  async update(patch: ChatPatch): Promise<void> {
+    try {
+      await firstValueFrom(this.#http.patch<void>(`/api/chats/${encodeURIComponent(this.chatId())}`, patch));
+    } catch {
+      toast.error("Couldn't save that", { description: 'Try again in a moment.' });
+      throw new Error('update failed');
+    }
+    this.chat.reload();
+    this.#chats.list.reload();
   }
 
   async addCheckpoint(body: NewCheckpoint): Promise<void> {

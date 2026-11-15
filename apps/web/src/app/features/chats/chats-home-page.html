@@ -5,16 +5,29 @@
     Auto-routing is on. Donovan picks skills, tools and a model per message; override any of them in the composer.
   </p>
 
-  <div class="composer">
+  <!-- The composer's tray of attached files says when one is removed (or brought back); it bubbles up to here. -->
+  <div class="composer" (tc-items-change)="files.onChange($event)">
     <tc-chat-composer
       placeholder="Ask anything, or type / for a skill"
       [value]="value()"
       [models]="models"
       [model]="startModel()"
+      hideConnectApps
+      hideProject
+      hideApproval
+      [context]="files.context()"
+      [onDictate]="dictate"
       [onSend]="send"
+      (tc-attach)="files.pick()"
       disclaimer="AI-generated claims can be wrong. Verify before acting."
     />
     <div class="composer-meta">
+      <tc-switch
+        label="Calibrated"
+        title="Label every claim and add verification checkpoints"
+        [value]="calibrated()"
+        (tc-value-change)="calibrated.set($event.detail.value === true)"
+      />
       <tc-sensitivity-label-picker
         [fileName]="'this chat'"
         [options]="sensitivities"

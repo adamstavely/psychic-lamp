@@ -1,6 +1,7 @@
 import type {
   ArtifactBody,
   ArtifactVersion,
+  Attachment,
   Block,
   CitedText,
   Claim,
@@ -111,7 +112,8 @@ export interface AnswerBody {
  * A turn's content. An answer's top-level routing, blocks and durationMs are the version shown; `versions` (all of
  * them, oldest first) and `shown` (from 1) appear once it has been regenerated.
  */
-export type MessageBody = { text: string } | (AnswerBody & { versions?: AnswerBody[]; shown?: number });
+export type MessageBody =
+  { text: string; attachments?: Attachment[] } | (AnswerBody & { versions?: AnswerBody[]; shown?: number });
 
 export const messages = pgTable(
   'messages',

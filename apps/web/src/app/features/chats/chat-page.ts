@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ChatComposer } from '@adamstavely/trenchcoat/angular/chat-composer';
 import { ReflectionGate } from '@adamstavely/trenchcoat/angular/reflection-gate';
 import { MessageActions } from '@adamstavely/trenchcoat/angular/message-actions';
@@ -14,6 +14,7 @@ import { dictate } from '../../core/dictation';
 import { ArtifactPane } from '../artifacts/artifact-pane';
 import { BlockView } from './block-view';
 import { COMPOSER_MODELS, FEEDBACK_REASONS, PENDING_SEND, type PendingSend } from './composer';
+import { ComposerFiles } from './composer-files';
 import { allClaims, needsCheckpoint } from './session';
 import { SessionPanel } from './session-panel';
 import { ThreadStore } from './thread-store';
@@ -29,8 +30,17 @@ const ROUTE_KIND: Record<Route['kind'], string> = {
 
 @Component({
   selector: 'dn-chat-page',
-  imports: [ArtifactPane, BlockView, ChatComposer, MessageActions, ReflectionGate, SessionPanel, ThreadHeader],
-  providers: [ThreadStore],
+  imports: [
+    ArtifactPane,
+    BlockView,
+    ChatComposer,
+    MessageActions,
+    ReflectionGate,
+    RouterLink,
+    SessionPanel,
+    ThreadHeader,
+  ],
+  providers: [ThreadStore, ComposerFiles],
   templateUrl: './chat-page.html',
   styleUrl: './chat-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -48,6 +58,9 @@ export default class ChatPage {
   protected readonly chat = this.thread.chat;
   protected readonly models = COMPOSER_MODELS;
   protected readonly dictate = dictate;
+  protected readonly files = inject(ComposerFiles);
+  /** The model the composer is on: kept from one message to the next, and used to regenerate. */
+  protected readonly model = signal<ModelChoice>('auto');
   protected readonly reasons = FEEDBACK_REASONS;
   protected readonly routeKind = ROUTE_KIND;
   protected readonly workedLabel = workedLabel;
@@ -70,7 +83,10 @@ export default class ChatPage {
       const pending = history.state?.[PENDING_SEND] as PendingSend | undefined;
       if (!pending) return;
       history.replaceState({ ...history.state, [PENDING_SEND]: undefined }, '');
-      untracked(() => void this.thread.send(pending.text, pending.model).catch(() => undefined));
+      untracked(() => {
+        this.model.set(pending.model);
+        void this.thread.send(pending.text, pending.model, pending.attachments ?? []).catch(() => undefined);
+      });
     });
     effect(() => {
       const heading = this.heading();
@@ -112,14 +128,29 @@ export default class ChatPage {
       needsCheckpoint(this.chat.value().calibrated, this.thread.messages(), this.chat.value().checkpoints.length),
   );
 
+  /** The claim the person said they'd verify, by its words (ids mean nothing to a reader). */
+  protected readonly verifying = computed(() => {
+    const point = this.chat.hasValue() ? this.chat.value().checkpoints[0] : undefined;
+    if (!point) return '';
+    return allClaims(this.thread.messages()).find((c) => c.id === point.claimId)?.text ?? point.claimId;
+  });
+
   protected onCheckpoint(event: CustomEvent<ReflectionGateSubmission>): void {
     const { claim, method } = event.detail.value;
     if (!claim || !method) return;
     void this.thread.addCheckpoint({ claimId: claim, method });
   }
 
-  protected readonly send = (message: string, details: ChatSendDetails): Promise<void> =>
-    this.thread.send(message, details.model as ModelChoice);
+  protected readonly send = async (message: string, details: ChatSendDetails): Promise<void> => {
+    const model = details.model as ModelChoice;
+    this.model.set(model);
+    await this.thread.send(message, model, this.files.ids());
+    this.files.clear();
+  };
+
+  protected onModel(event: CustomEvent<{ model: string }>): void {
+    this.model.set(event.detail.model as ModelChoice);
+  }
 
   protected readonly decide = (toolId: string, decision: ToolDecision): Promise<void> =>
     this.thread.decide(toolId, decision);
@@ -131,7 +162,7 @@ export default class ChatPage {
     if (!fn) {
       fn = () => {
         const current = this.thread.messages().find((x) => x.id === m.id);
-        return this.thread.regenerate((current as AssistantMessage | undefined) ?? m);
+        return this.thread.regenerate((current as AssistantMessage | undefined) ?? m, this.model());
       };
       this.#regenerators.set(m.id, fn);
     }

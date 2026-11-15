@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { ChatComposer } from '@adamstavely/trenchcoat/angular/chat-composer';
 import { PromptStarters } from '@adamstavely/trenchcoat/angular/prompt-starters';
 import { SensitivityLabelPicker } from '@adamstavely/trenchcoat/angular/sensitivity-label-picker';
+import { Switch } from '@adamstavely/trenchcoat/angular/switch';
 import type { ChatSendDetails } from '@adamstavely/trenchcoat/chat-composer';
 import type { PromptStarter } from '@adamstavely/trenchcoat/prompt-starters';
 import type { SensitivityLabel } from '@adamstavely/trenchcoat/sensitivity-label-picker';
@@ -14,6 +15,7 @@ import { ChatsStore } from '../../core/chats-store';
 import { dictate } from '../../core/dictation';
 import { Session } from '../../core/session';
 import { COMPOSER_MODELS, PENDING_SEND, type PendingSend } from './composer';
+import { ComposerFiles } from './composer-files';
 
 const SENSITIVITIES: SensitivityLabel[] = [
   { id: 'Public', label: 'Public', description: 'Anyone, inside or outside the company', level: 0 },
@@ -52,9 +54,10 @@ const STARTERS: PromptStarter[] = [
 /** Where a new chat starts: the composer, with routing on Auto, and a few ways in. */
 @Component({
   selector: 'dn-chats-home-page',
-  imports: [ChatComposer, PromptStarters, SensitivityLabelPicker],
+  imports: [ChatComposer, PromptStarters, SensitivityLabelPicker, Switch],
   templateUrl: './chats-home-page.html',
   styleUrl: './chats-home-page.css',
+  providers: [ComposerFiles],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class ChatsHomePage {
@@ -74,9 +77,12 @@ export default class ChatsHomePage {
 
   protected readonly models = COMPOSER_MODELS;
   protected readonly dictate = dictate;
+  protected readonly files = inject(ComposerFiles);
   protected readonly starters = STARTERS;
   protected readonly sensitivities = SENSITIVITIES;
   protected readonly sensitivity = signal<Sensitivity>('Internal');
+  /** Start the chat Calibrated: its answers label each claim. */
+  protected readonly calibrated = signal(false);
   protected readonly date = new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
     month: 'long',
@@ -102,16 +108,24 @@ export default class ChatsHomePage {
   }
 
   protected sendStarter(event: CustomEvent<{ text: unknown }>): void {
-    void this.start(String(event.detail.text), 'auto');
+    // start() has said what went wrong already.
+    this.start(String(event.detail.text), 'auto').catch(() => undefined);
   }
 
   private async start(text: string, model: ModelChoice): Promise<void> {
     try {
       const chat = await firstValueFrom(
-        this.#http.post<ChatSummary>('/api/chats', { text, sensitivity: this.sensitivity() }),
+        this.#http.post<ChatSummary>('/api/chats', {
+          text,
+          sensitivity: this.sensitivity(),
+          calibrated: this.calibrated(),
+        }),
       );
       this.#chats.list.reload();
-      const state: Record<string, PendingSend> = { [PENDING_SEND]: { text, model } };
+      const state: Record<string, PendingSend> = {
+        [PENDING_SEND]: { text, model, attachments: this.files.ids() },
+      };
+      this.files.clear();
       await this.#router.navigate(['/chats', chat.id], { state });
     } catch {
       toast.error("Couldn't start the chat", { description: 'Check your connection and try again.' });

@@ -10,6 +10,13 @@ test.describe('asking Donovan', () => {
     await expectNoAxeViolations(page);
   });
 
+  test("offers only what works: no Request approval or Connect apps, which Donovan doesn't have", async ({ page }) => {
+    await signIn(page, 'alex', '/chats');
+    await expect(page.getByRole('button', { name: 'Add attachment' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Request approval' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Connect apps' })).toHaveCount(0);
+  });
+
   test("the Brief's question arrives in the composer", async ({ page }) => {
     await signIn(page, 'alex', '/chats/new?q=What%20should%20I%20prep%3F');
     await expect(page.getByRole('textbox', { name: 'Message' })).toHaveValue('What should I prep?');
@@ -32,6 +39,51 @@ test.describe('asking Donovan', () => {
       await expect(page.getByRole('status').filter({ hasText: 'Donovan answered.' })).toBeAttached();
       await expect(page.locator('tc-chat-history').getByText('What should I prep for the 2:00')).toBeVisible();
       await expectNoAxeViolations(page);
+    });
+
+    test('a file sent with the first message is read, linked from the turn and listed as a source', async ({
+      page,
+    }) => {
+      await signIn(page, 'priya', '/chats');
+      await resetUser(page);
+      const chooser = page.waitForEvent('filechooser');
+      await page.getByRole('button', { name: 'Add attachment' }).click();
+      await (
+        await chooser
+      ).setFiles({ name: 'launch-notes.md', mimeType: 'text/markdown', buffer: Buffer.from('# Launch\n\nFriday.') });
+      await expect(page.locator('tc-chat-composer').getByText('launch-notes.md')).toBeVisible();
+      await page.getByRole('textbox', { name: 'Message' }).fill('Summarize these notes');
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(/\/chats\/[a-z0-9]{8}$/);
+      await expect(page.getByText(/^I read launch-notes\.md/)).toBeVisible();
+      const attached = page.getByRole('list', { name: 'Attached files' });
+      await expect(attached.getByRole('link', { name: 'launch-notes.md' })).toBeVisible();
+      await page.getByRole('button', { name: 'Session panel' }).click();
+      const panel = page.getByRole('complementary', { name: 'Session panel' });
+      await panel.getByRole('tab', { name: 'Sources' }).click();
+      await expect(panel.getByRole('link', { name: 'launch-notes.md' })).toBeVisible();
+      await expectNoAxeViolations(page);
+    });
+
+    test('the model picked for a reply stays picked, and Regenerate uses it', async ({ page }) => {
+      await signIn(page, 'priya', '/chats/rfc');
+      await resetUser(page);
+      const composer = page.locator('tc-chat-composer');
+      await composer.getByRole('button', { name: 'Auto' }).click();
+      await page.getByRole('option', { name: /Claude Opus 4\.1/ }).click();
+      await page.getByRole('textbox', { name: 'Message' }).fill('Anything else?');
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('status').filter({ hasText: 'Donovan answered.' })).toBeAttached();
+      const routed = page.getByRole('list', { name: 'Routed to' }).last();
+      await expect(routed).toContainText('claude-opus-4.1');
+      await expect(composer.getByRole('button', { name: /Claude Opus 4\.1/ })).toBeVisible();
+      await page
+        .locator('tc-message-actions')
+        .last()
+        .getByRole('button', { name: /Regenerate/ })
+        .click();
+      await expect(page.getByRole('status').filter({ hasText: 'Version 2 of the answer is ready.' })).toBeAttached();
+      await expect(page.getByRole('list', { name: 'Routed to' }).last()).toContainText('claude-opus-4.1');
     });
 
     test('approving a waiting write tool runs it and Donovan says so', async ({ page }) => {

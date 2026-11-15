@@ -147,3 +147,40 @@ h3 {
     border-left: 0;
   }
 }
+
+.mode {
+  padding-bottom: var(--tc-space-4);
+  border-bottom: 1px solid var(--tc-border-subtle);
+}
+
+.intent-form {
+  display: grid;
+  gap: var(--tc-space-2);
+  font-size: var(--tc-font-size-sm);
+}
+
+.intent-form label {
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+}
+
+.intent-form textarea {
+  padding: var(--tc-space-1-5) var(--tc-space-2);
+  border: 1px solid var(--tc-border-control);
+  border-radius: var(--tc-radius-sm);
+  background: var(--tc-surface-control);
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
+  resize: vertical;
+}
+
+.intent-form textarea:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--tc-space-2);
+}
