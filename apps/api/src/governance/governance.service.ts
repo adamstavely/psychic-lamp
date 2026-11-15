@@ -228,13 +228,22 @@ export class GovernanceService {
     if (!row) throw new ConflictException('Only your own submission, sent back or rejected, can be resubmitted');
   }
 
-  /** Every decision on an item, oldest first, for anyone who can see the item. */
+  /**
+   * Every decision on an item, oldest first, for anyone who can see the item (as the registry's visibility: its owner
+   * and whoever last sent it to review see it in any state), and whether this person can resubmit it.
+   */
   async history(userId: string, kind: RegistryKind, id: string): Promise<ReviewHistory> {
     const [item] = await this.db
-      .select({ round: registryItems.reviewRound, status: registryItems.status, ownerId: registryItems.ownerId })
+      .select({
+        round: registryItems.reviewRound,
+        status: registryItems.status,
+        ownerId: registryItems.ownerId,
+        submittedBy: registryItems.submittedBy,
+      })
       .from(registryItems)
       .where(and(eq(registryItems.kind, kind), eq(registryItems.id, id)));
-    const visible = item && (['published', 'pending'].includes(item.status) || item.ownerId === userId);
+    const theirs = !!item && (item.ownerId === userId || item.submittedBy === userId);
+    const visible = item && (['published', 'pending'].includes(item.status) || theirs);
     if (!visible) throw new NotFoundException(`No ${kind} with that id`);
     const rows = await this.db
       .select()
@@ -245,6 +254,7 @@ export class GovernanceService {
       kind,
       id,
       round: item.round,
+      canResubmit: theirs && (item.status === 'changes-requested' || item.status === 'rejected'),
       records: rows.map((r) => ({
         round: r.round,
         revision: r.revision,

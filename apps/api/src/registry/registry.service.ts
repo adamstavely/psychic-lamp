@@ -564,8 +564,16 @@ export class RegistryService implements OnApplicationBootstrap {
     return out;
   }
 
+  /**
+   * What the person can see: anything published or in review, and, whatever its state, what they own or last sent to
+   * review (a team's item they edited, sent back to them). Other people's drafts and returned submissions stay hidden.
+   */
   private visibleTo(userId: string): SQL {
-    return or(inArray(registryItems.status, ['published', 'pending']), eq(registryItems.ownerId, userId))!;
+    return or(
+      inArray(registryItems.status, ['published', 'pending']),
+      eq(registryItems.ownerId, userId),
+      eq(registryItems.submittedBy, userId),
+    )!;
   }
 
   /**
@@ -612,9 +620,11 @@ export class RegistryService implements OnApplicationBootstrap {
 }
 
 function scopeOf(userId: string, scope: RegistryQuery['scope']): SQL | undefined {
-  if (scope === 'mine') return eq(registryItems.ownerId, userId);
+  // Mine is what the person owns or last sent to review, such as a team's workflow they edited.
+  const mine = or(eq(registryItems.ownerId, userId), eq(registryItems.submittedBy, userId));
+  if (scope === 'mine') return mine;
   // Team is what teams own and what's the person's own, as in the prototype; All adds everything else.
-  if (scope === 'team') return or(isNotNull(registryItems.ownerTeam), eq(registryItems.ownerId, userId));
+  if (scope === 'team') return or(isNotNull(registryItems.ownerTeam), mine);
   return undefined;
 }
 

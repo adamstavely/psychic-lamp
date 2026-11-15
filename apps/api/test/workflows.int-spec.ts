@@ -246,6 +246,78 @@ describe('workflows on the canvas', () => {
     expect(still).toMatchObject({ status: 'draft', details: { nodes: [] } });
   });
 
+  it("keeps a team's workflow, sent back after someone edited it, theirs to see, revise and resubmit", async () => {
+    const db = t.app.get<Db>(DB);
+    const id = `team-flow-${randomUUID().slice(0, 8)}`;
+    const nodes = [step('start', 'Trigger', 'Schedule')];
+    await db.insert(registryItems).values({
+      kind: 'workflow',
+      id,
+      name: 'Team flow',
+      slug: `platform/${id}`,
+      version: 'v1',
+      sensitivity: 'Internal',
+      summary: 'A team workflow.',
+      ownerTeam: 'Platform',
+      ownerId: null,
+      ownerName: 'Platform',
+      status: 'published',
+      details: { state: 'Active', schedule: 'daily', nodes, edges: [] } as never,
+    });
+    try {
+      const [editor, reviewer, other] = [await person('teamedit'), await person('teamrev'), await person('teamother')];
+      const saved = RegistryItem.parse(
+        (
+          await http
+            .put(`/api/registry/workflow/${id}/graph`)
+            .auth(editor, bearer)
+            .send({ ...graph(nodes, [], 1), name: 'Team flow' })
+            .expect(200)
+        ).body,
+      );
+      await http
+        .post(`/api/governance/queue/workflow/${id}/decisions`)
+        .auth(reviewer, bearer)
+        .send({ revision: saved.revision, decision: 'changes', note: 'Name the schedule.' })
+        .expect(200);
+
+      // The editor still sees it, in Mine, with the reason and the right to resubmit; nobody else sees it.
+      const back = RegistryItem.parse(
+        (await http.get(`/api/registry/workflow/${id}`).auth(editor, bearer).expect(200)).body,
+      );
+      expect(back.status).toBe('changes-requested');
+      const mine = (await http.get('/api/registry?kind=workflow&scope=mine').auth(editor, bearer).expect(200)).body as {
+        id: string;
+      }[];
+      expect(mine.map((i) => i.id)).toContain(id);
+      const history = (await http.get(`/api/governance/history/workflow/${id}`).auth(editor, bearer).expect(200))
+        .body as { canResubmit: boolean; records: { note: string }[] };
+      expect(history).toMatchObject({ canResubmit: true, records: [{ note: 'Name the schedule.' }] });
+      await http.get(`/api/registry/workflow/${id}`).auth(other, bearer).expect(404);
+      await http.get(`/api/governance/history/workflow/${id}`).auth(other, bearer).expect(404);
+
+      // They revise it, which sends it back to review as the next version.
+      const revised = RegistryItem.parse(
+        (
+          await http
+            .put(`/api/registry/workflow/${id}/graph`)
+            .auth(editor, bearer)
+            .send({
+              ...graph([step('start', 'Trigger', 'Schedule · daily 9:00')], [], back.revision),
+              name: 'Team flow',
+            })
+            .expect(200)
+        ).body,
+      );
+      expect(revised).toMatchObject({ status: 'pending', version: 'v3' });
+      const after = (await http.get(`/api/governance/history/workflow/${id}`).auth(editor, bearer).expect(200))
+        .body as { canResubmit: boolean };
+      expect(after.canResubmit).toBe(false);
+    } finally {
+      await db.delete(registryItems).where(and(eq(registryItems.kind, 'workflow'), eq(registryItems.id, id)));
+    }
+  });
+
   it("refuses to change someone else's own workflow", async () => {
     const owner = await person('mine');
     const draft = (await http.post('/api/registry/workflows').auth(owner, bearer).send({ name: 'Mine' }).expect(201))

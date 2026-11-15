@@ -14,7 +14,6 @@ import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import type { RegistryItem, ReviewDecision, ReviewHistory } from '@donovan/contracts';
 import { firstValueFrom } from 'rxjs';
-import { Session } from '../../core/session';
 
 const STATUS: Record<RegistryItem['status'], string> = {
   draft: 'Draft',
@@ -133,7 +132,6 @@ export class ReviewStatus implements OnInit {
   /** Resubmitted: the page reloads the item. */
   readonly changed = output<void>();
   readonly #http = inject(HttpClient);
-  readonly #session = inject(Session);
 
   protected readonly status = STATUS;
   protected readonly decision = DECISION;
@@ -144,11 +142,8 @@ export class ReviewStatus implements OnInit {
     const h = this.history.hasValue() ? this.history.value() : null;
     return h ? h.records.filter((r) => r.round === h.round && r.decision === 'approve').length : 0;
   });
-  protected readonly canResubmit = computed(() => {
-    const i = this.item();
-    const me = this.#session.me.hasValue() ? this.#session.me.value().id : null;
-    return !!me && i.owner.personId === me && (i.status === 'changes-requested' || i.status === 'rejected');
-  });
+  /** The API says: its owner, or whoever sent it to review (a team's item they edited), while it's sent back. */
+  protected readonly canResubmit = computed(() => this.history.hasValue() && this.history.value().canResubmit);
 
   protected summary = '';
   protected readonly sending = signal(false);

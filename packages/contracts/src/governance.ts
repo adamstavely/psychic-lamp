@@ -103,6 +103,8 @@ export const ReviewHistory = z.object({
   kind: RegistryKind,
   id: z.string(),
   round: z.number().int().positive(),
+  /** Whether the person asking can resubmit it: it's sent back or rejected, and theirs or sent to review by them. */
+  canResubmit: z.boolean(),
   records: z.array(ReviewRecord),
 });
 export type ReviewHistory = z.infer<typeof ReviewHistory>;
