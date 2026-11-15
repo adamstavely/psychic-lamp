@@ -321,6 +321,28 @@ describe('sending, approving and voting', () => {
       .expect(404);
   });
 
+  it("bookmarks the sender's own questions only, and clears a bookmark", async () => {
+    const token = await t.token({ sub: 'bookmarks' });
+    const created = ChatSummary.parse(
+      (await http.post('/api/chats').auth(token, bearer).send({ text: 'Hi' }).expect(201)).body,
+    );
+    await http.post(`/api/chats/${created.id}/messages`).auth(token, bearer).send({ text: 'Hi' }).expect(200);
+    const [question, answer] = Chat.parse(
+      (await http.get(`/api/chats/${created.id}`).auth(token, bearer)).body,
+    ).messages;
+    const mark = (id: string, bookmarked: boolean, as = token) =>
+      http.put(`/api/chats/${created.id}/messages/${id}/bookmark`).auth(as, bearer).send({ bookmarked });
+
+    await mark(question!.id, true).expect(204);
+    let chat = Chat.parse((await http.get(`/api/chats/${created.id}`).auth(token, bearer)).body);
+    expect(chat.messages[0]).toMatchObject({ role: 'user', bookmarked: true });
+    await mark(answer!.id, true).expect(404);
+    await mark(question!.id, false, await t.token({ sub: 'bookmarks-other' })).expect(404);
+    await mark(question!.id, false).expect(204);
+    chat = Chat.parse((await http.get(`/api/chats/${created.id}`).auth(token, bearer)).body);
+    expect(chat.messages[0]).not.toHaveProperty('bookmarked');
+  });
+
   it('records and clears a vote on an answer', async () => {
     const token = await t.token();
     const chat = Chat.parse((await http.get('/api/chats/churn').auth(token, bearer)).body);

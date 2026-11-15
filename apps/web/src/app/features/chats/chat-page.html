@@ -1,7 +1,7 @@
 @if (chat.hasValue()) {
   @let c = chat.value();
   <div class="layout" [class.with-panel]="!!pane()">
-    <div class="page">
+    <div class="page" #page [class.with-minimap]="markers().length >= 2">
       <tc-thread-header
         class="header"
         [heading]="heading()"
@@ -74,8 +74,18 @@
                 }
               </li>
             } @else {
-              <li class="turn user">
+              <li class="turn user" [id]="'turn-' + m.id" tabindex="-1">
                 <h2 class="sr-only">You</h2>
+                <button
+                  type="button"
+                  class="bookmark"
+                  [attr.aria-pressed]="!!m.bookmarked"
+                  [attr.aria-label]="'Bookmark: ' + m.text"
+                  [title]="m.bookmarked ? 'Remove bookmark' : 'Bookmark this question'"
+                  (click)="toggleBookmark(m)"
+                >
+                  <span dnIcon="bookmark" [iconSize]="14"></span>
+                </button>
                 <p>{{ m.text }}</p>
                 @if (m.attachments?.length) {
                   <ul class="attachments" aria-label="Attached files">
@@ -151,6 +161,9 @@
       </div>
       <p class="sr-only" role="status" aria-live="polite">{{ thread.status() }}</p>
     </div>
+    @if (markers().length >= 2) {
+      <tc-chat-minimap class="minimap" label="Your questions" [items]="markers()" [scrollRoot]="page" />
+    }
     @if (pane() === 'artifact') {
       <dn-artifact-pane [artifactId]="artifact()!" (closed)="closeArtifact()" />
     } @else if (pane() === 'session') {

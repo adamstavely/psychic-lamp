@@ -7,7 +7,7 @@ import { SegmentedControl } from '@adamstavely/trenchcoat/angular/segmented-cont
 import { Switch } from '@adamstavely/trenchcoat/angular/switch';
 import type { ContextPart } from '@adamstavely/trenchcoat/context-window';
 import type { SegmentOption } from '@adamstavely/trenchcoat/segmented-control';
-import type { Claim, SessionIntentInput } from '@donovan/contracts';
+import type { Claim, SessionIntentInput, UserMessage } from '@donovan/contracts';
 import {
   allClaims,
   chatArtifacts,
@@ -43,6 +43,16 @@ export class SessionPanel {
   protected readonly artifacts = computed(() => chatArtifacts(this.thread.messages()));
   protected readonly sources = computed(() => chatSources(this.thread.messages()));
   protected readonly attached = computed(() => chatAttachments(this.thread.messages()));
+  protected readonly bookmarks = computed(() =>
+    this.thread.messages().filter((m): m is UserMessage => m.role === 'user' && !!m.bookmarked),
+  );
+
+  /** Scrolls the thread to a bookmarked question and puts focus on it. */
+  protected jumpTo(m: UserMessage): void {
+    const turn = document.getElementById(`turn-${m.id}`);
+    turn?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    turn?.focus({ preventScroll: true });
+  }
   protected readonly routing = computed(() => routingSummary(this.sources()));
   protected readonly contextParts = computed<ContextPart[]>(
     () =>

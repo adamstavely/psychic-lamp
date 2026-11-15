@@ -132,6 +132,8 @@ export const messages = pgTable(
     body: jsonb().$type<MessageBody>().notNull(),
     vote: text({ enum: ['up', 'down'] }),
     voteReason: text(),
+    /** A question its sender marked to come back to (user messages). */
+    bookmarked: boolean().notNull().default(false),
     /** The client's id for the send that saved this message (user messages), so a retry isn't saved twice. */
     requestId: uuid(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),

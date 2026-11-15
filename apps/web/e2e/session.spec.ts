@@ -91,6 +91,29 @@ test.describe('the session panel', () => {
       ).not.toBeChecked();
     });
 
+    test('a question can be bookmarked, found in the panel and on the rail, and stays bookmarked', async ({ page }) => {
+      await signIn(page, 'mara', '/chats/supplier');
+      await resetUser(page);
+      const rail = page.getByRole('listbox', { name: 'Your questions' });
+      await expect(rail.getByRole('option')).toHaveCount(2);
+      const saved = page.waitForResponse((r) => r.url().includes('/bookmark') && r.request().method() === 'PUT');
+      await page.getByRole('button', { name: /^Bookmark: Challenge that/ }).click();
+      await saved;
+      await expect(page.getByRole('button', { name: /^Bookmark: Challenge that/ })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      const panel = page.getByRole('complementary', { name: 'Session panel' });
+      await panel.getByRole('button', { name: /^Challenge that/ }).click();
+      await expect(page.locator('li.turn.user').filter({ hasText: 'Challenge that' })).toBeFocused();
+      await expectNoAxeViolations(page);
+      await page.reload();
+      await expect(page.getByRole('button', { name: /^Bookmark: Challenge that/ })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+    });
+
     test('export downloads a provenance record', async ({ page }) => {
       await signIn(page, 'mara', '/chats/supplier');
       const panel = page.getByRole('complementary', { name: 'Session panel' });

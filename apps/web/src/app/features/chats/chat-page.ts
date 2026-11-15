@@ -2,11 +2,13 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input, si
 import { Title } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
 import { ChatComposer } from '@adamstavely/trenchcoat/angular/chat-composer';
+import { ChatMinimap } from '@adamstavely/trenchcoat/angular/chat-minimap';
 import { ContextWindow } from '@adamstavely/trenchcoat/angular/context-window';
 import { Select } from '@adamstavely/trenchcoat/angular/select';
 import { ReflectionGate } from '@adamstavely/trenchcoat/angular/reflection-gate';
 import { MessageActions } from '@adamstavely/trenchcoat/angular/message-actions';
 import type { ChatSendDetails } from '@adamstavely/trenchcoat/chat-composer';
+import type { ChatMarker } from '@adamstavely/trenchcoat/chat-minimap';
 import type { ContextPart } from '@adamstavely/trenchcoat/context-window';
 import type { ReflectionGateSubmission } from '@adamstavely/trenchcoat/reflection-gate';
 import type { SelectOption } from '@adamstavely/trenchcoat/select';
@@ -20,10 +22,12 @@ import type {
   Persona,
   Route,
   ToolDecision,
+  UserMessage,
 } from '@donovan/contracts';
 import { KNOWLEDGE_SOURCES, PERSONAS } from '@donovan/contracts/defaults';
 import { ChatsStore } from '../../core/chats-store';
 import { dictate } from '../../core/dictation';
+import { IconDirective } from '../../core/icon.directive';
 import { ArtifactPane } from '../artifacts/artifact-pane';
 import { BlockView } from './block-view';
 import { COMPOSER_MODELS, FEEDBACK_REASONS, PENDING_SEND, type PendingSend } from './composer';
@@ -47,7 +51,9 @@ const ROUTE_KIND: Record<Route['kind'], string> = {
     ArtifactPane,
     BlockView,
     ChatComposer,
+    ChatMinimap,
     ContextWindow,
+    IconDirective,
     MessageActions,
     ReflectionGate,
     RouterLink,
@@ -183,6 +189,18 @@ export default class ChatPage {
       .update({ knowledge })
       .then(() => this.thread.status.set(`Knowledge: ${label}. It applies to answers from now on.`))
       .catch(() => undefined);
+  }
+
+  /** The rail of your questions beside a longer chat, to find and jump back to one. */
+  protected readonly markers = computed<ChatMarker[]>(() =>
+    this.thread
+      .messages()
+      .filter((m): m is UserMessage => m.role === 'user')
+      .map((m) => ({ id: m.id, text: m.text, target: `turn-${m.id}` })),
+  );
+
+  protected toggleBookmark(m: UserMessage): void {
+    void this.thread.bookmark(m, !m.bookmarked);
   }
 
   /** The token meter: how much of the context window the latest answer was given. */

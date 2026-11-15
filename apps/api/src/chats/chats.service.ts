@@ -466,6 +466,23 @@ export class ChatsService {
     if (rows.length === 0) throw new NotFoundException('No answer with that id in this chat');
   }
 
+  /** Marks one of the person's own questions to come back to, or unmarks it. */
+  async bookmark(userId: string, chatId: string, messageId: string, bookmarked: boolean): Promise<void> {
+    const rows = await this.db
+      .update(messages)
+      .set({ bookmarked })
+      .where(
+        and(
+          eq(messages.ownerId, userId),
+          eq(messages.chatId, chatId),
+          eq(messages.id, messageId),
+          eq(messages.role, 'user'),
+        ),
+      )
+      .returning({ id: messages.id });
+    if (rows.length === 0) throw new NotFoundException('No question with that id in this chat');
+  }
+
   /** Takes the chat off the list; `restore` brings it back. */
   async archive(userId: string, id: string): Promise<void> {
     await this.setArchived(userId, id, new Date());
@@ -582,6 +599,7 @@ function toMessage(row: MessageRow): Message {
       role: 'user',
       text: row.body.text,
       ...(row.body.attachments?.length ? { attachments: row.body.attachments } : {}),
+      ...(row.bookmarked ? { bookmarked: true } : {}),
       at,
       requestId: row.requestId,
     };
