@@ -28,6 +28,9 @@ import {
 } from '@nestjs/common';
 import { and, asc, count, eq, inArray, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module.js';
+
+/** A transaction on the database, as `db.transaction` hands it over. */
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 import { GovernanceService } from '../governance/governance.service.js';
 import { projectCollections, projects, registryInstalls, registryItems } from '../db/schema.js';
 import { toSummary } from './registry-row.js';
@@ -295,82 +298,91 @@ export class RegistryService implements OnApplicationBootstrap {
     }
     const base = slugify(body.name);
     const slug = `${slugify(body.team ?? ownerName)}/${base}`;
-    const [taken] = await this.db
-      .select({ id: registryItems.id })
-      .from(registryItems)
-      .where(and(eq(registryItems.kind, body.kind), eq(registryItems.slug, slug)));
-    if (taken) throw new ConflictException(`There's already a ${body.kind} called ${slug}`);
-    // Ids are unique per kind; a name someone else used gets a number.
-    const used = await this.db
-      .select({ id: registryItems.id })
-      .from(registryItems)
-      .where(and(eq(registryItems.kind, body.kind), sql`${registryItems.id} like ${`${base}%`}`));
-    const ids = new Set(used.map((u) => u.id));
-    let id = base;
-    for (let n = 2; ids.has(id); n++) id = `${base}-${n}`;
+    // Read before the lock: it's a policy lookup, not part of choosing the id.
+    const readOnly = await this.governance.enabled('read-only-default');
+    const row = await this.allocating(body.kind, async (tx) => {
+      const [taken] = await tx
+        .select({ id: registryItems.id })
+        .from(registryItems)
+        .where(and(eq(registryItems.kind, body.kind), eq(registryItems.slug, slug)));
+      if (taken) throw new ConflictException(`There's already a ${body.kind} called ${slug}`);
+      // Ids are unique per kind; a name someone else used gets a number.
+      const id = await freeId(tx, body.kind, base);
+      const [inserted] = await tx
+        .insert(registryItems)
+        .values({
+          kind: body.kind,
+          id,
+          name: body.name,
+          slug,
+          version: 'v1',
+          sensitivity,
+          summary: body.summary,
+          ownerTeam: body.team,
+          ownerId: userId,
+          ownerName: body.team ?? ownerName,
+          status: 'pending',
+          submittedBy: userId,
+          // While the policy is on, everything starts read-only; an admin turns writes on later.
+          access: readOnly ? { ...body.access, readOnly: true } : body.access,
+          details: detailsFor(
+            body,
+            linked.map(({ kind, id, name }) => ({ kind, id, name })),
+          ),
+        })
+        .returning();
+      return inserted!;
+    });
+    await this.indexQuietly([row]);
+    return toItem(row);
+  }
 
-    const [row] = await this.db
-      .insert(registryItems)
-      .values({
-        kind: body.kind,
-        id,
-        name: body.name,
-        slug,
-        version: 'v1',
-        sensitivity,
-        summary: body.summary,
-        ownerTeam: body.team,
-        ownerId: userId,
-        ownerName: body.team ?? ownerName,
-        status: 'pending',
-        submittedBy: userId,
-        // While the policy is on, everything starts read-only; an admin turns writes on later.
-        access: (await this.governance.enabled('read-only-default')) ? { ...body.access, readOnly: true } : body.access,
-        details: detailsFor(
-          body,
-          linked.map(({ kind, id, name }) => ({ kind, id, name })),
-        ),
-      })
-      .returning();
-    await this.indexQuietly([row!]);
-    return toItem(row!);
+  /**
+   * Runs a new item's id choice and insert one at a time per kind (a lock held until the transaction ends), so two
+   * people registering the same name at once get "name" and "name-2" rather than one of them an error.
+   */
+  private allocating<T>(kind: RegistryKind, insert: (tx: Tx) => Promise<T>): Promise<T> {
+    return this.db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`registry-ids:${kind}`}))`);
+      return insert(tx);
+    });
   }
 
   /** Starts a workflow: a draft of the person's own, with no steps yet, to build on the canvas and then send to review. */
   async createWorkflow(userId: string, ownerName: string, requested: string): Promise<RegistryItem> {
     // A second "Untitled workflow" of the person's own is "Untitled workflow 2", not a conflict.
     const owner = slugify(ownerName);
-    const used = await this.db
-      .select({ id: registryItems.id, slug: registryItems.slug })
-      .from(registryItems)
-      .where(and(eq(registryItems.kind, 'workflow'), sql`${registryItems.id} like ${`${slugify(requested)}%`}`));
-    const slugs = new Set(used.map((u) => u.slug));
-    let name = requested;
-    for (let n = 2; slugs.has(`${owner}/${slugify(name)}`); n++) name = `${requested} ${n}`;
-    const base = slugify(name);
-    const slug = `${owner}/${base}`;
-    const ids = new Set(used.map((u) => u.id));
-    let id = base;
-    for (let n = 2; ids.has(id); n++) id = `${base}-${n}`;
-    const [row] = await this.db
-      .insert(registryItems)
-      .values({
-        kind: 'workflow',
-        id,
-        name,
-        slug,
-        version: 'v1',
-        sensitivity: 'Internal',
-        summary: '',
-        ownerTeam: null,
-        ownerId: userId,
-        ownerName,
-        status: 'draft',
-        access: null,
-        details: { state: 'Draft', schedule: 'not scheduled', nodes: [], edges: [] },
-      })
-      .returning();
-    return toItem(row!);
+    const row = await this.allocating('workflow', async (tx) => {
+      const used = await tx
+        .select({ slug: registryItems.slug })
+        .from(registryItems)
+        .where(and(eq(registryItems.kind, 'workflow'), sql`${registryItems.slug} like ${`${owner}/%`}`));
+      const slugs = new Set(used.map((u) => u.slug));
+      let name = requested;
+      for (let n = 2; slugs.has(`${owner}/${slugify(name)}`); n++) name = `${requested} ${n}`;
+      const base = slugify(name);
+      const id = await freeId(tx, 'workflow', base);
+      const [inserted] = await tx
+        .insert(registryItems)
+        .values({
+          kind: 'workflow',
+          id,
+          name,
+          slug: `${owner}/${base}`,
+          version: 'v1',
+          sensitivity: 'Internal',
+          summary: '',
+          ownerTeam: null,
+          ownerId: userId,
+          ownerName,
+          status: 'draft',
+          access: null,
+          details: { state: 'Draft', schedule: 'not scheduled', nodes: [], edges: [] },
+        })
+        .returning();
+      return inserted!;
+    });
+    return toItem(row);
   }
 
   /**
@@ -617,6 +629,18 @@ export class RegistryService implements OnApplicationBootstrap {
       );
     }
   }
+}
+
+/** The first of base, base-2, base-3… that no item of this kind has. */
+async function freeId(tx: Tx, kind: RegistryKind, base: string): Promise<string> {
+  const used = await tx
+    .select({ id: registryItems.id })
+    .from(registryItems)
+    .where(and(eq(registryItems.kind, kind), sql`${registryItems.id} like ${`${base}%`}`));
+  const ids = new Set(used.map((u) => u.id));
+  let id = base;
+  for (let n = 2; ids.has(id); n++) id = `${base}-${n}`;
+  return id;
 }
 
 function scopeOf(userId: string, scope: RegistryQuery['scope']): SQL | undefined {
