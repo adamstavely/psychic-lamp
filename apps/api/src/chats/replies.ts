@@ -1,4 +1,5 @@
 import type { Attachment, Block, Knowledge, ModelChoice, Persona, Route } from '@donovan/contracts';
+import { randomBytes } from 'node:crypto';
 
 // Canned answers: Donovan doesn't call a model yet. Each reply says honestly what was "routed", and is streamed as if
 // it were being written (see stream.ts).
@@ -107,6 +108,26 @@ export function withFiles(reply: Reply, files: Attachment[]): Reply {
 function baseReply(text: string, model: ModelChoice): Reply {
   const chosen: Route = { kind: 'model', name: model === 'auto' ? DEFAULT_MODEL : model };
 
+  // Write tools change something outside Donovan, so they wait for approval (unless the chat allows them).
+  if (/\b(post|announce|notify)\b/i.test(text)) {
+    return writeReply(chosen, {
+      name: 'post_message',
+      server: 'Slack · #risk-ops',
+      summary: 'Post the update to #risk-ops (write)',
+      args: { channel: '#risk-ops', text: excerpt(text) },
+      lead: "Here's the update for #risk-ops.",
+    });
+  }
+  if (/\b(file|create|open|raise)\s+(an?\s+)?(issue|ticket|bug)\b/i.test(text)) {
+    return writeReply(chosen, {
+      name: 'create_issue',
+      server: 'Linear · RISK',
+      summary: 'Create an issue in RISK (write)',
+      args: { team: 'RISK', title: excerpt(text) },
+      lead: "Here's the issue, ready to file in RISK.",
+    });
+  }
+
   if (/\b(prep|prepare|meeting|go\/no-go)\b/i.test(text)) {
     return {
       routing: [chosen, { kind: 'server', name: 'Calendar' }, { kind: 'server', name: 'Mail' }],
@@ -188,6 +209,68 @@ export function decisionReply(toolName: string, server: string, approved: boolea
         text: approved
           ? `Done: ${toolName} ran on ${server}. It's logged against this chat.`
           : `I didn't run ${toolName}. Tell me what to change and I'll redraft it.`,
+      },
+    ],
+  };
+}
+
+interface WriteCall {
+  name: string;
+  server: string;
+  summary: string;
+  args: Record<string, string>;
+  lead: string;
+}
+
+/** An answer that needs a write tool: the tool waits for approval, with an id of its own so each call is decided once. */
+function writeReply(chosen: Route, call: WriteCall): Reply {
+  return {
+    routing: [chosen, { kind: 'server', name: call.server.split(' · ')[0]! }],
+    blocks: [
+      { type: 'text', text: call.lead },
+      {
+        type: 'tool',
+        id: `w-${randomBytes(4).toString('hex')}`,
+        name: call.name,
+        server: call.server,
+        summary: call.summary,
+        sensitivity: 'Internal',
+        status: 'pending',
+        write: true,
+        durationMs: null,
+        args: call.args,
+        result: null,
+      },
+    ],
+  };
+}
+
+/** The first line of a message, short enough for a tool argument. */
+function excerpt(text: string): string {
+  const line = text.trim().split('\n')[0]!;
+  return line.length > 80 ? `${line.slice(0, 77).trimEnd()}…` : line;
+}
+
+/**
+ * Runs the answer's waiting write tools that the chat allows without asking ("Always in this chat"), and says so.
+ * Any other write tool keeps waiting for approval.
+ */
+export function allowListed(reply: Reply, allowed: readonly string[]): Reply {
+  const ran: string[] = [];
+  const blocks = reply.blocks.map((b): Block => {
+    if (b.type !== 'tool' || b.status !== 'pending' || !allowed.includes(b.name)) return b;
+    ran.push(b.name);
+    return { ...b, status: 'done', durationMs: 1100, result: `Done · ${b.summary.replace(/\s*\(write\)$/, '')}` };
+  });
+  if (ran.length === 0) return reply;
+  const names = [...new Set(ran)].join(', ');
+  return {
+    ...reply,
+    blocks: [
+      ...blocks,
+      {
+        type: 'text',
+        text: `Ran ${names} without asking: you allowed it in this chat. Revoke that in the session panel.`,
       },
     ],
   };

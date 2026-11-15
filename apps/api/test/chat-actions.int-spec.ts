@@ -343,6 +343,43 @@ describe('sending, approving and voting', () => {
     expect(chat.messages[0]).not.toHaveProperty('bookmarked');
   });
 
+  it('"Always in this chat" runs that write tool without asking next time, until it is revoked', async () => {
+    const token = await t.token({ sub: 'always-allow' });
+    const created = ChatSummary.parse(
+      (await http.post('/api/chats').auth(token, bearer).send({ text: 'Post it' }).expect(201)).body,
+    );
+    const ask = async () => {
+      const done = events(
+        (
+          await http
+            .post(`/api/chats/${created.id}/messages`)
+            .auth(token, bearer)
+            .send({ text: 'Post the rollout update to the team' })
+            .expect(200)
+        ).text,
+      ).at(-1);
+      const tool = done?.type === 'done' ? done.message.blocks.find((b) => b.type === 'tool') : undefined;
+      return tool?.type === 'tool' ? tool : undefined;
+    };
+
+    const first = await ask();
+    expect(first).toMatchObject({ name: 'post_message', status: 'pending' });
+    await http
+      .post(`/api/chats/${created.id}/tools/${first!.id}/decision`)
+      .auth(token, bearer)
+      .send({ decision: 'approve', always: true })
+      .expect(201);
+    let chat = Chat.parse((await http.get(`/api/chats/${created.id}`).auth(token, bearer)).body);
+    expect(chat.allowedTools).toEqual(['post_message']);
+
+    expect(await ask()).toMatchObject({ name: 'post_message', status: 'done' });
+
+    await http.delete(`/api/chats/${created.id}/allowed-tools/post_message`).auth(token, bearer).expect(204);
+    chat = Chat.parse((await http.get(`/api/chats/${created.id}`).auth(token, bearer)).body);
+    expect(chat.allowedTools).toEqual([]);
+    expect(await ask()).toMatchObject({ name: 'post_message', status: 'pending' });
+  });
+
   it('records and clears a vote on an answer', async () => {
     const token = await t.token();
     const chat = Chat.parse((await http.get('/api/chats/churn').auth(token, bearer)).body);

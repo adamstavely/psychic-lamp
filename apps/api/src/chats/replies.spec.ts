@@ -1,4 +1,4 @@
-import { pickReply, shapeReply } from './replies.js';
+import { allowListed, pickReply, shapeReply } from './replies.js';
 
 describe('shapeReply', () => {
   const prep = () => pickReply('What should I prep for the meeting?', 'auto');
@@ -28,5 +28,28 @@ describe('shapeReply', () => {
     const historian = shapeReply(prep(), 'historian', 'workspace');
     expect(historian.blocks[0]).toMatchObject({ text: expect.stringMatching(/^Historian:/) });
     expect(historian.blocks.at(-1)).toEqual(prep().blocks.at(-1));
+  });
+});
+
+describe('write tools', () => {
+  const post = () => pickReply('Post the rollout update to the team', 'auto');
+  const pending = (r: ReturnType<typeof pickReply>) =>
+    r.blocks.filter((b) => b.type === 'tool' && b.status === 'pending');
+
+  it('wait for approval, each call with an id of its own', () => {
+    const [a] = pending(post());
+    const [b] = pending(post());
+    expect(a).toMatchObject({ name: 'post_message', write: true, status: 'pending' });
+    expect(a?.type === 'tool' && b?.type === 'tool' && a.id !== b.id).toBe(true);
+    expect(pending(pickReply('File an issue for the latency overrun', 'auto'))[0]).toMatchObject({
+      name: 'create_issue',
+    });
+  });
+
+  it('run without asking when the chat allows them, and say so; others still wait', () => {
+    const allowed = allowListed(post(), ['post_message']);
+    expect(pending(allowed)).toEqual([]);
+    expect(allowed.blocks.at(-1)).toMatchObject({ text: expect.stringMatching(/^Ran post_message without asking/) });
+    expect(pending(allowListed(post(), ['create_issue']))).toHaveLength(1);
   });
 });
