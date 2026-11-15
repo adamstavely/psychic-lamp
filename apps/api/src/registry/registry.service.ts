@@ -13,6 +13,7 @@ import {
   type SpaceRunResult,
   type TryResult,
   type RegistryQuery,
+  type RegistryRef,
   type RegistrySummary,
 } from '@donovan/contracts';
 import {
@@ -40,6 +41,13 @@ const INSTALLABLE: readonly RegistryKind[] = ['server', 'skill'];
 import { RegistrySearch, registryDocId, type RegistryDoc } from './registry-search.js';
 
 type Row = typeof registryItems.$inferSelect;
+/** An item another links to, as the registry has it. */
+interface Linked {
+  kind: RegistryKind;
+  id: string;
+  name: string;
+  sensitivity: Sensitivity;
+}
 
 /**
  * Build mode's registry. What a person may see: everything published, and everything waiting for review (anyone but
@@ -64,6 +72,7 @@ export class RegistryService implements OnApplicationBootstrap {
     const [{ n }] = await this.db.select({ n: count() }).from(registryItems);
     if (n > 0) {
       await this.repairSeededWorkflows();
+      await this.repairLinks();
       return;
     }
     const rows = await this.db
@@ -110,6 +119,81 @@ export class RegistryService implements OnApplicationBootstrap {
           ),
         );
     }
+  }
+
+  /**
+   * Earlier registries linked an agent's servers and skills, a dataset's models and a collection's members by name.
+   * Those become links by id, to the item of that kind with that name (a dataset's "Fraud Sentinel v3.2" is Fraud
+   * Sentinel); a name nothing has is dropped. Items the seed has gained since (Churn Propensity, which the seeded
+   * links name) are added first, once, with that change.
+   */
+  private async repairLinks(): Promise<void> {
+    const linking: RegistryKind[] = ['agent', 'dataset', 'collection'];
+    const rows = await this.db.select().from(registryItems).where(inArray(registryItems.kind, linking));
+    const named = (v: unknown) => typeof v === 'string' || (typeof v === 'object' && v !== null && !('id' in v));
+    const stale = rows.filter((r) => {
+      const d = r.details as Record<string, unknown[] | undefined>;
+      return [d['servers'], d['skills'], d['usedBy'], d['members']].some((list) => list?.some(named));
+    });
+    if (!stale.length) return;
+    const added = REGISTRY_SEED.filter((i) => i.kind === 'model' && i.id === 'churn');
+    const changed = await this.db
+      .insert(registryItems)
+      .values(
+        added.map((item) => ({
+          kind: item.kind,
+          id: item.id,
+          name: item.name,
+          slug: item.slug,
+          version: item.version,
+          sensitivity: item.sensitivity,
+          summary: item.summary,
+          ownerTeam: item.owner.team,
+          ownerId: null,
+          ownerName: item.owner.name,
+          status: item.status,
+          details: item.details,
+        })),
+      )
+      .onConflictDoNothing()
+      .returning();
+    const all = await this.db
+      .select({ kind: registryItems.kind, id: registryItems.id, name: registryItems.name })
+      .from(registryItems);
+    const resolve = (kind: RegistryKind, v: unknown): RegistryRef | null => {
+      if (!named(v)) return v as RegistryRef;
+      const name = typeof v === 'string' ? v : String((v as { name?: unknown }).name ?? '');
+      const bare = name.replace(/\s+v\d[\w.]*$/, '');
+      const found = all.find((i) => i.kind === kind && (i.name === name || i.name === bare));
+      return found ? { id: found.id, name: found.name } : null;
+    };
+    const refs = (kind: RegistryKind, list: unknown[] = []) =>
+      list.map((v) => resolve(kind, v)).filter((r): r is RegistryRef => r !== null);
+    for (const row of stale) {
+      const d = row.details as Record<string, unknown[]>;
+      const details =
+        row.kind === 'agent'
+          ? { ...d, servers: refs('server', d['servers']), skills: refs('skill', d['skills']) }
+          : row.kind === 'dataset'
+            ? { ...d, usedBy: refs('model', d['usedBy']) }
+            : {
+                ...d,
+                members: (d['members'] as { kind: RegistryKind }[])
+                  .map((m) => {
+                    const r = resolve(m.kind, m);
+                    return r && { kind: m.kind, ...r };
+                  })
+                  .filter((m) => m !== null),
+              };
+      const [updated] = await this.db
+        .update(registryItems)
+        .set({ details: details as Row['details'], searchVersion: sql`${registryItems.searchVersion} + 1` })
+        .where(and(eq(registryItems.kind, row.kind), eq(registryItems.id, row.id)))
+        .returning();
+      if (updated) changed.push(updated);
+    }
+    await this.indexQuietly(changed);
+    this.#log.log(`Linked ${stale.length} registry items by id instead of by name`);
   }
 
   /** What a workflow step can call: published server tools ("Server · tool", "(write)" when it changes things), models and skills. */
@@ -186,18 +270,19 @@ export class RegistryService implements OnApplicationBootstrap {
    */
   async register(userId: string, ownerName: string, body: NewRegistryItem): Promise<RegistryItem> {
     let sensitivity = body.sensitivity;
+    let linked: Linked[] = [];
     if (body.kind === 'agent') {
       if (!body.servers.length && !body.skills.length)
         throw new BadRequestException('An agent needs at least one server or skill.');
-      await this.requireNamed(userId, [
-        ...body.servers.map((name) => ({ kind: 'server' as const, name })),
-        ...body.skills.map((name) => ({ kind: 'skill' as const, name })),
+      linked = await this.requireLinked(userId, [
+        ...body.servers.map((id) => ({ kind: 'server' as const, id })),
+        ...body.skills.map((id) => ({ kind: 'skill' as const, id })),
       ]);
     }
     if (body.kind === 'collection') {
-      const members = await this.requireNamed(userId, body.members);
+      linked = await this.requireLinked(userId, body.members);
       const rank = (s: Sensitivity) => Sensitivity.options.indexOf(s);
-      for (const m of members) if (rank(m.sensitivity) > rank(sensitivity)) sensitivity = m.sensitivity;
+      for (const m of linked) if (rank(m.sensitivity) > rank(sensitivity)) sensitivity = m.sensitivity;
     }
     const base = slugify(body.name);
     const slug = `${slugify(body.team ?? ownerName)}/${base}`;
@@ -232,7 +317,10 @@ export class RegistryService implements OnApplicationBootstrap {
         submittedBy: userId,
         // While the policy is on, everything starts read-only; an admin turns writes on later.
         access: (await this.governance.enabled('read-only-default')) ? { ...body.access, readOnly: true } : body.access,
-        details: detailsFor(body),
+        details: detailsFor(
+          body,
+          linked.map(({ kind, id, name }) => ({ kind, id, name })),
+        ),
       })
       .returning();
     await this.indexQuietly([row!]);
@@ -312,27 +400,30 @@ export class RegistryService implements OnApplicationBootstrap {
     return toItem(row!);
   }
 
-  /** The named items, which must all be in the registry and visible to the person. */
-  private async requireNamed(
-    userId: string,
-    named: { kind: RegistryKind; name: string }[],
-  ): Promise<{ kind: RegistryKind; name: string; sensitivity: Sensitivity }[]> {
-    if (named.length === 0) return [];
+  /** The linked items, which must all be in the registry and visible to the person: in the order given, each once. */
+  private async requireLinked(userId: string, links: { kind: RegistryKind; id: string }[]): Promise<Linked[]> {
+    if (links.length === 0) return [];
     const rows = await this.db
-      .select({ kind: registryItems.kind, name: registryItems.name, sensitivity: registryItems.sensitivity })
+      .select({
+        kind: registryItems.kind,
+        id: registryItems.id,
+        name: registryItems.name,
+        sensitivity: registryItems.sensitivity,
+      })
       .from(registryItems)
       .where(
         and(
           this.visibleTo(userId),
           inArray(
-            registryItems.name,
-            named.map((n) => n.name),
+            registryItems.id,
+            links.map((l) => l.id),
           ),
         ),
       );
-    const missing = named.filter((n) => !rows.some((r) => r.kind === n.kind && r.name === n.name));
-    if (missing.length) throw new BadRequestException(`Not in the registry: ${missing.map((m) => m.name).join(', ')}`);
-    return rows.filter((r) => named.some((n) => n.kind === r.kind && n.name === r.name));
+    const found = links.map((l) => rows.find((r) => r.kind === l.kind && r.id === l.id));
+    const missing = links.filter((_, i) => !found[i]).map((l) => `${l.kind} ${l.id}`);
+    if (missing.length) throw new BadRequestException(`Not in the registry: ${missing.join(', ')}`);
+    return [...new Map(found.map((r) => [`${r!.kind}:${r!.id}`, r!])).values()];
   }
 
   /** Runs a space on what the person gave it: simulated, so its model's usual answer comes back. */

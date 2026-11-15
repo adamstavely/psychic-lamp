@@ -4,7 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { CodeBlock } from '@adamstavely/trenchcoat/angular/code-block';
 import type { RegistryItem, RegistrySummary } from '@donovan/contracts';
-import { linkTo } from './registry-links';
+import { linked } from './registry-links';
 import { chatStart } from './use-in-chat';
 
 type Dataset = Extract<RegistryItem, { kind: 'dataset' }>;
@@ -25,7 +25,7 @@ export class DatasetDetail {
   /** The models that use it, linked to their pages when the registry has them. */
   protected readonly usedBy = computed(() => {
     const models = this.#models.hasValue() ? this.#models.value() : [];
-    return this.item().details.usedBy.map((name) => ({ name, link: linkTo(models, 'model', name) }));
+    return this.item().details.usedBy.map((r) => linked(models, 'model', r));
   });
 
   protected readonly code = computed(

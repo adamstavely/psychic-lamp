@@ -42,6 +42,13 @@ export const RegistryId = z.string().regex(/^[a-z0-9-]{1,80}$/, 'Not a registry 
 const Text = z.string().max(2000);
 const Short = z.string().max(200);
 
+/**
+ * Another registry item an item is built from or used by: its id (the link, and what a tier comes from) and its name
+ * as it was when linked (shown if the item is gone or out of the viewer's sight).
+ */
+export const RegistryRef = z.object({ id: RegistryId, name: Short });
+export type RegistryRef = z.infer<typeof RegistryRef>;
+
 const SkillDetails = z.object({
   score: z.number().int().min(0).max(100).nullable(),
   uses: Short,
@@ -75,9 +82,9 @@ const ServerDetails = z.object({
 const AgentDetails = z.object({
   autonomy: Short,
   model: Short,
-  /** Names of the servers and skills it uses. */
-  servers: z.array(Short).max(50),
-  skills: z.array(Short).max(50),
+  /** The servers and skills it uses. */
+  servers: z.array(RegistryRef).max(50),
+  skills: z.array(RegistryRef).max(50),
   runs: Short,
   success: Short,
 });
@@ -131,7 +138,8 @@ const DatasetDetails = z.object({
   size: Short,
   format: Short,
   splits: Short,
-  usedBy: z.array(Short).max(50),
+  /** The models trained or evaluated on it. */
+  usedBy: z.array(RegistryRef).max(50),
   pulls: Short,
   updated: Short,
   schema: z.array(z.object({ name: Short, type: Short })).max(500),
@@ -146,7 +154,7 @@ const SpaceDetails = z.object({
 });
 
 const CollectionDetails = z.object({
-  members: z.array(z.object({ kind: RegistryKind, name: Short })).max(500),
+  members: z.array(RegistryRef.extend({ kind: RegistryKind })).max(500),
 });
 
 const PromptVersion = z.object({
@@ -343,8 +351,8 @@ export const NewRegistryItem = z.discriminatedUnion('kind', [
     kind: z.literal('agent'),
     model: Field,
     autonomy: z.enum(['Read-only', 'Approval on writes', 'Autonomous']),
-    servers: z.array(Field).max(20),
-    skills: z.array(Field).max(20),
+    servers: z.array(RegistryId).max(20),
+    skills: z.array(RegistryId).max(20),
   }),
   Registration.extend({
     kind: z.literal('model'),
@@ -367,7 +375,7 @@ export const NewRegistryItem = z.discriminatedUnion('kind', [
   Registration.extend({
     kind: z.literal('collection'),
     members: z
-      .array(z.object({ kind: RegistryKind, name: Field }))
+      .array(z.object({ kind: RegistryKind, id: RegistryId }))
       .min(2, 'Pick at least two members')
       .max(100),
   }),

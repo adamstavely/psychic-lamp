@@ -1,4 +1,4 @@
-import type { NewRegistryItem, RegistryItem } from '@donovan/contracts';
+import type { NewRegistryItem, RegistryItem, RegistryKind, RegistryRef } from '@donovan/contracts';
 
 /** A name as a URL part: "Release notes v2" is release-notes-v2. */
 export function slugify(text: string): string {
@@ -14,9 +14,14 @@ export function slugify(text: string): string {
 
 /**
  * A registered item's details, from what the wizard asked for. Figures the registry keeps (installs, calls, runs, uses)
- * start at nothing; what only exists once it's running (a server's tools, a model's evals) starts empty.
+ * start at nothing; what only exists once it's running (a server's tools, a model's evals) starts empty. `linked` is
+ * what an agent's servers and skills or a collection's members are, as the registry has them, in the order picked.
  */
-export function detailsFor(body: NewRegistryItem): RegistryItem['details'] {
+export function detailsFor(
+  body: NewRegistryItem,
+  linked: (RegistryRef & { kind: RegistryKind })[] = [],
+): RegistryItem['details'] {
+  const refs = (kind: RegistryKind) => linked.filter((l) => l.kind === kind).map(({ id, name }) => ({ id, name }));
   switch (body.kind) {
     case 'server':
       return {
@@ -35,8 +40,8 @@ export function detailsFor(body: NewRegistryItem): RegistryItem['details'] {
       return {
         autonomy: body.autonomy,
         model: body.model,
-        servers: body.servers,
-        skills: body.skills,
+        servers: refs('server'),
+        skills: refs('skill'),
         runs: '0',
         success: '—',
       };
@@ -71,7 +76,7 @@ export function detailsFor(body: NewRegistryItem): RegistryItem['details'] {
         outputs: [],
       };
     case 'collection':
-      return { members: body.members };
+      return { members: linked };
   }
 }
 

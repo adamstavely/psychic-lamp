@@ -42,7 +42,7 @@ test.describe('the Build catalog', () => {
   test('filters models by task, and uses one in a new chat', async ({ page }) => {
     await page.goto('/build/models');
     const cards = page.getByRole('main').getByRole('listitem');
-    await expect(cards).toHaveCount(8);
+    await expect(cards).toHaveCount(9);
     await page.getByRole('button', { name: /^Foundation/ }).click();
     await expect(cards).toHaveCount(3);
     await expect(page.getByRole('button', { name: /^Foundation/ })).toHaveAttribute('aria-pressed', 'true');
@@ -148,6 +148,18 @@ test.describe('model, dataset, space and collection pages', () => {
       .click();
     await expect(page).toHaveURL(/\/build\/models\/[a-z0-9-]+$/);
     await expect(page.getByRole('heading', { name: 'Fraud Sentinel', level: 1 })).toBeVisible();
+  });
+
+  test("a collection links each member to its page, with the member's tier", async ({ page }) => {
+    await signIn(page, 'alex', '/build/collections/risk-fraud');
+    await matchTheme(page);
+    const members = page.getByRole('list').filter({ hasText: 'Churn Propensity' });
+    await expect(members.getByRole('link')).toHaveCount(6);
+    await expect(members.getByRole('listitem').filter({ hasText: 'Churn Propensity' })).toContainText('Internal');
+    await expectNoAxeViolations(page);
+    await members.getByRole('link', { name: 'Churn Propensity' }).click();
+    await expect(page).toHaveURL(/\/build\/models\/churn$/);
+    await expect(page.getByRole('heading', { name: 'Churn Propensity', level: 1 })).toBeVisible();
   });
 
   test('a space asks for input, runs, and links its model', async ({ page }) => {

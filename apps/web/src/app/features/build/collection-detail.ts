@@ -16,7 +16,7 @@ import { toast } from '@adamstavely/trenchcoat/toaster';
 import type { AttachResult, CollectionAttachment, RegistryItem, RegistrySummary } from '@donovan/contracts';
 import { firstValueFrom } from 'rxjs';
 import { ProjectsStore } from '../../core/projects-store';
-import { linkTo } from './registry-links';
+import { linked } from './registry-links';
 
 type Collection = Extract<RegistryItem, { kind: 'collection' }>;
 
@@ -50,11 +50,7 @@ export class CollectionDetail {
   /** Each member, with its tier and page when the registry has it. */
   protected readonly members = computed(() => {
     const all = this.#registry.hasValue() ? this.#registry.value() : [];
-    return this.item().details.members.map((m) => ({
-      ...m,
-      sensitivity: all.find((i) => i.kind === m.kind && i.name === m.name)?.sensitivity ?? null,
-      link: linkTo(all, m.kind, m.name),
-    }));
+    return this.item().details.members.map((m) => ({ kind: m.kind, ...linked(all, m.kind, m) }));
   });
 
   protected readonly attached = httpResource<CollectionAttachment[]>(

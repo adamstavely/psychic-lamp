@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { DB, type Db } from '../src/db/db.module.js';
 import { registryItems } from '../src/db/schema.js';
 import { REGISTRY_INDEX } from '../src/registry/registry-search.js';
+import { RegistryService } from '../src/registry/registry.service.js';
 import { SearchBackfill } from '../src/search-api/search-backfill.js';
 import { createTestApp, type TestApp } from './support/test-app.js';
 
@@ -33,7 +34,7 @@ describe('/api/registry', () => {
   it('starts with the catalog: every kind, counted for the rail', async () => {
     const token = await t.token();
     const counts = RegistryCounts.parse((await http.get('/api/registry/counts').auth(token, bearer).expect(200)).body);
-    expect(counts).toMatchObject({ server: 6, agent: 4, model: 8, dataset: 4, space: 3, collection: 4, prompt: 5 });
+    expect(counts).toMatchObject({ server: 6, agent: 4, model: 9, dataset: 4, space: 3, collection: 4, prompt: 5 });
     // Six skills: five published and one waiting for review, which everyone can see (anyone may review it).
     expect(counts.skill).toBeGreaterThanOrEqual(6);
     const skills = await list(token, '?kind=skill');
@@ -45,7 +46,7 @@ describe('/api/registry', () => {
     expect(await list(token, '?scope=mine')).toEqual([]);
     const team = await list(token, '?scope=team&kind=agent');
     expect(team.map((a) => a.owner.team).sort()).toEqual(['Demand Science', 'Platform', 'Risk ML', 'Support AI']);
-    expect((await list(token, '?scope=all')).length).toBeGreaterThanOrEqual(43);
+    expect((await list(token, '?scope=all')).length).toBeGreaterThanOrEqual(44);
     await http.get('/api/registry?scope=nobody').auth(token, bearer).expect(400);
   });
 
@@ -272,7 +273,7 @@ describe('/api/registry', () => {
 
     it("raises a collection to its most sensitive member, and refuses members the registry doesn't have", async () => {
       const token = await t.token({ sub: `registrar-${randomUUID()}` });
-      const collection = (members: { kind: string; name: string }[]) => ({
+      const collection = (members: { kind: string; id: string }[]) => ({
         kind: 'collection',
         name: `Bundle ${randomUUID().slice(0, 6)}`,
         summary: 'Two things.',
@@ -288,25 +289,114 @@ describe('/api/registry', () => {
             .auth(token, bearer)
             .send(
               collection([
-                { kind: 'server', name: 'Filesystem' },
-                { kind: 'dataset', name: 'Transaction graph 2026-Q3' },
+                { kind: 'server', id: 'filesystem' },
+                { kind: 'dataset', id: 'txn-graph' },
               ]),
             )
             .expect(201)
         ).body,
       );
       expect(made).toMatchObject({ sensitivity: 'Restricted', owner: { team: 'Risk ML' } });
+      expect(made.details).toEqual({
+        members: [
+          { kind: 'server', id: 'filesystem', name: 'Filesystem' },
+          { kind: 'dataset', id: 'txn-graph', name: 'Transaction graph 2026-Q3' },
+        ],
+      });
       const missing = await http
         .post('/api/registry')
         .auth(token, bearer)
         .send(
           collection([
-            { kind: 'server', name: 'Filesystem' },
-            { kind: 'server', name: 'Nope' },
+            { kind: 'server', id: 'filesystem' },
+            { kind: 'server', id: 'nope' },
           ]),
         )
         .expect(400);
-      expect(missing.body.message).toBe('Not in the registry: Nope');
+      expect(missing.body.message).toBe('Not in the registry: server nope');
+      // An id of another kind is not the item: "churn" is a skill and a model, never a server.
+      const wrongKind = await http
+        .post('/api/registry')
+        .auth(token, bearer)
+        .send(
+          collection([
+            { kind: 'server', id: 'filesystem' },
+            { kind: 'server', id: 'churn' },
+          ]),
+        )
+        .expect(400);
+      expect(wrongKind.body.message).toBe('Not in the registry: server churn');
+    });
+
+    it("links an agent to its servers and skills by id, keeping each one's name", async () => {
+      const token = await t.token({ sub: `registrar-${randomUUID()}` });
+      const made = RegistryItem.parse(
+        (
+          await http
+            .post('/api/registry')
+            .auth(token, bearer)
+            .send({
+              kind: 'agent',
+              name: `Linked agent ${randomUUID().slice(0, 6)}`,
+              summary: 'Reads the repo.',
+              team: null,
+              sensitivity: 'Internal',
+              access,
+              model: 'claude-sonnet-4.5',
+              autonomy: 'Read-only',
+              servers: ['github'],
+              skills: ['pr', 'notes'],
+            })
+            .expect(201)
+        ).body,
+      );
+      expect(made.kind === 'agent' && made.details).toMatchObject({
+        servers: [{ id: 'github', name: 'GitHub' }],
+        skills: [
+          { id: 'pr', name: 'PR review checklist' },
+          { id: 'notes', name: 'Release notes' },
+        ],
+      });
+    });
+
+    it('turns links stored by name, as earlier registries kept them, into links by id on start', async () => {
+      const db = t.app.get<Db>(DB);
+      const id = `named-${randomUUID().slice(0, 8)}`;
+      await db.insert(registryItems).values({
+        kind: 'collection',
+        id,
+        name: `Named ${id}`,
+        slug: `test/${id}`,
+        version: 'v1',
+        sensitivity: 'Restricted',
+        summary: 'Linked by name.',
+        ownerTeam: 'Test',
+        ownerId: null,
+        ownerName: 'Test',
+        status: 'published',
+        details: {
+          members: [
+            { kind: 'model', name: 'Fraud Sentinel v3.2' },
+            { kind: 'model', name: 'Price Elasticity' },
+            { kind: 'skill', name: 'Rollout note' },
+          ],
+        } as never,
+      });
+      try {
+        await t.app.get(RegistryService).onApplicationBootstrap();
+        const [row] = await db
+          .select({ details: registryItems.details })
+          .from(registryItems)
+          .where(and(eq(registryItems.kind, 'collection'), eq(registryItems.id, id)));
+        expect(row!.details).toEqual({
+          members: [
+            { kind: 'model', id: 'fraud', name: 'Fraud Sentinel' },
+            { kind: 'skill', id: 'rollout', name: 'Rollout note' },
+          ],
+        });
+      } finally {
+        await db.delete(registryItems).where(and(eq(registryItems.kind, 'collection'), eq(registryItems.id, id)));
+      }
     });
 
     it("reads a skill's principles from its SKILL.md, and keeps the SKILL.md as it was written", async () => {

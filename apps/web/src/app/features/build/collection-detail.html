@@ -13,7 +13,7 @@
 
     <h2 class="section">Members · {{ c.details.members.length }}</h2>
     <ul class="parts">
-      @for (m of members(); track m.kind + m.name) {
+      @for (m of members(); track m.kind + m.id) {
         <li>
           <span class="kind">{{ kindLabel[m.kind] }}</span>
           @if (m.link) {
