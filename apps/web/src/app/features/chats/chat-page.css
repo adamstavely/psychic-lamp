@@ -174,6 +174,48 @@
   background: linear-gradient(transparent, var(--dn-canvas) var(--tc-space-4));
 }
 
+.composer-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tc-space-3);
+  margin-bottom: var(--tc-space-2);
+  font-size: var(--tc-font-size-xs);
+}
+
+.meter {
+  margin-left: auto;
+  padding: var(--tc-space-1) var(--tc-space-2);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-sm);
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-secondary);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.meter:hover {
+  background: var(--tc-fill-hover);
+}
+
+.meter:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+.context-pop {
+  width: min(24rem, calc(100vw - 2 * var(--tc-space-4)));
+  margin: 0;
+  padding: 0;
+  /* tc-context-window is its own card; the popover only places it and lifts it. */
+  border: 0;
+  border-radius: var(--tc-radius-lg);
+  background: transparent;
+  box-shadow: var(--tc-shadow-overlay);
+  inset: auto var(--tc-space-4) 7rem auto;
+}
+
 .state {
   padding: var(--tc-space-8);
 }

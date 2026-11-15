@@ -86,6 +86,36 @@ test.describe('asking Donovan', () => {
       await expect(page.getByRole('list', { name: 'Routed to' }).last()).toContainText('claude-opus-4.1');
     });
 
+    test('persona and knowledge shape the next answer, and the meter shows the context window', async ({ page }) => {
+      await signIn(page, 'priya', '/chats');
+      await resetUser(page);
+      await page.getByRole('textbox', { name: 'Message' }).fill('Hello');
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('status').filter({ hasText: 'Donovan answered.' })).toBeAttached();
+
+      const settings = page.getByRole('group', { name: 'Answer settings' });
+      await settings.getByRole('button', { name: /^Persona/ }).click();
+      await page.getByRole('option', { name: /^Red Cell/ }).click();
+      await expect(page.getByRole('status').filter({ hasText: 'Persona: Red Cell.' })).toBeAttached();
+      await settings.getByRole('button', { name: /^Knowledge/ }).click();
+      await page.getByRole('option', { name: /^Training only/ }).click();
+      await expect(page.getByRole('status').filter({ hasText: 'Knowledge: Training only.' })).toBeAttached();
+
+      await page.getByRole('textbox', { name: 'Message' }).fill('What should I prep for the 2:00 PM go/no-go?');
+      await page.keyboard.press('Enter');
+      await expect(page.getByText('Red Cell: arguing against the obvious reading.')).toBeVisible();
+      await expect(page.getByText(/^Training only: answered from what the model knows/)).toBeVisible();
+      await expect(page.locator('tc-tool-call-card')).toHaveCount(0);
+
+      await settings.getByRole('button', { name: /^Context window: [\d.]+k? \/ 200k tokens$/ }).click();
+      await expect(page.locator('#context-pop').getByText('System prompt · Red Cell').first()).toBeVisible();
+      await expectNoAxeViolations(page);
+      await page.reload();
+      await expect(
+        page.getByRole('group', { name: 'Answer settings' }).getByRole('button', { name: /^Persona/ }),
+      ).toContainText('Red Cell');
+    });
+
     test('approving a waiting write tool runs it and Donovan says so', async ({ page }) => {
       await signIn(page, 'priya', '/chats/fraud');
       await resetUser(page);
