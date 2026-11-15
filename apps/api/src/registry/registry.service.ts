@@ -6,6 +6,8 @@ import {
   type CollectionAttachment,
   type InstallClient,
   type NewRegistryItem,
+  type WorkflowBindings,
+  type WorkflowGraph,
   type RegistryCounts,
   type RegistryInstall,
   type SpaceRunResult,
@@ -16,19 +18,21 @@ import {
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
   type OnApplicationBootstrap,
 } from '@nestjs/common';
-import { and, asc, count, eq, inArray, isNotNull, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module.js';
 import { GovernanceService } from '../governance/governance.service.js';
 import { projectCollections, projects, registryInstalls, registryItems } from '../db/schema.js';
 import { toSummary } from './registry-row.js';
 import { REGISTRY_SEED } from './registry.fixture.js';
 import { detailsFor, slugify } from './registration.js';
+import { checkWorkflow } from '@donovan/contracts/defaults';
 import { missingArgs, mockToolResult } from './registry-try.js';
 
 /** What can be installed in a client: servers (as MCP config) and skills (into a skill index). */
@@ -58,7 +62,10 @@ export class RegistryService implements OnApplicationBootstrap {
    */
   async onApplicationBootstrap(): Promise<void> {
     const [{ n }] = await this.db.select({ n: count() }).from(registryItems);
-    if (n > 0) return;
+    if (n > 0) {
+      await this.repairSeededWorkflows();
+      return;
+    }
     const rows = await this.db
       .insert(registryItems)
       .values(
@@ -80,6 +87,52 @@ export class RegistryService implements OnApplicationBootstrap {
       .onConflictDoNothing()
       .returning();
     await this.indexQuietly(rows);
+  }
+
+  /**
+   * Earlier seeds had two workflows with no steps and summaries that only repeated their step count. Workflows still as
+   * seeded (a team's, never edited: no submitter) get the current seed's graph and summary.
+   */
+  private async repairSeededWorkflows(): Promise<void> {
+    for (const seed of REGISTRY_SEED) {
+      // The seed's type is a union Omit flattens, so the kind doesn't narrow its details here.
+      if (seed.kind !== 'workflow' || !(seed.details as { nodes: unknown[] }).nodes.length) continue;
+      await this.db
+        .update(registryItems)
+        .set({ summary: seed.summary, details: seed.details, searchVersion: sql`${registryItems.searchVersion} + 1` })
+        .where(
+          and(
+            eq(registryItems.kind, 'workflow'),
+            eq(registryItems.id, seed.id),
+            isNull(registryItems.ownerId),
+            isNull(registryItems.submittedBy),
+            sql`(jsonb_array_length(${registryItems.details}->'nodes') = 0 or ${registryItems.summary} ~ '^[0-9]+ steps · ')`,
+          ),
+        );
+    }
+  }
+
+  /** What a workflow step can call: published server tools ("Server · tool", "(write)" when it changes things), models and skills. */
+  async workflowBindings(userId: string): Promise<WorkflowBindings> {
+    const rows = await this.db
+      .select()
+      .from(registryItems)
+      .where(
+        and(
+          eq(registryItems.status, 'published'),
+          inArray(registryItems.kind, ['server', 'model', 'skill']),
+          this.visibleTo(userId),
+        ),
+      )
+      .orderBy(asc(registryItems.name));
+    const out: WorkflowBindings = { Tool: [], Model: [], Skill: [] };
+    for (const r of rows.map(toItem)) {
+      if (r.kind === 'server')
+        out.Tool.push(...r.details.tools.map((t) => `${r.name} · ${t.name}${t.write ? ' (write)' : ''}`));
+      else if (r.kind === 'model') out.Model.push(`${r.name} ${r.version}`);
+      else if (r.kind === 'skill') out.Skill.push(`${r.name} ${r.version}`);
+    }
+    return out;
   }
 
   async list(userId: string, query: RegistryQuery): Promise<RegistrySummary[]> {
@@ -174,10 +227,80 @@ export class RegistryService implements OnApplicationBootstrap {
         ownerId: userId,
         ownerName: body.team ?? ownerName,
         status: 'pending',
+        submittedBy: userId,
         // While the policy is on, everything starts read-only; an admin turns writes on later.
         access: (await this.governance.enabled('read-only-default')) ? { ...body.access, readOnly: true } : body.access,
         details: detailsFor(body),
       })
+      .returning();
+    await this.indexQuietly([row!]);
+    return toItem(row!);
+  }
+
+  /** Starts a workflow: a draft of the person's own, with no steps yet, to build on the canvas and then send to review. */
+  async createWorkflow(userId: string, ownerName: string, name: string): Promise<RegistryItem> {
+    const base = slugify(name);
+    const slug = `${slugify(ownerName)}/${base}`;
+    const used = await this.db
+      .select({ id: registryItems.id, slug: registryItems.slug })
+      .from(registryItems)
+      .where(and(eq(registryItems.kind, 'workflow'), sql`${registryItems.id} like ${`${base}%`}`));
+    if (used.some((u) => u.slug === slug)) throw new ConflictException(`There's already a workflow called ${slug}`);
+    const ids = new Set(used.map((u) => u.id));
+    let id = base;
+    for (let n = 2; ids.has(id); n++) id = `${base}-${n}`;
+    const [row] = await this.db
+      .insert(registryItems)
+      .values({
+        kind: 'workflow',
+        id,
+        name,
+        slug,
+        version: 'v1',
+        sensitivity: 'Internal',
+        summary: '',
+        ownerTeam: null,
+        ownerId: userId,
+        ownerName,
+        status: 'draft',
+        access: null,
+        details: { state: 'Draft', schedule: 'not scheduled', nodes: [], edges: [] },
+      })
+      .returning();
+    return toItem(row!);
+  }
+
+  /**
+   * Saves a workflow's graph as its next version and sends it to review. Its owner can edit their own; a team's
+   * workflow can be edited by anyone, who becomes its submitter (and so can't review it). Blocking checks refuse it.
+   */
+  async saveWorkflow(userId: string, id: string, body: WorkflowGraph): Promise<RegistryItem> {
+    const item = await this.get(userId, 'workflow', id);
+    if (item.owner.personId && item.owner.personId !== userId)
+      throw new ForbiddenException("Only its owner can change someone's own workflow");
+    const blocking = checkWorkflow(body).filter((c) => c.level === 'block');
+    if (blocking.length) throw new BadRequestException(blocking.map((c) => c.message).join(' '));
+    const next = item.status === 'draft' ? item.version : `v${(Number(item.version.replace(/^v/, '')) || 1) + 1}`;
+    const [row] = await this.db
+      .update(registryItems)
+      .set({
+        name: body.name,
+        sensitivity: body.sensitivity,
+        version: next,
+        status: 'pending',
+        submittedBy: userId,
+        reviewRound:
+          item.status === 'draft' ? sql`${registryItems.reviewRound}` : sql`${registryItems.reviewRound} + 1`,
+        details: {
+          ...(item.details as RegistryItem['details'] & object),
+          state: item.status === 'draft' ? 'Active' : (item.details as { state: string }).state,
+          nodes: body.nodes,
+          edges: body.edges,
+        } as RegistryItem['details'],
+        updatedAt: new Date(),
+        searchVersion: sql`${registryItems.searchVersion} + 1`,
+      })
+      .where(and(eq(registryItems.kind, 'workflow'), eq(registryItems.id, id)))
       .returning();
     await this.indexQuietly([row!]);
     return toItem(row!);

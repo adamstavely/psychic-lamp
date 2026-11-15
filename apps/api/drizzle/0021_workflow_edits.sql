@@ -1,0 +1,2 @@
+ALTER TABLE "registry_items" ADD COLUMN "submitted_by" uuid;--> statement-breakpoint
+ALTER TABLE "registry_items" ADD CONSTRAINT "registry_items_submitted_by_users_id_fk" FOREIGN KEY ("submitted_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;

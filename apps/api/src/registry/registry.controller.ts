@@ -6,19 +6,22 @@ import {
   InstallClient,
   NewInstall,
   NewRegistryItem,
+  NewWorkflow,
   RegistryCounts,
   RegistryInstall,
   SpaceRun,
   SpaceRunResult,
   TryResult,
   TryTool,
+  WorkflowBindings,
+  WorkflowGraph,
   RegistryId,
   RegistryItem,
   RegistryKind,
   RegistryQuery,
   RegistrySummary,
 } from '@donovan/contracts';
-import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { Claims } from '../auth/claims.decorator.js';
 import type { Claims as TokenClaims } from '../auth/claims.js';
@@ -52,6 +55,33 @@ export class RegistryController {
   ): Promise<RegistryItem> {
     const name = claims.name ?? claims.preferred_username ?? 'Me';
     return this.registry.register(await this.users.idFor(claims), name, body);
+  }
+
+  @Post('workflows')
+  @HttpCode(201)
+  @ApiOkResponse({ standardSchema: RegistryItem })
+  async createWorkflow(
+    @Claims() claims: TokenClaims,
+    @Body({ schema: NewWorkflow }) body: NewWorkflow,
+  ): Promise<RegistryItem> {
+    const name = claims.name ?? claims.preferred_username ?? 'Me';
+    return this.registry.createWorkflow(await this.users.idFor(claims), name, body.name);
+  }
+
+  @Get('workflow-bindings')
+  @ApiOkResponse({ standardSchema: WorkflowBindings })
+  async workflowBindings(@Claims() claims: TokenClaims): Promise<WorkflowBindings> {
+    return this.registry.workflowBindings(await this.users.idFor(claims));
+  }
+
+  @Put('workflow/:id/graph')
+  @ApiOkResponse({ standardSchema: RegistryItem })
+  async saveWorkflow(
+    @Claims() claims: TokenClaims,
+    @Param('id', { schema: RegistryId }) id: string,
+    @Body({ schema: WorkflowGraph }) body: WorkflowGraph,
+  ): Promise<RegistryItem> {
+    return this.registry.saveWorkflow(await this.users.idFor(claims), id, body);
   }
 
   @Get('counts')

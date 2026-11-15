@@ -682,7 +682,8 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
     slug: 'demand-science/sku-onboarding',
     version: 'v1',
     sensitivity: 'Internal',
-    summary: '6 steps · ran 2h ago',
+    summary:
+      'When a new SKU lands in the catalog, reads its supplier sheet, forecasts demand and publishes it to PIM after a pricing review.',
     owner: {
       team: 'Demand Science',
       personId: null,
@@ -759,7 +760,8 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
     slug: 'support-ai/support-ticket-triage',
     version: 'v1',
     sensitivity: 'Internal',
-    summary: '5 steps · runs hourly',
+    summary:
+      'Classifies each new support ticket, drafts a first reply and routes it, with a person approving before it is sent.',
     owner: {
       team: 'Support AI',
       personId: null,
@@ -769,8 +771,54 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
     details: {
       state: 'Active',
       schedule: 'runs hourly',
-      nodes: [],
-      edges: [],
+      nodes: [
+        {
+          id: 'new',
+          label: 'New ticket',
+          kind: 'Trigger',
+          sub: 'Support inbox · webhook',
+          x: 40,
+          y: 170,
+        },
+        {
+          id: 'classify',
+          label: 'Classify intent',
+          kind: 'Model',
+          sub: 'Support Intent XL v4.0',
+          x: 300,
+          y: 170,
+        },
+        {
+          id: 'draft',
+          label: 'Draft a first reply',
+          kind: 'Skill',
+          sub: 'Churn narrative',
+          x: 560,
+          y: 170,
+        },
+        {
+          id: 'check',
+          label: 'Agent review',
+          kind: 'Approval',
+          sub: 'Internal · Support team',
+          x: 820,
+          y: 170,
+        },
+        {
+          id: 'route',
+          label: 'Route in Salesforce',
+          kind: 'Tool',
+          sub: 'Salesforce · update_record (write)',
+          x: 1080,
+          y: 170,
+        },
+      ],
+      edges: [
+        ['new', 'classify'],
+        ['classify', 'draft'],
+        ['draft', 'check'],
+        ['check', 'route'],
+      ],
     },
   },
   {
@@ -780,7 +828,8 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
     slug: 'risk-ml/weekly-fraud-digest',
     version: 'v1',
     sensitivity: 'Internal',
-    summary: '4 steps · Fridays 07:00',
+    summary:
+      'Every Friday, summarizes the week of flagged transactions and posts it to #risk-ops once the risk lead signs off.',
     owner: {
       team: 'Risk ML',
       personId: null,
@@ -790,8 +839,54 @@ export const REGISTRY_SEED: Omit<RegistryItem, 'updatedAt' | 'access'>[] = [
     details: {
       state: 'Paused',
       schedule: 'Fridays 07:00',
-      nodes: [],
-      edges: [],
+      nodes: [
+        {
+          id: 'friday',
+          label: 'Every Friday at 07:00',
+          kind: 'Trigger',
+          sub: 'Schedule',
+          x: 40,
+          y: 170,
+        },
+        {
+          id: 'flagged',
+          label: 'Pull flagged transactions',
+          kind: 'Tool',
+          sub: 'Postgres · support_dw · query',
+          x: 300,
+          y: 170,
+        },
+        {
+          id: 'summarize',
+          label: 'Summarize the week',
+          kind: 'Model',
+          sub: 'claude-sonnet-4.5',
+          x: 560,
+          y: 170,
+        },
+        {
+          id: 'signoff',
+          label: 'Risk lead sign-off',
+          kind: 'Approval',
+          sub: 'Confidential · Risk ML',
+          x: 820,
+          y: 170,
+        },
+        {
+          id: 'post',
+          label: 'Post to #risk-ops',
+          kind: 'Tool',
+          sub: 'Slack · post_message (write)',
+          x: 1080,
+          y: 170,
+        },
+      ],
+      edges: [
+        ['friday', 'flagged'],
+        ['flagged', 'summarize'],
+        ['summarize', 'signoff'],
+        ['signoff', 'post'],
+      ],
     },
   },
   {

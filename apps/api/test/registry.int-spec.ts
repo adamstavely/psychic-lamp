@@ -288,7 +288,7 @@ describe('/api/registry', () => {
       expect(missing.body.message).toBe('Not in the registry: Nope');
     });
 
-    it("reads a skill's principles from its SKILL.md", async () => {
+    it("reads a skill's principles from its SKILL.md, and keeps the SKILL.md as it was written", async () => {
       const token = await t.token({ sub: `registrar-${randomUUID()}` });
       const made = RegistryItem.parse(
         (
@@ -313,6 +313,7 @@ describe('/api/registry', () => {
         { title: 'Lead with the date', text: 'Say when.' },
         { title: 'Keep it short', text: 'Three lines.' },
       ]);
+      expect(made.kind === 'skill' && made.details.skillMd).toMatch(/^---\nname: x\n---\n\n# Release summary\n/);
     });
   });
 });

@@ -82,6 +82,7 @@ test.describe('Governance', () => {
       await page.goto(`/build/models/${id}`);
       await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
       await expect(page.getByRole('region', { name: /review/i })).toHaveCount(0);
+      await expect(page.getByRole('tabpanel', { name: 'Card' })).toContainText('No metrics yet.');
       await resetUser(page);
     });
 

@@ -30,7 +30,7 @@ export function detailsFor(body: NewRegistryItem): RegistryItem['details'] {
         tools: [],
       };
     case 'skill':
-      return { score: null, uses: '0', principles: principlesOf(body.skillMd), tests: [] };
+      return { score: null, uses: '0', principles: principlesOf(body.skillMd), skillMd: body.skillMd, tests: [] };
     case 'agent':
       return {
         autonomy: body.autonomy,
@@ -59,7 +59,7 @@ export function detailsFor(body: NewRegistryItem): RegistryItem['details'] {
         splits: body.splits || '—',
         usedBy: [],
         pulls: '0',
-        updated: 'just now',
+        updated: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
         schema: [],
       };
     case 'space':

@@ -5,20 +5,20 @@ prototype and a trace of every control in the code. Each fix below is one PR; th
 
 ## Fixes, in order
 
-1. **One page frame and header for Build.** _(This PR.)_ Every page gets the prototype's frame (32px × 40px padding; the detail
+1. **One page frame and header for Build.** _(Done.)_ Every page gets the prototype's frame (32px × 40px padding; the detail
    pages two equal columns, main and aside, up to 1100px), its **back button** (a 30px bordered button with a chevron,
    named for the area, not an underlined link), and its header (24px/700 title, a type tag and a tier badge as bordered
    pills, a 13px meta line, a 15px summary). One tag/badge system, one section-heading style (12px/600 uppercase,
    muted), one stat-tile style, one info-card style in the aside, one table style. Data shown twice goes (a workflow's
    summary repeating its meta line; autonomy, owner, version, score, format, "Verified" shown as a tag and a spec row).
-2. **Workflows: the prototype's canvas, with Run and Edit.** The toolbar header (back, title, meta, run state, View |
+2. **Workflows: the prototype's canvas, with Run and Edit.** _(Done, on Trench Coat's `tc-workflow-canvas`.)_ The toolbar header (back, title, meta, run state, View |
    Edit, Reset and Run now); the dotted canvas with nodes coloured by state and animated edges; a simulated run that
    stops at the approval step and continues on Approve, with a run log; and **Edit**: a palette (Trigger, Tool, Model,
    Skill, Approval, Branch), drag to move, select to inspect (name, binding, on failure, next steps, delete), workflow
    settings, checks (unconnected step, write tool with no approval upstream, no trigger), Discard and Save & publish,
    saved as a new version through review. Plus **New workflow** from the catalog. Two of the three seeded workflows
    have no steps: give them their graphs.
-3. **Newly registered items render properly.** A model with no metrics, a space with no outputs, a server with no tools,
+3. **Newly registered items render properly.** _(This PR.)_ A model with no metrics, a space with no outputs, a server with no tools,
    a dataset's "updated", a skill keeping the SKILL.md it was registered with (not rebuilt from its headings).
 4. **Actions match what's allowed.** Pending items don't offer Install, Attach or Use in chat (the API refuses them).
    The wizard's step list can't skip validation, and an agent needs at least one server or skill. Register opens on the

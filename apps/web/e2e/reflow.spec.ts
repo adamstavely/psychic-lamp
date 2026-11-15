@@ -24,6 +24,7 @@ const paths = [
   '/build/skills/rollout',
   '/build/prompts/status',
   '/build/workflows/sku',
+  '/build/workflows/sku?mode=edit',
   '/build/register',
   '/build/governance',
   '/build/insights',

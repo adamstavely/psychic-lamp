@@ -17,7 +17,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, count, eq, gte, sql } from 'drizzle-orm';
+import { and, asc, count, eq, gte, or, sql } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module.js';
 import { governancePolicies, registryItems, registryReviews } from '../db/schema.js';
 import { toSummary } from '../registry/registry-row.js';
@@ -89,7 +89,7 @@ export class GovernanceService {
         submittedAt: r.updatedAt.toISOString(),
         risk,
         why,
-        mine: r.ownerId === userId,
+        mine: r.ownerId === userId || r.submittedBy === userId,
         myDecision: round.find((v) => v.reviewerId === userId)?.decision ?? null,
       };
     });
@@ -139,7 +139,8 @@ export class GovernanceService {
         .for('update');
       if (!item) throw new NotFoundException(`No ${kind} with that id`);
       if (item.status !== 'pending') throw new ConflictException(`It isn't waiting for review: it's ${item.status}`);
-      if (item.ownerId === userId) throw new ForbiddenException("You can't review your own submission");
+      if (item.ownerId === userId || item.submittedBy === userId)
+        throw new ForbiddenException("You can't review your own submission");
       const inserted = await tx
         .insert(registryReviews)
         .values({ kind, itemId: id, round: item.reviewRound, reviewerId: userId, reviewerName, ...body })
@@ -189,7 +190,7 @@ export class GovernanceService {
         and(
           eq(registryItems.kind, kind),
           eq(registryItems.id, id),
-          eq(registryItems.ownerId, userId),
+          or(eq(registryItems.ownerId, userId), eq(registryItems.submittedBy, userId)),
           sql`${registryItems.status} in ('changes-requested', 'rejected')`,
         ),
       )

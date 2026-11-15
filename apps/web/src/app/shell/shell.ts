@@ -1,4 +1,5 @@
 import { HttpClient, httpResource } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
@@ -229,7 +230,7 @@ export class Shell {
   protected readonly narrow = signal(this.#narrow?.matches ?? false);
   protected readonly railCollapsed = computed(() => this.narrow() || !this.session.preferences().railExpanded);
   /** Phone-width windows and 400% zoom (WCAG 1.4.10 at 320px): New chat keeps its name but shows only its icon. */
-  readonly #compact = typeof matchMedia === 'function' ? matchMedia('(max-width: 600px)') : undefined;
+  readonly #compact = typeof matchMedia === 'function' ? matchMedia('(max-width: 680px)') : undefined;
   protected readonly compact = signal(this.#compact?.matches ?? false);
 
   protected readonly user = computed(() => {
@@ -380,9 +381,22 @@ export class Shell {
     document.getElementById('main')?.focus();
   }
 
-  /** Build's primary action: register something, starting with the kind of the area you're in. */
+  /** Build's primary action: in Workflows, a new workflow, built on the canvas; elsewhere, register that area's kind. */
+  protected readonly buildAction = computed(() => (this.currentArea() === 'workflows' ? 'New workflow' : 'Register'));
+
   protected async register(): Promise<void> {
     const kind = BUILD_AREAS.find((a) => a.id === this.currentArea())?.kind;
+    if (kind === 'workflow') {
+      try {
+        const draft = await firstValueFrom(
+          this.#http.post<{ id: string }>('/api/registry/workflows', { name: 'Untitled workflow' }),
+        );
+        await this.#router.navigate(['/build/workflows', draft.id], { queryParams: { mode: 'edit' } });
+      } catch {
+        toast.error("Couldn't start a workflow", { description: 'Try again in a moment.' });
+      }
+      return;
+    }
     await this.#router.navigate(['/build/register'], { queryParams: kind ? { kind } : {} });
   }
 

@@ -1,77 +1,406 @@
-/* The graph scrolls in its own box when it's wider than the page (allowed under WCAG 1.4.10). */
-.canvas {
-  overflow: auto;
-  padding: var(--tc-space-3);
-  border: 1px solid var(--tc-border-subtle);
-  border-radius: var(--tc-radius-lg);
+/* The workflow page spans the main region: a toolbar, then the canvas between the palette and the inspector (Edit) or
+   beside the run log (View). Under 900px the columns stack, and the canvas pans in its own box (WCAG 1.4.10 allows it). */
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - var(--dn-topbar-h, 56px));
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tc-space-3);
+  min-height: 52px;
+  padding: var(--tc-space-2) var(--tc-space-6);
+  border-bottom: 1px solid var(--tc-border-subtle);
+}
+
+.bar .dn-back {
+  margin: 0;
+}
+
+.title {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--tc-font-size-lg);
+  font-weight: var(--tc-font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  min-width: 0;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-sm);
+}
+
+.run {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-semibold);
+  color: var(--tc-text-secondary);
+}
+
+.run .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.run[data-state='running'] {
+  color: var(--tc-accent-text);
+}
+
+.run[data-state='awaiting'] {
+  color: var(--tc-status-warning-fg);
+}
+
+.run[data-state='done'] {
+  color: var(--tc-status-success-fg);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.dirty {
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-sm);
+}
+
+.dirty.on {
+  color: var(--tc-status-warning-fg);
+}
+
+.body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}
+
+.body.logged {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 24%);
+}
+
+.body.editing {
+  grid-template-columns: 72px minmax(0, 1fr) 280px;
+}
+
+.stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--tc-space-4);
   background: var(--tc-surface-sunken);
 }
 
-.canvas:focus-visible {
-  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
-  outline-offset: 2px;
+.stage tc-workflow-canvas {
+  flex: 1;
+  --tc-wfc-h: clamp(360px, calc(100dvh - 240px), 640px);
 }
 
-.canvas svg {
-  display: block;
-}
-
-.edge {
-  fill: none;
-  stroke: var(--tc-border-strong);
-  stroke-width: 1.5;
-}
-
-.node rect {
-  fill: var(--tc-surface-raised);
-  stroke: var(--tc-border-default);
-}
-
-.node[data-kind='Approval'] rect {
-  stroke: var(--tc-status-warning-fg);
-}
-
-.node text {
-  fill: var(--tc-text-primary);
-  font-family: var(--tc-font-sans);
-}
-
-.node .node-kind {
-  fill: var(--tc-accent-text);
-  font-size: 11px;
-  font-weight: 600;
+.label {
+  margin: 0;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+  font-weight: var(--tc-font-weight-semibold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-.node[data-kind='Approval'] .node-kind {
-  fill: var(--tc-status-warning-fg);
+/* The palette: one button per step kind. */
+.palette {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: var(--tc-space-3) var(--tc-space-2);
+  border-right: 1px solid var(--tc-border-subtle);
 }
 
-.node .node-label {
-  font-size: 14px;
-  font-weight: 600;
+.palette .label {
+  padding-bottom: 4px;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
-.node .node-sub {
-  fill: var(--tc-text-secondary);
-  font-size: 12px;
+.palette button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 56px;
+  padding: 7px 0 6px;
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-raised);
+  color: var(--tc-accent-text);
+  font: inherit;
+  cursor: pointer;
 }
 
-.steps {
+.palette button[data-kind='Approval'] {
+  color: var(--tc-status-warning-fg);
+}
+
+.palette button:hover {
+  border-color: var(--tc-accent-text);
+  background: var(--tc-fill-hover);
+}
+
+.palette button:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 2px;
+}
+
+.palette .kind {
+  color: var(--tc-text-primary);
+  font-size: 11px;
+  font-weight: var(--tc-font-weight-semibold);
+}
+
+/* The inspector: the selected step, or the workflow's settings, and the checks under them. */
+.inspector,
+.log {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-left: 1px solid var(--tc-border-subtle);
+}
+
+.fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-4);
+  padding: var(--tc-space-4);
+}
+
+.sel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-3);
+}
+
+.sel-icon {
   display: grid;
-  gap: var(--tc-space-2);
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-fill-subtle, var(--tc-surface-sunken));
+  color: var(--tc-accent-text);
+}
+
+.sel-icon[data-kind='Approval'] {
+  color: var(--tc-status-warning-fg);
+}
+
+.sel-name {
+  margin: 0;
+  font-size: var(--tc-font-size-md);
+  font-weight: var(--tc-font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-medium);
+}
+
+/* Trench Coat has no text input yet: this one follows its control tokens. */
+.field input {
+  height: 36px;
+  padding: 0 var(--tc-space-3);
+  border: 1px solid var(--tc-border-control);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-weight: var(--tc-font-weight-regular);
+}
+
+.field input:focus-visible {
+  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
+  outline-offset: 1px;
+}
+
+.owner,
+.hint {
+  margin: 0;
+  color: var(--tc-text-secondary);
+  font-weight: var(--tc-font-weight-regular);
+}
+
+.hint {
+  font-size: var(--tc-font-size-sm);
+  line-height: 1.5;
+}
+
+.next {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.next li {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+  min-height: 36px;
+  padding: 0 4px 0 var(--tc-space-3);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+  color: var(--tc-text-secondary);
+  font-weight: var(--tc-font-weight-regular);
+}
+
+.next .next-name {
+  flex: 1;
+  min-width: 0;
+  color: var(--tc-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.next .none {
+  border-style: dashed;
+}
+
+.checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--tc-space-3) var(--tc-space-4);
+  border-top: 1px solid var(--tc-border-subtle);
+}
+
+.checks ul,
+.log ol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checks li {
+  display: flex;
+  gap: var(--tc-space-2);
+  font-size: var(--tc-font-size-xs);
+  line-height: 1.45;
+}
+
+.checks li > span:first-child {
+  flex: none;
+  margin-top: 1px;
+  color: var(--tc-status-warning-fg);
+}
+
+.checks li[data-level='block'] > span:first-child {
+  color: var(--tc-status-danger-fg);
+}
+
+.checks li[data-level='ok'] > span:first-child {
+  color: var(--tc-status-success-fg);
+}
+
+/* The run log: newest first, and the approval the run waits on. */
+.log {
+  gap: var(--tc-space-2);
+  padding: var(--tc-space-4) var(--tc-space-3);
+}
+
+.approve {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-2);
+  padding: var(--tc-space-3);
+  border: 1px solid var(--tc-status-warning-fg);
+  border-radius: var(--tc-radius-md);
   font-size: var(--tc-font-size-sm);
 }
 
-.steps li {
+.approve p {
+  margin: 0;
+}
+
+.log li {
   display: flex;
-  flex-wrap: wrap;
   gap: var(--tc-space-3);
-  padding: var(--tc-space-3) var(--tc-space-4);
+  padding: var(--tc-space-3);
   border: 1px solid var(--tc-border-subtle);
   border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-raised);
+  font-size: var(--tc-font-size-sm);
+}
+
+.log li p {
+  margin: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.log li > span:first-child {
+  flex: none;
+  margin-top: 2px;
+  color: var(--tc-accent-text);
+}
+
+.log li[data-state='done'] > span:first-child {
+  color: var(--tc-status-success-fg);
+}
+
+.log li[data-state='awaiting'] > span:first-child {
+  color: var(--tc-status-warning-fg);
+}
+
+.log .at {
+  margin-top: 2px;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-xs);
+}
+
+@media (max-width: 900px) {
+  .bar {
+    padding-inline: var(--tc-space-4);
+  }
+
+  .body.logged,
+  .body.editing {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .palette {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: 0;
+    border-bottom: 1px solid var(--tc-border-subtle);
+  }
+
+  .inspector,
+  .log {
+    border-left: 0;
+    border-top: 1px solid var(--tc-border-subtle);
+  }
+
+  .stage tc-workflow-canvas {
+    --tc-wfc-h: 420px;
+  }
+}
+
+.fields tc-select {
+  display: block;
 }

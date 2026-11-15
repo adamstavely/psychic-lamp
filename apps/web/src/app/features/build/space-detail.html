@@ -36,12 +36,18 @@
         <h2 id="space-result" class="section">
           Result <span class="small" role="status">{{ r.status }} · {{ r.durationMs / 1000 }}s</span>
         </h2>
-        <dl class="spec">
-          @for (o of r.outputs; track o.label) {
-            <dt>{{ o.label }}</dt>
-            <dd>{{ o.value }}</dd>
-          }
-        </dl>
+        @if (r.outputs.length) {
+          <dl class="spec">
+            @for (o of r.outputs; track o.label) {
+              <div>
+                <dt>{{ o.label }}</dt>
+                <dd>{{ o.value }}</dd>
+              </div>
+            }
+          </dl>
+        } @else {
+          <p class="small">It ran, but no sample result was registered with this space, so there's nothing to show.</p>
+        }
       </section>
     }
   </div>

@@ -340,6 +340,8 @@ export const registryItems = pgTable(
     ownerTeam: text(),
     ownerId: uuid().references(() => users.id, { onDelete: 'set null' }),
     ownerName: text().notNull(),
+    /** Who sent its latest version to review (the owner, or whoever edited a team's item); they can't review it. */
+    submittedBy: uuid().references(() => users.id, { onDelete: 'set null' }),
     status: text({ enum: ['draft', 'pending', 'changes-requested', 'published', 'rejected'] }).notNull(),
     access: jsonb().$type<RegistryAccess>(),
     /** Which round of review it's in: 1 at first, one more each time it's resubmitted. */
