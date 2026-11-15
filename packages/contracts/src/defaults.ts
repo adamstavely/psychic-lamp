@@ -36,3 +36,12 @@ export const KNOWLEDGE_SOURCES = [
   { id: 'training', label: 'Training only', description: 'What the model knows; no tools or documents' },
   { id: 'live', label: 'Live', description: 'The workspace, plus a live web search' },
 ] as const;
+
+/** Where a registry item can be installed (registry.ts InstallClient), as people see them. */
+export const INSTALL_CLIENTS = [
+  { id: 'donovan-chat', label: 'Donovan chat' },
+  { id: 'claude-desktop', label: 'Claude Desktop' },
+  { id: 'claude-code', label: 'Claude Code' },
+  { id: 'cursor', label: 'Cursor' },
+  { id: 'vscode', label: 'VS Code' },
+] as const;

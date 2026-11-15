@@ -1,4 +1,4 @@
-import { RegistryCounts, RegistryItem, RegistrySummary } from '@donovan/contracts';
+import { RegistryInstall, TryResult, RegistryCounts, RegistryItem, RegistrySummary } from '@donovan/contracts';
 import { Client } from '@elastic/elasticsearch';
 import { and, eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
@@ -119,5 +119,38 @@ describe('/api/registry', () => {
     await t.app.get(SearchBackfill).run();
     const doc = await es.get<{ version: number }>({ index: REGISTRY_INDEX, id: 'space:invoice-demo' });
     expect(doc._source!.version).toBe(row!.searchVersion);
+  });
+
+  it("tries a server's tool in the sandbox: a mock result, and the required arguments asked for", async () => {
+    const token = await t.token();
+    const tryIt = (tool: string, args: Record<string, string>) =>
+      http.post(`/api/registry/server/filesystem/tools/${tool}/try`).auth(token, bearer).send({ args });
+    const ran = TryResult.parse((await tryIt('read_file', { path: 'notes/plan.md' }).expect(200)).body);
+    expect(ran.status).toBe('200 OK');
+    expect(JSON.parse(ran.result)).toMatchObject({ path: 'notes/plan.md' });
+    expect((await tryIt('read_file', {}).expect(400)).body.message).toBe('Fill in path');
+    await tryIt('delete_everything', {}).expect(404);
+    await http.post('/api/registry/server/nope/tools/read_file/try').auth(token, bearer).send({ args: {} }).expect(404);
+  });
+
+  it('records installs per person and client, once each, and takes one out', async () => {
+    const token = await t.token({ sub: 'installer' });
+    const other = await t.token({ sub: 'installer-other' });
+    const url = '/api/registry/server/filesystem/installs';
+    const clients = (body: unknown) =>
+      z
+        .array(RegistryInstall)
+        .parse(body)
+        .map((i) => i.client);
+    expect(clients((await http.get(url).auth(token, bearer).expect(200)).body)).toEqual([]);
+    await http.post(url).auth(token, bearer).send({ client: 'cursor' }).expect(200);
+    await http.post(url).auth(token, bearer).send({ client: 'cursor' }).expect(200);
+    const both = await http.post(url).auth(token, bearer).send({ client: 'claude-code' }).expect(200);
+    expect(clients(both.body)).toEqual(['cursor', 'claude-code']);
+    expect(clients((await http.get(url).auth(other, bearer).expect(200)).body)).toEqual([]);
+    await http.post(url).auth(token, bearer).send({ client: 'emacs' }).expect(400);
+    await http.post('/api/registry/agent/release/installs').auth(token, bearer).send({ client: 'cursor' }).expect(400);
+    const left = await http.delete(`${url}/cursor`).auth(token, bearer).expect(200);
+    expect(clients(left.body)).toEqual(['claude-code']);
   });
 });

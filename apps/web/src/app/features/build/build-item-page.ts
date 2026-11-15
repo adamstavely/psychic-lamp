@@ -4,6 +4,8 @@ import { Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import type { RegistryItem } from '@donovan/contracts';
 import { BUILD_AREAS } from '../../shell/areas';
+import { AgentDetail } from './agent-detail';
+import { ServerDetail } from './server-detail';
 
 const STATUS: Record<RegistryItem['status'], string> = {
   draft: 'Draft',
@@ -13,30 +15,40 @@ const STATUS: Record<RegistryItem['status'], string> = {
   rejected: 'Rejected',
 };
 
-/** One registry item: its essentials. Each kind's full detail page arrives in steps 4 to 6 of slice 2. */
+/** One registry item: servers and agents have their own pages; the other kinds show their essentials until steps 5 and 6. */
 @Component({
   selector: 'dn-build-item-page',
-  imports: [RouterLink],
+  imports: [RouterLink, AgentDetail, ServerDetail],
   template: `
     <section class="page">
       @if (buildArea(); as a) {
         <a class="back" [routerLink]="a.path">Back to {{ a.label }}</a>
         @if (item.hasValue()) {
           @let i = item.value();
-          <h1>{{ i.name }}</h1>
-          <dl>
-            <dt>Id</dt>
-            <dd>{{ i.slug }} · {{ i.version }}</dd>
-            <dt>Owner</dt>
-            <dd>{{ i.owner.name }}</dd>
-            <dt>Sensitivity</dt>
-            <dd>
-              <span class="dn-sens" [attr.data-level]="i.sensitivity">{{ i.sensitivity }}</span>
-            </dd>
-            <dt>Status</dt>
-            <dd>{{ status(i.status) }}</dd>
-          </dl>
-          <p>{{ i.summary }}</p>
+          @switch (i.kind) {
+            @case ('server') {
+              <dn-server-detail [item]="i" />
+            }
+            @case ('agent') {
+              <dn-agent-detail [item]="i" />
+            }
+            @default {
+              <h1>{{ i.name }}</h1>
+              <dl>
+                <dt>Id</dt>
+                <dd>{{ i.slug }} · {{ i.version }}</dd>
+                <dt>Owner</dt>
+                <dd>{{ i.owner.name }}</dd>
+                <dt>Sensitivity</dt>
+                <dd>
+                  <span class="dn-sens" [attr.data-level]="i.sensitivity">{{ i.sensitivity }}</span>
+                </dd>
+                <dt>Status</dt>
+                <dd>{{ status(i.status) }}</dd>
+              </dl>
+              <p>{{ i.summary }}</p>
+            }
+          }
         } @else if (item.error()) {
           <h1>Not found</h1>
           <p role="alert">There's no {{ a.label.toLowerCase() }} item with that id, or it isn't shared with you.</p>
@@ -51,7 +63,7 @@ const STATUS: Record<RegistryItem['status'], string> = {
   `,
   styles: `
     .page {
-      max-width: 60rem;
+      max-width: 72rem;
       padding: var(--tc-space-8);
     }
     .back {

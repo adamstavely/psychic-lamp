@@ -353,3 +353,25 @@ export const registryItems = pgTable(
     index('registry_items_status').on(t.status),
   ],
 );
+
+/** Where each person has installed a registry item (installs are recorded; nothing is actually configured yet). */
+export const registryInstalls = pgTable(
+  'registry_installs',
+  {
+    ownerId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text({
+      enum: ['skill', 'server', 'agent', 'workflow', 'model', 'dataset', 'space', 'collection', 'prompt'],
+    }).notNull(),
+    itemId: text().notNull(),
+    client: text({ enum: ['donovan-chat', 'claude-desktop', 'claude-code', 'cursor', 'vscode'] }).notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.ownerId, t.kind, t.itemId, t.client] }),
+    foreignKey({ columns: [t.kind, t.itemId], foreignColumns: [registryItems.kind, registryItems.id] }).onDelete(
+      'cascade',
+    ),
+  ],
+);

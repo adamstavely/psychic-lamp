@@ -9,6 +9,7 @@ import { IconDirective } from '../../core/icon.directive';
 import { icon } from '../../core/icons';
 import { Session } from '../../core/session';
 import type { BuildArea } from '../../shell/areas';
+import { chatStart } from './use-in-chat';
 
 export type CatalogView = 'cards' | 'list';
 
@@ -109,10 +110,7 @@ export class Catalog {
       void this.#router.navigate(this.link(item));
       return;
     }
-    const what = action === 'Run in chat' ? `Run the ${item.name} agent: ` : `Using ${item.name} (${item.slug}): `;
-    void this.#router.navigate(['/chats/new'], {
-      queryParams: { q: what, ...(item.kind === 'model' ? { model: item.name } : {}) },
-    });
+    void this.#router.navigate(['/chats/new'], { queryParams: chatStart(item) });
   }
 
   #query(params: Record<string, string | null>): void {

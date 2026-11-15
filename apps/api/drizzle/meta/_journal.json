@@ -120,6 +120,13 @@
       "when": 1794705613718,
       "tag": "0016_message_bookmark",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794709638439,
+      "tag": "0017_registry_installs",
+      "breakpoints": true
     }
   ]
 }

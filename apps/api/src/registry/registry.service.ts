@@ -1,16 +1,30 @@
 import {
   RegistryItem,
   RegistryKind,
+  type InstallClient,
   type RegistryCounts,
+  type RegistryInstall,
+  type TryResult,
   type RegistryQuery,
   type RegistrySummary,
 } from '@donovan/contracts';
-import { Inject, Injectable, Logger, NotFoundException, type OnApplicationBootstrap } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  type OnApplicationBootstrap,
+} from '@nestjs/common';
 import { and, asc, count, eq, inArray, isNotNull, or, sql, type SQL } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module.js';
-import { registryItems } from '../db/schema.js';
+import { registryInstalls, registryItems } from '../db/schema.js';
 import { cardFor, type CardInput } from './registry-card.js';
 import { REGISTRY_SEED } from './registry.fixture.js';
+import { missingArgs, mockToolResult } from './registry-try.js';
+
+/** What can be installed in a client: servers (as MCP config) and skills (into a skill index). */
+const INSTALLABLE: readonly RegistryKind[] = ['server', 'skill'];
 import { RegistrySearch, registryDocId, type RegistryDoc } from './registry-search.js';
 
 type Row = typeof registryItems.$inferSelect;
@@ -89,6 +103,53 @@ export class RegistryService implements OnApplicationBootstrap {
     // Something the person can't see answers like something that doesn't exist.
     if (!row) throw new NotFoundException(`No ${kind} with that id`);
     return toItem(row);
+  }
+
+  /** Runs one of a server's tools in the sandbox: a mock response, nothing called. */
+  async tryTool(userId: string, serverId: string, toolName: string, args: Record<string, string>): Promise<TryResult> {
+    const server = await this.get(userId, 'server', serverId);
+    if (server.kind !== 'server') throw new NotFoundException('No server with that id');
+    const tool = server.details.tools.find((t) => t.name === toolName);
+    if (!tool) throw new NotFoundException(`${server.name} has no tool called ${toolName}`);
+    const missing = missingArgs(tool, args);
+    if (missing.length) throw new BadRequestException(`Fill in ${missing.join(', ')}`);
+    return { status: '200 OK', durationMs: 400, result: mockToolResult(tool, args) };
+  }
+
+  /** Where the person has installed an item, oldest first. */
+  async installs(userId: string, kind: RegistryKind, id: string): Promise<RegistryInstall[]> {
+    await this.get(userId, kind, id);
+    const rows = await this.db
+      .select()
+      .from(registryInstalls)
+      .where(
+        and(eq(registryInstalls.ownerId, userId), eq(registryInstalls.kind, kind), eq(registryInstalls.itemId, id)),
+      )
+      .orderBy(asc(registryInstalls.createdAt));
+    return rows.map((r) => ({ client: r.client, at: r.createdAt.toISOString() }));
+  }
+
+  /** Records an install in a client; installing again in the same client changes nothing. */
+  async install(userId: string, kind: RegistryKind, id: string, client: InstallClient): Promise<RegistryInstall[]> {
+    if (!INSTALLABLE.includes(kind)) throw new BadRequestException(`A ${kind} isn't installed in a client`);
+    const item = await this.get(userId, kind, id);
+    if (item.status !== 'published') throw new BadRequestException('Only published items can be installed');
+    await this.db.insert(registryInstalls).values({ ownerId: userId, kind, itemId: id, client }).onConflictDoNothing();
+    return this.installs(userId, kind, id);
+  }
+
+  async uninstall(userId: string, kind: RegistryKind, id: string, client: InstallClient): Promise<RegistryInstall[]> {
+    await this.db
+      .delete(registryInstalls)
+      .where(
+        and(
+          eq(registryInstalls.ownerId, userId),
+          eq(registryInstalls.kind, kind),
+          eq(registryInstalls.itemId, id),
+          eq(registryInstalls.client, client),
+        ),
+      );
+    return this.installs(userId, kind, id);
   }
 
   /** How many items of each kind the person can see. */

@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import { Sensitivity } from './chat.js';
+import { INSTALL_CLIENTS } from './defaults.js';
+
+type InstallClientId = (typeof INSTALL_CLIENTS)[number]['id'];
 
 /** What Build mode keeps a registry of. */
 export const RegistryKind = z.enum([
@@ -230,3 +233,27 @@ export type RegistryQuery = z.infer<typeof RegistryQuery>;
 /** How many items of each kind the person can see, for the Build rail. */
 export const RegistryCounts = z.record(RegistryKind, z.number().int().nonnegative());
 export type RegistryCounts = z.infer<typeof RegistryCounts>;
+
+/** Arguments for a sandbox run of a server's tool, by parameter name. */
+export const TryTool = z.strictObject({
+  args: z.record(z.string().max(80), z.string().max(2000)).default({}),
+});
+export type TryTool = z.infer<typeof TryTool>;
+
+/** What a sandbox run returned: a mock of the tool's real response, so its shape can be seen before using it. */
+export const TryResult = z.object({
+  status: z.string(),
+  durationMs: z.number().int().nonnegative(),
+  result: z.string(),
+});
+export type TryResult = z.infer<typeof TryResult>;
+
+export const InstallClient = z.enum(INSTALL_CLIENTS.map((c) => c.id) as [InstallClientId, ...InstallClientId[]]);
+export type InstallClient = z.infer<typeof InstallClient>;
+
+export const NewInstall = z.strictObject({ client: InstallClient });
+export type NewInstall = z.infer<typeof NewInstall>;
+
+/** Where the person has installed an item. */
+export const RegistryInstall = z.object({ client: InstallClient, at: z.iso.datetime({ offset: true }) });
+export type RegistryInstall = z.infer<typeof RegistryInstall>;
