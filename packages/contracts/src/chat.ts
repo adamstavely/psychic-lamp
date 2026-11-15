@@ -205,6 +205,8 @@ export type Knowledge = z.infer<typeof Knowledge>;
 export const Chat = ChatSummary.extend({
   persona: Persona,
   knowledge: Knowledge,
+  /** Write tools the owner allowed to run in this chat without asking ("Always in this chat"). */
+  allowedTools: z.array(z.string()),
   intent: SessionIntent.nullable(),
   messages: z.array(Message),
   /** The context window behind the latest answer. */

@@ -202,3 +202,11 @@ h3 {
   outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
   outline-offset: 2px;
 }
+
+.allowed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tc-space-2);
+  font-size: var(--tc-font-size-sm);
+}

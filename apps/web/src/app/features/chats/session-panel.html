@@ -74,6 +74,21 @@
             </div>
           }
 
+          @if (c.allowedTools.length) {
+            <div>
+              <h3 id="allowed-h">Allowed without asking</h3>
+              <p class="meta">These write tools run in this chat without your approval.</p>
+              <ul class="rows" aria-labelledby="allowed-h">
+                @for (tool of c.allowedTools; track tool) {
+                  <li class="allowed">
+                    <code>{{ tool }}</code>
+                    <tc-button size="sm" variant="ghost" [label]="'Revoke ' + tool" (click)="thread.revokeTool(tool)" />
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+
           @if (bookmarks().length) {
             <div>
               <h3 id="bookmarks-h">Bookmarks</h3>

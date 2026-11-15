@@ -116,6 +116,34 @@ test.describe('asking Donovan', () => {
       ).toContainText('Red Cell');
     });
 
+    test('"Always in this chat" lets a write tool run without asking, until it is revoked', async ({ page }) => {
+      await signIn(page, 'priya', '/chats');
+      await resetUser(page);
+      const ask = async () => {
+        await page.getByRole('textbox', { name: 'Message' }).fill('Post the rollout update to the team');
+        await page.keyboard.press('Enter');
+        await expect(page.getByRole('status').filter({ hasText: 'Donovan answered.' })).toBeAttached();
+      };
+      await ask();
+      const card = page.locator('tc-approval-card');
+      await expect(card.getByRole('heading', { name: 'Approve post_message?' })).toBeVisible();
+      await expect(card).toContainText('Nothing runs. Donovan asks what to change.');
+      await card.getByRole('checkbox', { name: /Always in this chat/ }).check();
+      await card.getByRole('button', { name: 'Approve once' }).click();
+      const panel = page.getByRole('complementary', { name: 'Session panel' });
+      await page.getByRole('button', { name: 'Session panel' }).click();
+      await expect(panel.getByRole('button', { name: 'Revoke post_message' })).toBeVisible();
+      await ask();
+      await expect(page.getByText(/^Ran post_message without asking/)).toBeVisible();
+      await expect(page.locator('tc-approval-card')).toHaveCount(0);
+      await expectNoAxeViolations(page);
+
+      await panel.getByRole('button', { name: 'Revoke post_message' }).click();
+      await expect(panel.getByRole('button', { name: 'Revoke post_message' })).toHaveCount(0);
+      await ask();
+      await expect(page.locator('tc-approval-card')).toHaveCount(1);
+    });
+
     test('approving a waiting write tool runs it and Donovan says so', async ({ page }) => {
       await signIn(page, 'priya', '/chats/fraud');
       await resetUser(page);
