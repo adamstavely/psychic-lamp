@@ -221,6 +221,31 @@ describe('workflows on the canvas', () => {
     expect(now).toMatchObject({ version: 'v2', revision: v1.revision + 1, name: accepted[0]!.body.name });
   });
 
+  it('refuses a graph in which two steps share an id', async () => {
+    const owner = await person('dupe');
+    const draft = RegistryItem.parse(
+      (await http.post('/api/registry/workflows').auth(owner, bearer).send({ name: 'Dupe' }).expect(201)).body,
+    );
+    const res = await http
+      .put(`/api/registry/workflow/${draft.id}/graph`)
+      .auth(owner, bearer)
+      .send(
+        graph(
+          [
+            step('start', 'Trigger', 'Schedule'),
+            step('same', 'Tool', 'Filesystem · read_file'),
+            step('same', 'Model', 'x'),
+          ],
+          [['start', 'same']],
+          draft.revision,
+        ),
+      )
+      .expect(400);
+    expect(JSON.stringify(res.body)).toMatch(/Each step needs its own id/);
+    const still = RegistryItem.parse((await http.get(`/api/registry/workflow/${draft.id}`).auth(owner, bearer)).body);
+    expect(still).toMatchObject({ status: 'draft', details: { nodes: [] } });
+  });
+
   it("refuses to change someone else's own workflow", async () => {
     const owner = await person('mine');
     const draft = (await http.post('/api/registry/workflows').auth(owner, bearer).send({ name: 'Mine' }).expect(201))

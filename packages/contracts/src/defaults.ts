@@ -69,6 +69,8 @@ export const isWrite = (sub: string) => /\(write\)\s*$/.test(sub);
 export function checkWorkflow(graph: WorkflowShape): WorkflowCheck[] {
   const ids = new Set(graph.nodes.map((n) => n.id));
   const out: WorkflowCheck[] = [];
+  if (ids.size < graph.nodes.length)
+    out.push({ level: 'block', message: 'Two steps share an id. Each step needs its own.' });
   if (!graph.nodes.some((n) => n.kind === 'Trigger'))
     out.push({ level: 'block', message: 'Add a trigger, so it knows when to run.' });
   for (const [from, to] of graph.edges)

@@ -44,6 +44,7 @@ import { IconDirective } from '../../core/icon.directive';
 import { icon, type IconName } from '../../core/icons';
 import { Session } from '../../core/session';
 import type { BuildArea } from '../../shell/areas';
+import { stagesOf } from './workflow-stages';
 
 type Workflow = Extract<RegistryItem, { kind: 'workflow' }>;
 type Edge = [string, string];
@@ -104,23 +105,6 @@ const LIMIT = 4000;
 
 const clamp = (n: number) => Math.round(Math.min(LIMIT, Math.max(0, n)));
 const time = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-/** The steps in the order they can run: each stage is the steps whose every step before them is in an earlier one. */
-function stagesOf(nodes: readonly WorkflowNode[], edges: readonly Edge[]): WorkflowNode[][] {
-  const ids = new Set(nodes.map((n) => n.id));
-  const live = edges.filter(([a, b]) => ids.has(a) && ids.has(b) && a !== b);
-  const placed = new Set<string>();
-  const out: WorkflowNode[][] = [];
-  while (placed.size < nodes.length) {
-    const ready = nodes.filter((n) => !placed.has(n.id) && live.every(([a, b]) => b !== n.id || placed.has(a)));
-    // A loop: run what's left together rather than never.
-    const stage = ready.length ? ready : nodes.filter((n) => !placed.has(n.id));
-    stage.sort((a, b) => a.y - b.y);
-    for (const n of stage) placed.add(n.id);
-    out.push(stage);
-  }
-  return out;
-}
 
 /**
  * A workflow on its canvas. View runs it (simulated: stage by stage, pausing at an approval until someone approves),

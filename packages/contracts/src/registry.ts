@@ -399,7 +399,11 @@ export const WorkflowGraph = z.strictObject({
   revision: z.number().int().positive(),
   name: z.string().trim().min(1, 'Name it').max(120),
   sensitivity: Sensitivity,
-  nodes: z.array(WorkflowNode).min(1, 'Add a step').max(100),
+  nodes: z
+    .array(WorkflowNode)
+    .min(1, 'Add a step')
+    .max(100)
+    .refine((nodes) => new Set(nodes.map((n) => n.id)).size === nodes.length, 'Each step needs its own id'),
   edges: z.array(z.tuple([z.string().max(40), z.string().max(40)])).max(300),
 });
 export type WorkflowGraph = z.infer<typeof WorkflowGraph>;
