@@ -151,24 +151,44 @@
   }
 </div>
 
-<dialog #noteDialog class="dialog" aria-labelledby="note-h">
-  @if (asking(); as a) {
-    <form (submit)="$event.preventDefault(); sendNote()">
-      <h2 id="note-h">{{ a.decision === 'reject' ? 'Reject' : 'Request changes to' }} {{ a.q.item.name }}</h2>
+<tc-dialog
+  size="sm"
+  close-label="Cancel"
+  [label]="noteTitle()"
+  [open]="asking() !== null"
+  [content]="noteBody"
+  [actions]="noteActions"
+  (tc-open-change)="own($event) && !$event.detail.open && asking.set(null)"
+>
+  <div #noteBody class="dialog-body">
+    @if (asking(); as a) {
       <label>
         Why
-        <textarea name="note" rows="4" required [(ngModel)]="note"></textarea>
+        <textarea
+          #noteField
+          name="note"
+          rows="4"
+          required
+          [attr.aria-invalid]="noteError() ? 'true' : null"
+          [attr.aria-describedby]="noteError() ? 'note-error' : null"
+          [value]="note()"
+          (input)="note.set($any($event.target).value); noteError.set(false)"
+        ></textarea>
       </label>
+      @if (noteError()) {
+        <p id="note-error" class="error" role="alert">Say why, so {{ a.q.item.owner.name }} knows what to change.</p>
+      }
       <p class="small">{{ a.q.item.owner.name }} sees this, so say what would change your mind.</p>
-      <div class="dialog-actions">
-        <tc-button variant="ghost" label="Cancel" (click)="closeNote()" />
-        <tc-button
-          type="submit"
-          [variant]="a.decision === 'reject' ? 'destructive' : 'primary'"
-          [label]="a.decision === 'reject' ? 'Reject' : 'Send back'"
-          [loading]="deciding() !== null"
-        />
-      </div>
-    </form>
-  }
-</dialog>
+    }
+  </div>
+  <div #noteActions>
+    @if (asking(); as a) {
+      <tc-button
+        [variant]="a.decision === 'reject' ? 'destructive' : 'primary'"
+        [label]="a.decision === 'reject' ? 'Reject' : 'Send back'"
+        [loading]="deciding() !== null"
+        (click)="sendNote()"
+      />
+    }
+  </div>
+</tc-dialog>

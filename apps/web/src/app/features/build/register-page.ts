@@ -15,7 +15,14 @@ import {
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
+import { Checkbox } from '@adamstavely/trenchcoat/angular/checkbox';
+import { RadioGroup } from '@adamstavely/trenchcoat/angular/radio-group';
+import { Select } from '@adamstavely/trenchcoat/angular/select';
+import { SensitivityLabelPicker } from '@adamstavely/trenchcoat/angular/sensitivity-label-picker';
 import { Switch } from '@adamstavely/trenchcoat/angular/switch';
+import type { SettingsRadioOption } from '@adamstavely/trenchcoat/radio-group';
+import type { SelectOption } from '@adamstavely/trenchcoat/select';
+import type { SensitivityValueChange } from '@adamstavely/trenchcoat/sensitivity-label-picker';
 import type {
   NewRegistryItem,
   PolicyList,
@@ -78,9 +85,24 @@ const RANK = (s: Sensitivity) => SENSITIVITIES.findIndex((t) => t.id === s);
  * Register something in the registry, in five steps: what it is, its name, what its kind needs, how it may be used, and
  * a last look. It's saved as waiting for review, in the person's Mine; nothing is published until it's approved.
  */
+/** Radio options whose values are their labels. */
+function radios(...values: string[]): SettingsRadioOption[] {
+  return values.map((v) => ({ value: v, label: v }));
+}
+
 @Component({
   selector: 'dn-register-page',
-  imports: [FormsModule, RouterLink, Button, IconDirective, Switch],
+  imports: [
+    FormsModule,
+    RouterLink,
+    Button,
+    Checkbox,
+    IconDirective,
+    RadioGroup,
+    Select,
+    SensitivityLabelPicker,
+    Switch,
+  ],
   templateUrl: './register-page.html',
   styleUrls: ['./detail.css', './register-page.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -119,6 +141,10 @@ export default class RegisterPage {
         : null;
   });
   protected readonly pickedKind = computed(() => KINDS.find((k) => k.id === this.picked())!);
+  /** The kind mid-sentence: "skill", "MCP server". */
+  protected readonly kindNoun = computed(() =>
+    this.pickedKind().label.replace(/^[A-Z](?=[a-z])/, (c) => c.toLowerCase()),
+  );
   protected readonly steps = computed(() => ['Type', 'Identity', this.pickedKind().step, 'Governance', 'Review']);
   protected readonly step = signal(0);
   /** The furthest step reached, so earlier ones can be gone back to. */
@@ -135,6 +161,28 @@ export default class RegisterPage {
   );
   protected readonly skills = computed(() => this.all().filter((i) => i.kind === 'skill' && i.status === 'published'));
   protected readonly models = computed(() => this.all().filter((i) => i.kind === 'model' && i.status === 'published'));
+  protected readonly ownerOptions = computed<SelectOption[]>(() => [
+    { value: '', label: 'You' },
+    ...this.teams().map((t) => ({ value: t, label: t })),
+  ]);
+  protected readonly modelOptions = computed<SelectOption[]>(() =>
+    this.models().map((m) => ({ value: m.name, label: m.name })),
+  );
+  /** The middle step's single choices, each a radio group. */
+  protected readonly choices = {
+    transport: radios('HTTP', 'STDIO', 'SSE'),
+    auth: radios('OAuth 2.1', 'API key', 'Service account', 'None'),
+    autonomy: radios('Read-only', 'Approval on writes', 'Autonomous'),
+    task: radios('Foundation', 'Classification', 'Forecasting', 'Documents', 'Vision'),
+    framework: radios('PyTorch', 'Transformers', 'scikit-learn', 'ONNX'),
+    format: radios('Parquet', 'JSONL', 'CSV', 'PDF + JSON'),
+  };
+  protected kindLabel(kind: RegistryKind): string {
+    return KINDS.find((k) => k.id === kind)?.label ?? kind;
+  }
+  protected onTier(event: CustomEvent<SensitivityValueChange>): void {
+    this.f.sensitivity = event.detail.value as Sensitivity;
+  }
   protected readonly memberOptions = computed(() =>
     this.all().filter(
       (i) => i.status === 'published' && ['server', 'skill', 'model', 'agent', 'dataset', 'space'].includes(i.kind),

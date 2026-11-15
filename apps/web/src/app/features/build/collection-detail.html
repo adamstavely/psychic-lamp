@@ -63,31 +63,36 @@
   </aside>
 </div>
 
-<dialog #attachDialog class="dialog" aria-labelledby="attach-h">
-  <form (submit)="$event.preventDefault(); attach()">
-    <h2 id="attach-h">Attach {{ c.name }}</h2>
+<tc-dialog
+  size="sm"
+  close-label="Cancel"
+  [label]="'Attach ' + c.name"
+  [open]="attachOpen()"
+  [content]="attachBody"
+  [actions]="attachActions"
+  (tc-open-change)="own($event) && attachOpen.set($event.detail.open)"
+>
+  <div #attachBody class="dialog-body">
     @if (myProjects().length) {
-      <label>
-        Project
-        <select name="project" [(ngModel)]="projectId">
-          @for (p of myProjects(); track p.id) {
-            <option [value]="p.id">{{ p.name }} · {{ p.sensitivity }}</option>
-          }
-        </select>
-      </label>
+      <tc-select
+        label-visible
+        label="Project"
+        [options]="projectOptions()"
+        [value]="projectId()"
+        (tc-value-change)="projectId.set($any($event.detail.value))"
+      />
       <p class="small">A project below {{ c.sensitivity }} becomes {{ c.sensitivity }}.</p>
     } @else {
       <p class="small">You have no projects yet. <a routerLink="/projects">Make one</a> first.</p>
     }
-    <div class="dialog-actions">
-      <tc-button variant="ghost" label="Cancel" (click)="closeAttach()" />
-      <tc-button
-        type="submit"
-        variant="primary"
-        label="Attach"
-        [loading]="attaching()"
-        [disabled]="!myProjects().length"
-      />
-    </div>
-  </form>
-</dialog>
+  </div>
+  <div #attachActions>
+    <tc-button
+      variant="primary"
+      label="Attach"
+      [loading]="attaching()"
+      [disabled]="!myProjects().length"
+      (click)="attach()"
+    />
+  </div>
+</tc-dialog>

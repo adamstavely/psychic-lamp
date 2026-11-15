@@ -167,16 +167,17 @@
   </aside>
 </div>
 
-<dialog #tryDialog class="dialog" aria-labelledby="try-h" (close)="trying.set(null)">
-  @if (trying(); as t) {
-    <form (submit)="$event.preventDefault(); runTry()">
-      <h2 id="try-h">
-        Try <code>{{ t.name }}</code>
-      </h2>
-      <p class="small">
-        {{ s.name }} · {{ s.details.transport }}. A sandbox run: it answers like the real tool, but nothing is called
-        and nothing changes{{ t.write ? ', even though this is a write tool' : '' }}.
-      </p>
+<tc-dialog
+  size="md"
+  [label]="trying() ? 'Try ' + trying()!.name : ''"
+  [description]="tryNote()"
+  [open]="trying() !== null"
+  [content]="tryBody"
+  [actions]="tryActions"
+  (tc-open-change)="own($event) && !$event.detail.open && trying.set(null)"
+>
+  <div #tryBody class="dialog-body">
+    @if (trying(); as t) {
       @for (p of t.params; track p.name) {
         <label>
           <span
@@ -185,9 +186,11 @@
           <input
             type="text"
             [name]="p.name"
-            [(ngModel)]="args[p.name]"
+            [value]="args[p.name]"
             [placeholder]="p.description"
             [required]="p.required"
+            (input)="args[p.name] = $any($event.target).value"
+            (keydown.enter)="runTry()"
           />
         </label>
       } @empty {
@@ -200,31 +203,35 @@
         <p class="small" role="status">Result · {{ r.status }} · {{ r.durationMs / 1000 }}s</p>
         <pre class="result">{{ r.result }}</pre>
       }
-      <div class="dialog-actions">
-        <tc-button variant="ghost" label="Close" (click)="closeTry()" />
-        <tc-button
-          type="submit"
-          variant="primary"
-          [label]="running() ? 'Running…' : 'Run tool'"
-          [loading]="running()"
-        />
-      </div>
-    </form>
-  }
-</dialog>
+    }
+  </div>
+  <div #tryActions>
+    <tc-button
+      variant="primary"
+      [label]="running() ? 'Running…' : 'Run tool'"
+      [loading]="running()"
+      (click)="runTry()"
+    />
+  </div>
+</tc-dialog>
 
-<dialog #installDialog class="dialog" aria-labelledby="install-h">
-  <form (submit)="$event.preventDefault(); install()">
-    <h2 id="install-h">Install {{ s.name }}</h2>
-    <fieldset class="clients">
-      <legend>Client</legend>
-      @for (c of clients; track c.id) {
-        <label class="client">
-          <input type="radio" name="client" [value]="c.id" [(ngModel)]="client" (ngModelChange)="updateSnippet()" />
-          {{ c.label }}
-        </label>
-      }
-    </fieldset>
+<tc-dialog
+  size="md"
+  close-label="Cancel"
+  [label]="'Install ' + s.name"
+  [open]="installOpen()"
+  [content]="installBody"
+  [actions]="installActions"
+  (tc-open-change)="own($event) && installOpen.set($event.detail.open)"
+>
+  <div #installBody class="dialog-body">
+    <tc-radio-group
+      label="Client"
+      name="client"
+      [options]="clientOptions"
+      [value]="client()"
+      (tc-value-change)="client.set($any($event.detail.value))"
+    />
     <tc-code-block language="json" filename="MCP configuration" [code]="snippet()" />
     <p class="small">
       @if (needsSignIn()) {
@@ -235,9 +242,8 @@
       }
       The {{ s.sensitivity }} tier still applies.
     </p>
-    <div class="dialog-actions">
-      <tc-button variant="ghost" label="Cancel" (click)="closeInstall()" />
-      <tc-button type="submit" variant="primary" label="Install" [loading]="installing()" />
-    </div>
-  </form>
-</dialog>
+  </div>
+  <div #installActions>
+    <tc-button variant="primary" label="Install" [loading]="installing()" (click)="install()" />
+  </div>
+</tc-dialog>

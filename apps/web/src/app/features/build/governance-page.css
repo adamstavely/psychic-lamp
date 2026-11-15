@@ -69,17 +69,3 @@
 .policies p {
   margin: 0;
 }
-
-.dialog textarea {
-  padding: var(--tc-space-2);
-  border: 1px solid var(--tc-border-control);
-  border-radius: var(--tc-radius-md);
-  background: var(--tc-surface-control);
-  color: var(--tc-text-primary);
-  font: inherit;
-}
-
-.dialog textarea:focus-visible {
-  outline: var(--tc-focus-ring-width) solid var(--tc-focus-ring);
-  outline-offset: 2px;
-}

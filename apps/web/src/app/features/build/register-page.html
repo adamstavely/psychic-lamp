@@ -76,15 +76,13 @@
               <textarea name="summary" rows="3" required [(ngModel)]="f.summary"></textarea>
               <span class="small">One or two sentences: it's what people see in search and in chat routing.</span>
             </label>
-            <label>
-              Owner
-              <select name="team" [(ngModel)]="f.team" (ngModelChange)="updateSlug()">
-                <option value="">You</option>
-                @for (t of teams(); track t) {
-                  <option [value]="t">{{ t }}</option>
-                }
-              </select>
-            </label>
+            <tc-select
+              label-visible
+              label="Owner"
+              [options]="ownerOptions()"
+              [value]="f.team"
+              (tc-value-change)="f.team = $any($event.detail.value); updateSlug()"
+            />
             <p class="small">
               Slug: <code>{{ slug() }}</code> (it can't change once it's published)
             </p>
@@ -93,18 +91,20 @@
             <h2 #stepHeading tabindex="-1">{{ pickedKind().step }}</h2>
             @switch (picked()) {
               @case ('server') {
-                <fieldset class="choice">
-                  <legend>Transport</legend>
-                  @for (o of ['HTTP', 'STDIO', 'SSE']; track o) {
-                    <label><input type="radio" name="transport" [value]="o" [(ngModel)]="f.transport" /> {{ o }}</label>
-                  }
-                </fieldset>
-                <fieldset class="choice">
-                  <legend>Authentication</legend>
-                  @for (o of ['OAuth 2.1', 'API key', 'Service account', 'None']; track o) {
-                    <label><input type="radio" name="auth" [value]="o" [(ngModel)]="f.auth" /> {{ o }}</label>
-                  }
-                </fieldset>
+                <tc-radio-group
+                  label="Transport"
+                  name="transport"
+                  [options]="choices.transport"
+                  [value]="f.transport"
+                  (tc-value-change)="f.transport = $any($event.detail.value)"
+                />
+                <tc-radio-group
+                  label="Authentication"
+                  name="auth"
+                  [options]="choices.auth"
+                  [value]="f.auth"
+                  (tc-value-change)="f.auth = $any($event.detail.value)"
+                />
                 <label>
                   Endpoint
                   <input
@@ -139,56 +139,60 @@
                 </label>
               }
               @case ('agent') {
-                <label>
-                  Model
-                  <select name="model" [(ngModel)]="f.model">
-                    @for (m of models(); track m.id) {
-                      <option [value]="m.name">{{ m.name }}</option>
-                    }
-                  </select>
-                </label>
-                <fieldset class="choice">
-                  <legend>Autonomy</legend>
-                  @for (o of ['Read-only', 'Approval on writes', 'Autonomous']; track o) {
-                    <label><input type="radio" name="autonomy" [value]="o" [(ngModel)]="f.autonomy" /> {{ o }}</label>
-                  }
-                </fieldset>
+                <tc-select
+                  label-visible
+                  label="Model"
+                  [options]="modelOptions()"
+                  [value]="f.model"
+                  (tc-value-change)="f.model = $any($event.detail.value)"
+                />
+                <tc-radio-group
+                  label="Autonomy"
+                  name="autonomy"
+                  [options]="choices.autonomy"
+                  [value]="f.autonomy"
+                  (tc-value-change)="f.autonomy = $any($event.detail.value)"
+                />
                 <fieldset class="picker">
                   <legend>Servers and skills · {{ picks().size }} picked</legend>
                   @for (i of servers().concat(skills()); track i.kind + i.id) {
-                    <label>
-                      <input type="checkbox" [checked]="isPicked(i)" (change)="togglePick(i)" />
-                      {{ i.name }}
-                      <span class="small">{{ i.kind === 'server' ? 'Server' : 'Skill' }} · {{ i.sensitivity }}</span>
-                    </label>
+                    <tc-checkbox
+                      [label]="i.name"
+                      [description]="(i.kind === 'server' ? 'Server' : 'Skill') + ' · ' + i.sensitivity"
+                      [value]="isPicked(i)"
+                      (tc-value-change)="togglePick(i)"
+                    />
                   }
                 </fieldset>
               }
               @case ('model') {
-                <fieldset class="choice">
-                  <legend>Task</legend>
-                  @for (o of ['Foundation', 'Classification', 'Forecasting', 'Documents', 'Vision']; track o) {
-                    <label><input type="radio" name="task" [value]="o" [(ngModel)]="f.task" /> {{ o }}</label>
-                  }
-                </fieldset>
-                <fieldset class="choice">
-                  <legend>Framework</legend>
-                  @for (o of ['PyTorch', 'Transformers', 'scikit-learn', 'ONNX']; track o) {
-                    <label><input type="radio" name="framework" [value]="o" [(ngModel)]="f.framework" /> {{ o }}</label>
-                  }
-                </fieldset>
+                <tc-radio-group
+                  label="Task"
+                  name="task"
+                  [options]="choices.task"
+                  [value]="f.task"
+                  (tc-value-change)="f.task = $any($event.detail.value)"
+                />
+                <tc-radio-group
+                  label="Framework"
+                  name="framework"
+                  [options]="choices.framework"
+                  [value]="f.framework"
+                  (tc-value-change)="f.framework = $any($event.detail.value)"
+                />
                 <label>
                   Base model or architecture
                   <input type="text" name="base" [(ngModel)]="f.base" placeholder="XGBoost + GNN" />
                 </label>
               }
               @case ('dataset') {
-                <fieldset class="choice">
-                  <legend>Format</legend>
-                  @for (o of ['Parquet', 'JSONL', 'CSV', 'PDF + JSON']; track o) {
-                    <label><input type="radio" name="format" [value]="o" [(ngModel)]="f.format" /> {{ o }}</label>
-                  }
-                </fieldset>
+                <tc-radio-group
+                  label="Format"
+                  name="format"
+                  [options]="choices.format"
+                  [value]="f.format"
+                  (tc-value-change)="f.format = $any($event.detail.value)"
+                />
                 <label>Rows <input type="text" name="rows" [(ngModel)]="f.rows" placeholder="48M" /></label>
                 <label>
                   Splits
@@ -201,15 +205,14 @@
                 </label>
               }
               @case ('space') {
-                <label>
-                  Model
-                  <select name="spaceModel" required [(ngModel)]="f.spaceModel">
-                    <option value="" disabled>Pick a model</option>
-                    @for (m of models(); track m.id) {
-                      <option [value]="m.name">{{ m.name }}</option>
-                    }
-                  </select>
-                </label>
+                <tc-select
+                  label-visible
+                  label="Model"
+                  placeholder="Pick a model"
+                  [options]="modelOptions()"
+                  [value]="f.spaceModel"
+                  (tc-value-change)="f.spaceModel = $any($event.detail.value)"
+                />
                 <label>
                   What people give it
                   <input
@@ -229,10 +232,12 @@
                 <fieldset class="picker">
                   <legend>Members · {{ picks().size }} picked</legend>
                   @for (i of memberOptions(); track i.kind + i.id) {
-                    <label>
-                      <input type="checkbox" [checked]="isPicked(i)" (change)="togglePick(i)" />
-                      {{ i.name }} <span class="small">{{ i.kind }} · {{ i.sensitivity }}</span>
-                    </label>
+                    <tc-checkbox
+                      [label]="i.name"
+                      [description]="kindLabel(i.kind) + ' · ' + i.sensitivity"
+                      [value]="isPicked(i)"
+                      (tc-value-change)="togglePick(i)"
+                    />
                   }
                 </fieldset>
                 @if (picks().size) {
@@ -249,18 +254,15 @@
             <p class="small">
               Least privilege is the default. You can tighten any of this later; loosening it needs a reviewer.
             </p>
-            <fieldset class="tiers">
-              <legend>Tier</legend>
-              @for (t of tiers; track t.id) {
-                <label class="kind-card" [class.on]="f.sensitivity === t.id">
-                  <input type="radio" name="tier" [value]="t.id" [(ngModel)]="f.sensitivity" />
-                  <span class="kind-name"
-                    ><span class="dn-sens" [attr.data-level]="t.id">{{ t.label }}</span></span
-                  >
-                  <span class="small">{{ t.description }}</span>
-                </label>
-              }
-            </fieldset>
+            <div class="tier">
+              <h3 class="tier-label">Tier</h3>
+              <tc-sensitivity-label-picker
+                [fileName]="'this ' + kindNoun()"
+                [options]="tiers"
+                [value]="f.sensitivity"
+                (tc-value-change)="onTier($event)"
+              />
+            </div>
             @if (picked() === 'collection' && tierFor() !== f.sensitivity) {
               <p class="small" role="status">Its members make it {{ tierFor() }}; it's submitted at that tier.</p>
             }
