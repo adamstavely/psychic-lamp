@@ -18,6 +18,7 @@ import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { Switch } from '@adamstavely/trenchcoat/angular/switch';
 import type {
   NewRegistryItem,
+  PolicyList,
   RegistrableKind,
   RegistryAccess,
   RegistryItem,
@@ -143,6 +144,13 @@ export default class RegisterPage {
     sensitivity: 'Internal' as Sensitivity,
   };
   protected readonly access: RegistryAccess = { readOnly: true, approval: true, internalOnly: false, audit: true };
+  /** While the workspace's read-only policy is on, everything starts read-only, and the switch says so. */
+  readonly #policies = httpResource<PolicyList>(() => '/api/governance/policies');
+  protected readonly readOnlyForced = computed(
+    () =>
+      this.#policies.hasValue() &&
+      !!this.#policies.value().policies.find((p) => p.id === 'read-only-default' && p.enabled),
+  );
   /** Picked servers, skills or members, by "kind:name". */
   protected readonly picks = signal<Set<string>>(new Set());
 

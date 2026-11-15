@@ -9,3 +9,4 @@ export * from './project.js';
 export * from './search.js';
 export * from './notification.js';
 export * from './registry.js';
+export * from './governance.js';

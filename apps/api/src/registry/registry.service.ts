@@ -24,8 +24,9 @@ import {
 } from '@nestjs/common';
 import { and, asc, count, eq, inArray, isNotNull, or, sql, type SQL } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module.js';
+import { GovernanceService } from '../governance/governance.service.js';
 import { projectCollections, projects, registryInstalls, registryItems } from '../db/schema.js';
-import { cardFor, type CardInput } from './registry-card.js';
+import { toSummary } from './registry-row.js';
 import { REGISTRY_SEED } from './registry.fixture.js';
 import { detailsFor, slugify } from './registration.js';
 import { missingArgs, mockToolResult } from './registry-try.js';
@@ -48,6 +49,7 @@ export class RegistryService implements OnApplicationBootstrap {
   constructor(
     @Inject(DB) private readonly db: Db,
     private readonly search: RegistrySearch,
+    private readonly governance: GovernanceService,
   ) {}
 
   /**
@@ -172,7 +174,8 @@ export class RegistryService implements OnApplicationBootstrap {
         ownerId: userId,
         ownerName: body.team ?? ownerName,
         status: 'pending',
-        access: body.access,
+        // While the policy is on, everything starts read-only; an admin turns writes on later.
+        access: (await this.governance.enabled('read-only-default')) ? { ...body.access, readOnly: true } : body.access,
         details: detailsFor(body),
       })
       .returning();
@@ -283,6 +286,9 @@ export class RegistryService implements OnApplicationBootstrap {
     if (!INSTALLABLE.includes(kind)) throw new BadRequestException(`A ${kind} isn't installed in a client`);
     const item = await this.get(userId, kind, id);
     if (item.status !== 'published') throw new BadRequestException('Only published items can be installed');
+    const confidential = item.sensitivity === 'Confidential' || item.sensitivity === 'Restricted';
+    if (confidential && client !== 'donovan-chat' && (await this.governance.enabled('confidential-in-workspace')))
+      throw new BadRequestException(`${item.sensitivity} items stay in the workspace: install it in Donovan chat`);
     await this.db.insert(registryInstalls).values({ ownerId: userId, kind, itemId: id, client }).onConflictDoNothing();
     return this.installs(userId, kind, id);
   }
@@ -364,30 +370,6 @@ function scopeOf(userId: string, scope: RegistryQuery['scope']): SQL | undefined
   if (scope === 'mine') return eq(registryItems.ownerId, userId);
   if (scope === 'team') return isNotNull(registryItems.ownerTeam);
   return undefined;
-}
-
-function toSummary(r: Row): RegistrySummary {
-  return {
-    kind: r.kind,
-    id: r.id,
-    name: r.name,
-    slug: r.slug,
-    version: r.version,
-    sensitivity: r.sensitivity,
-    summary: r.summary,
-    owner: { team: r.ownerTeam, personId: r.ownerId, name: r.ownerName },
-    status: r.status,
-    access: r.access ?? null,
-    updatedAt: r.updatedAt.toISOString(),
-    // A row's details belong to its kind (checked on the way in), which the table's types can't say.
-    card: cardFor({
-      kind: r.kind,
-      details: r.details,
-      slug: r.slug,
-      version: r.version,
-      status: r.status,
-    } as CardInput),
-  };
 }
 
 /** The row as the contract has it; a row whose details don't fit its kind is a bug, so it fails loudly here. */

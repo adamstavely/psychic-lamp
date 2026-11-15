@@ -12,6 +12,7 @@ import { PromptDetail } from './prompt-detail';
 import { SkillDetail } from './skill-detail';
 import { SpaceDetail } from './space-detail';
 import { WorkflowDetail } from './workflow-detail';
+import { ReviewStatus } from './review-status';
 import { ServerDetail } from './server-detail';
 
 /** One registry item, on its kind's page. */
@@ -24,6 +25,7 @@ import { ServerDetail } from './server-detail';
     DatasetDetail,
     ModelDetail,
     PromptDetail,
+    ReviewStatus,
     ServerDetail,
     SkillDetail,
     SpaceDetail,
@@ -35,6 +37,9 @@ import { ServerDetail } from './server-detail';
         <a class="back" [routerLink]="a.path">Back to {{ a.label }}</a>
         @if (item.hasValue()) {
           @let i = item.value();
+          @if (i.status !== 'published') {
+            <dn-review-status [item]="i" (changed)="item.reload()" />
+          }
           @switch (i.kind) {
             @case ('server') {
               <dn-server-detail [item]="i" />

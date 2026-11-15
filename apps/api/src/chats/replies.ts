@@ -252,28 +252,23 @@ function excerpt(text: string): string {
 }
 
 /**
- * Runs the answer's waiting write tools that the chat allows without asking ("Always in this chat"), and says so.
- * Any other write tool keeps waiting for approval.
+ * Runs the answer's waiting write tools that may run without asking, and says so: the ones the chat allows ("Always in
+ * this chat"), or all of them when the workspace doesn't require approval ("all"). Any other write tool keeps waiting.
  */
-export function allowListed(reply: Reply, allowed: readonly string[]): Reply {
+export function allowListed(reply: Reply, allowed: readonly string[] | 'all'): Reply {
   const ran: string[] = [];
   const blocks = reply.blocks.map((b): Block => {
-    if (b.type !== 'tool' || b.status !== 'pending' || !allowed.includes(b.name)) return b;
+    if (b.type !== 'tool' || b.status !== 'pending' || (allowed !== 'all' && !allowed.includes(b.name))) return b;
     ran.push(b.name);
     return { ...b, status: 'done', durationMs: 1100, result: `Done · ${b.summary.replace(/\s*\(write\)$/, '')}` };
   });
   if (ran.length === 0) return reply;
   const names = [...new Set(ran)].join(', ');
-  return {
-    ...reply,
-    blocks: [
-      ...blocks,
-      {
-        type: 'text',
-        text: `Ran ${names} without asking: you allowed it in this chat. Revoke that in the session panel.`,
-      },
-    ],
-  };
+  const why =
+    allowed === 'all'
+      ? "the workspace doesn't require approval for write tools."
+      : 'you allowed it in this chat. Revoke that in the session panel.';
+  return { ...reply, blocks: [...blocks, { type: 'text', text: `Ran ${names} without asking: ${why}` }] };
 }
 
 function tool(

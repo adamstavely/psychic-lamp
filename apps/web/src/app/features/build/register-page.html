@@ -261,10 +261,12 @@
             }
             <div class="toggles">
               @for (a of accessOptions; track a.key) {
+                @let forced = a.key === 'readOnly' && readOnlyForced();
                 <tc-switch
                   [label]="a.label"
-                  [description]="a.description"
-                  [value]="access[a.key]"
+                  [description]="forced ? a.description + ' The workspace policy keeps this on.' : a.description"
+                  [value]="forced || access[a.key]"
+                  [disabled]="forced"
                   (tc-value-change)="access[a.key] = $event.detail.value === true"
                 />
               }

@@ -23,6 +23,7 @@ import { BadRequestException, ConflictException, Inject, Injectable, NotFoundExc
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module.js';
 import { type AnswerBody, artifacts, chats, checkpoints, claimReviews, messages, projects } from '../db/schema.js';
+import { GovernanceService } from '../governance/governance.service.js';
 import { SeedService } from '../seed/seed.service.js';
 import { ChatSearch, chatText } from '../search/chat-search.js';
 import { calibrateReply } from './claims.js';
@@ -38,7 +39,13 @@ export class ChatsService {
     @Inject(DB) private readonly db: Db,
     private readonly seeds: SeedService,
     private readonly chatSearch: ChatSearch,
+    private readonly governance: GovernanceService,
   ) {}
+
+  /** The write tools that may run without asking in a chat: all of them when the workspace turns approval off. */
+  private async mayRun(chat: Chat): Promise<readonly string[] | 'all'> {
+    return (await this.governance.enabled('per-tool-approval')) ? chat.allowedTools : 'all';
+  }
 
   /**
    * Keeps the chat's search entry in step with its title and turns, at the chat's current searchVersion. The version
@@ -245,7 +252,7 @@ export class ChatsService {
     const files = await this.attachments(userId, body.attachments);
     const answered = allowListed(
       withFiles(shapeReply(pickReply(body.text, body.model), chat.persona, chat.knowledge), files),
-      chat.allowedTools,
+      await this.mayRun(chat),
     );
     const reply = chat.calibrated ? calibrateReply(answered, files) : answered;
     const sent = await this.db.transaction(async (tx) => {
@@ -388,6 +395,7 @@ export class ChatsService {
   /** Adds a new version of an answer, from the question before it, and shows it. */
   async regenerate(userId: string, chatId: string, messageId: string, model: ModelChoice): Promise<AssistantMessage> {
     const chat = await this.get(userId, chatId);
+    const mayRun = await this.mayRun(chat);
     const regenerated = await this.db.transaction(async (tx) => {
       // Before reading the versions: concurrent regenerations each add theirs instead of replacing the others'.
       await lockChat(tx, userId, chatId);
@@ -412,7 +420,7 @@ export class ChatsService {
       const files = asked.attachments ?? [];
       const answered = allowListed(
         withFiles(shapeReply(pickReply(asked.text, model, versions.length), chat.persona, chat.knowledge), files),
-        chat.allowedTools,
+        mayRun,
       );
       const next = answerBody(chat.calibrated ? calibrateReply(answered, files) : answered);
       const [saved] = await tx

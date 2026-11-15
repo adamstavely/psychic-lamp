@@ -342,6 +342,8 @@ export const registryItems = pgTable(
     ownerName: text().notNull(),
     status: text({ enum: ['draft', 'pending', 'changes-requested', 'published', 'rejected'] }).notNull(),
     access: jsonb().$type<RegistryAccess>(),
+    /** Which round of review it's in: 1 at first, one more each time it's resubmitted. */
+    reviewRound: integer().notNull().default(1),
     details: jsonb().$type<RegistryItem['details']>().notNull(),
     /** Bumped with every change, in the same transaction; search records the version it indexed (see SearchBackfill). */
     searchVersion: integer().notNull().default(0),
@@ -357,6 +359,42 @@ export const registryItems = pgTable(
 );
 
 /** Where each person has installed a registry item (installs are recorded; nothing is actually configured yet). */
+/** Every review decision, kept for good: two approvals in a round publish an item; one "changes" or "reject" stops it. */
+export const registryReviews = pgTable(
+  'registry_reviews',
+  {
+    kind: text({
+      enum: ['skill', 'server', 'agent', 'workflow', 'model', 'dataset', 'space', 'collection', 'prompt'],
+    }).notNull(),
+    itemId: text().notNull(),
+    round: integer().notNull(),
+    reviewerId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    reviewerName: text().notNull(),
+    decision: text({ enum: ['approve', 'changes', 'reject'] }).notNull(),
+    note: text().notNull().default(''),
+    at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // One decision per reviewer per round.
+    primaryKey({ columns: [t.kind, t.itemId, t.round, t.reviewerId] }),
+    foreignKey({ columns: [t.kind, t.itemId], foreignColumns: [registryItems.kind, registryItems.id] }).onDelete(
+      'cascade',
+    ),
+  ],
+);
+
+/** The workspace's governance policies; missing rows take their defaults (see governance.service.ts). */
+export const governancePolicies = pgTable('governance_policies', {
+  id: text({
+    enum: ['read-only-default', 'per-tool-approval', 'confidential-in-workspace', 'restricted-auto-routing'],
+  }).primaryKey(),
+  enabled: boolean().notNull(),
+  updatedBy: text(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
 export const registryInstalls = pgTable(
   'registry_installs',
   {
