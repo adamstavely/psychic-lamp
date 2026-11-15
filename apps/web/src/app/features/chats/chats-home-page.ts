@@ -9,23 +9,16 @@ import { Switch } from '@adamstavely/trenchcoat/angular/switch';
 import type { ChatSendDetails } from '@adamstavely/trenchcoat/chat-composer';
 import type { PromptStarter } from '@adamstavely/trenchcoat/prompt-starters';
 import type { SelectOption } from '@adamstavely/trenchcoat/select';
-import type { SensitivityLabel } from '@adamstavely/trenchcoat/sensitivity-label-picker';
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import type { ChatSummary, ModelChoice, Sensitivity } from '@donovan/contracts';
 import { firstValueFrom } from 'rxjs';
 import { ChatsStore } from '../../core/chats-store';
 import { ProjectsStore } from '../../core/projects-store';
+import { SENSITIVITIES } from '../../core/sensitivities';
 import { dictate } from '../../core/dictation';
 import { Session } from '../../core/session';
 import { COMPOSER_MODELS, PENDING_SEND, type PendingSend } from './composer';
 import { ComposerFiles } from './composer-files';
-
-const SENSITIVITIES: SensitivityLabel[] = [
-  { id: 'Public', label: 'Public', description: 'Anyone, inside or outside the company', level: 0 },
-  { id: 'Internal', label: 'Internal', description: 'Everyone in the workspace', level: 1 },
-  { id: 'Confidential', label: 'Confidential', description: 'Named teams; write tools need approval', level: 2 },
-  { id: 'Restricted', label: 'Restricted', description: 'Named people; every tool call is reviewed', level: 3 },
-];
 
 const STARTERS: PromptStarter[] = [
   {

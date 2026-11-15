@@ -33,9 +33,15 @@
     }
 
     <div class="actions">
-      <tc-button variant="primary" size="md" label="New chat" [hideLabel]="compact()" (click)="newChat()">
-        <span slot="icon" dnIcon="plus"></span>
-      </tc-button>
+      @if (mode() === 'build') {
+        <tc-button variant="primary" size="md" label="Register" [hideLabel]="compact()" (click)="register()">
+          <span slot="icon" dnIcon="plus"></span>
+        </tc-button>
+      } @else {
+        <tc-button variant="primary" size="md" label="New chat" [hideLabel]="compact()" (click)="newChat()">
+          <span slot="icon" dnIcon="plus"></span>
+        </tc-button>
+      }
       <tc-button variant="ghost" size="md" hideLabel [label]="themeLabel()" (click)="toggleTheme()">
         <span slot="icon" [dnIcon]="themeIconName()"></span>
       </tc-button>

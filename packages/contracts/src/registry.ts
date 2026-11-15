@@ -173,6 +173,19 @@ const PromptDetails = z.object({
     .max(100),
 });
 
+/** How a registered item may be used, chosen when it's registered: least privilege by default. */
+export const RegistryAccess = z.object({
+  /** Write tools stay off until an admin turns them on. */
+  readOnly: z.boolean(),
+  /** Each write call is approved in chat before it runs. */
+  approval: z.boolean(),
+  /** Hidden from external collaborators and the public registry. */
+  internalOnly: z.boolean(),
+  /** Calls are logged with chat and user for 90 days. */
+  audit: z.boolean(),
+});
+export type RegistryAccess = z.infer<typeof RegistryAccess>;
+
 const Base = z.object({
   id: RegistryId,
   name: z.string().min(1).max(120),
@@ -183,6 +196,8 @@ const Base = z.object({
   summary: Text,
   owner: RegistryOwner,
   status: RegistryStatus,
+  /** Set when it was registered through the wizard; the seeded catalog has none. */
+  access: RegistryAccess.nullable(),
   updatedAt: z.iso.datetime({ offset: true }),
 });
 
@@ -287,3 +302,67 @@ export const AttachResult = z.object({
   raised: z.object({ from: Sensitivity, to: Sensitivity }).nullable(),
 });
 export type AttachResult = z.infer<typeof AttachResult>;
+
+const Name = z.string().trim().min(1, 'Name it').max(120);
+const Words = z.string().trim().max(200);
+const Field = z.string().trim().min(1).max(200);
+
+/** What the Register wizard sends: the shared identity and governance, and what the kind needs. */
+const Registration = z.object({
+  name: Name,
+  summary: z.string().trim().min(1, 'Say what it does').max(600),
+  /** The team it's registered for, or none: it's the person's own. */
+  team: Words.nullable(),
+  sensitivity: Sensitivity,
+  access: RegistryAccess,
+});
+
+export const NewRegistryItem = z.discriminatedUnion('kind', [
+  Registration.extend({
+    kind: z.literal('server'),
+    transport: z.enum(['HTTP', 'STDIO', 'SSE']),
+    auth: z.enum(['OAuth 2.1', 'API key', 'Service account', 'None']),
+    endpoint: z.string().trim().min(1, 'Give its endpoint').max(400),
+    source: Words.optional(),
+  }),
+  Registration.extend({
+    kind: z.literal('skill'),
+    triggers: Words,
+    skillMd: z.string().trim().min(1, 'Paste its SKILL.md').max(20_000),
+  }),
+  Registration.extend({
+    kind: z.literal('agent'),
+    model: Field,
+    autonomy: z.enum(['Read-only', 'Approval on writes', 'Autonomous']),
+    servers: z.array(Field).max(20),
+    skills: z.array(Field).max(20),
+  }),
+  Registration.extend({
+    kind: z.literal('model'),
+    task: z.enum(['Foundation', 'Classification', 'Forecasting', 'Documents', 'Vision']),
+    framework: z.enum(['PyTorch', 'Transformers', 'scikit-learn', 'ONNX']),
+    base: Words,
+  }),
+  Registration.extend({
+    kind: z.literal('dataset'),
+    format: z.enum(['Parquet', 'JSONL', 'CSV', 'PDF + JSON']),
+    rows: Words,
+    splits: Words,
+  }),
+  Registration.extend({
+    kind: z.literal('space'),
+    model: Field,
+    inputLabel: z.string().trim().min(1, 'Say what people give it').max(120),
+    placeholder: Words,
+  }),
+  Registration.extend({
+    kind: z.literal('collection'),
+    members: z
+      .array(z.object({ kind: RegistryKind, name: Field }))
+      .min(2, 'Pick at least two members')
+      .max(100),
+  }),
+]);
+export type NewRegistryItem = z.infer<typeof NewRegistryItem>;
+/** What can be registered here; workflows and prompts are made in their builders (slice 3). */
+export type RegistrableKind = NewRegistryItem['kind'];

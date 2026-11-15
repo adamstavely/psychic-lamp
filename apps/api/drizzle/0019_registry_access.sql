@@ -1,0 +1,1 @@
+ALTER TABLE "registry_items" ADD COLUMN "access" jsonb;

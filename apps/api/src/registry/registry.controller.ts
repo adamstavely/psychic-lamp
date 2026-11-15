@@ -5,6 +5,7 @@ import {
   CollectionAttachment,
   InstallClient,
   NewInstall,
+  NewRegistryItem,
   RegistryCounts,
   RegistryInstall,
   SpaceRun,
@@ -40,6 +41,17 @@ export class RegistryController {
     @Query({ schema: RegistryQuery }) query: RegistryQuery,
   ): Promise<RegistrySummary[]> {
     return this.registry.list(await this.users.idFor(claims), query);
+  }
+
+  @Post()
+  @HttpCode(201)
+  @ApiOkResponse({ standardSchema: RegistryItem })
+  async register(
+    @Claims() claims: TokenClaims,
+    @Body({ schema: NewRegistryItem }) body: NewRegistryItem,
+  ): Promise<RegistryItem> {
+    const name = claims.name ?? claims.preferred_username ?? 'Me';
+    return this.registry.register(await this.users.idFor(claims), name, body);
   }
 
   @Get('counts')

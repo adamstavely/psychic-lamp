@@ -380,6 +380,12 @@ export class Shell {
     document.getElementById('main')?.focus();
   }
 
+  /** Build's primary action: register something, starting with the kind of the area you're in. */
+  protected async register(): Promise<void> {
+    const kind = BUILD_AREAS.find((a) => a.id === this.currentArea())?.kind;
+    await this.#router.navigate(['/build/register'], { queryParams: kind ? { kind } : {} });
+  }
+
   protected async newChat(): Promise<void> {
     await this.#router.navigateByUrl('/chats/new');
   }

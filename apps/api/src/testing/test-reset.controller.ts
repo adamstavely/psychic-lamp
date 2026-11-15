@@ -5,7 +5,7 @@ import type { Claims as TokenClaims } from '../auth/claims.js';
 import { ArtifactSearch } from '../artifacts/artifact-search.js';
 import { DB, type Db } from '../db/db.module.js';
 import { ChatSearch } from '../search/chat-search.js';
-import { users } from '../db/schema.js';
+import { registryItems, users } from '../db/schema.js';
 
 /** Only registered when ALLOW_TEST_RESET is true (see app.module.ts): never in a deployment. */
 @Controller('test')
@@ -20,6 +20,10 @@ export class TestResetController {
   @Delete('me')
   @HttpCode(204)
   async resetMe(@Claims() claims: TokenClaims): Promise<void> {
+    const [user] = await this.db.select({ id: users.id }).from(users).where(eq(users.subject, claims.sub));
+    // What they registered is visible to everyone while it waits for review, so it goes too (deleting the user alone
+    // would leave it, ownerless, in everyone's catalog).
+    if (user) await this.db.delete(registryItems).where(eq(registryItems.ownerId, user.id));
     const [gone] = await this.db.delete(users).where(eq(users.subject, claims.sub)).returning({ id: users.id });
     if (gone) await Promise.all([this.search.removeOwner(gone.id), this.chatSearch.removeOwner(gone.id)]);
   }
