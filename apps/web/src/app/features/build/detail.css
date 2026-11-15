@@ -309,15 +309,24 @@
   font-size: var(--tc-font-size-md);
 }
 
+/* Words wrap whole, so a column is never narrower than its longest word. On a phone, where a wide table would be
+   clipped, they may break anywhere and the cells pad less. */
 .grid :is(th, td) {
   padding: 10px var(--tc-space-4);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   border-top: 1px solid var(--tc-border-subtle);
   vertical-align: top;
 }
 
 .grid thead th {
   border-top: 0;
+}
+
+@media (max-width: 600px) {
+  .grid :is(th, td) {
+    padding-inline: var(--tc-space-3);
+    overflow-wrap: anywhere;
+  }
 }
 
 .links,

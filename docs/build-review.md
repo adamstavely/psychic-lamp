@@ -30,11 +30,12 @@ prototype and a trace of every control in the code. Each fix below is one PR; th
    `tc-checkbox`, `tc-sensitivity-label-picker` (the wizard's tier), `tc-dialog`. _(Done.)_ Still native, as
    Trench Coat has nothing for them yet: text inputs and textareas, and the wizard's kind cards (a radio choice with a
    description per option). Those gaps go to Trench Coat.
-7. **Missing states.** _(This PR.)_ Errors for Governance's policies, a server's installs and a collection's attachments (they show
+7. **Missing states.** _(Done.)_ Errors for Governance's policies, a server's installs and a collection's attachments (they show
    as "loading" or "none" today); the catalog's empty state names the right scope and links to Register.
-8. **Smaller gaps from the prototype.** Tabs in the address on model and skill pages (as Governance; the server page has no tabs now: its tools, install and details are on one page); "Try it"
-   and "Open" doing the same thing on a space's card; Use in chat on spaces; the catalog's scope defaulting to Team as
+8. **Smaller gaps from the prototype.** "Try it" and "Open" doing the same thing on a space's card; Use in chat on spaces; the catalog's scope defaulting to Team as
    in the prototype (and Team meaning your teams once tokens carry groups); Insights' figures with their change.
+   (Tabs in the address for model and skill pages are no longer needed: the server, model and skill pages have no
+   tabs, each is one page.)
 
 ## Not in Build's scope here
 

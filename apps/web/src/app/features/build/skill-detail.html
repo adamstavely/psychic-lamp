@@ -28,19 +28,9 @@
       </dl>
     </header>
 
-    <tc-segmented-control
-      class="tabs"
-      kind="tabs"
-      variant="underline"
-      [options]="tabs()"
-      [value]="tab()"
-      (tc-value-change)="pick($event)"
-    />
-
-    <div id="skill-panel" role="tabpanel" [attr.aria-label]="tab() === 'skill' ? 'SKILL.md' : 'Tests'">
-      @if (tab() === 'skill') {
-        <tc-code-block language="markdown" filename="SKILL.md" [code]="skillMd()" />
-      } @else if (s.details.tests.length) {
+    <section aria-labelledby="tests-h">
+      <h2 id="tests-h" class="section">Tests · {{ s.details.tests.length }}</h2>
+      @if (s.details.tests.length) {
         <table class="grid">
           <caption class="sr-only">
             Tests of
@@ -68,7 +58,12 @@
       } @else {
         <p class="small">No tests yet.</p>
       }
-    </div>
+    </section>
+
+    <section aria-labelledby="skill-md-h">
+      <h2 id="skill-md-h" class="section">Instructions</h2>
+      <tc-code-block language="markdown" filename="SKILL.md" [code]="skillMd()" />
+    </section>
   </div>
 
   <aside class="aside" aria-label="About this skill">
