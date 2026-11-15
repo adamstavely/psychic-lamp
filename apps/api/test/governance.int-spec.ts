@@ -56,8 +56,12 @@ describe('/api/governance', () => {
           .expect(201)
       ).body,
     );
+  /** A decision on the revision the reviewer saw: the item as given. */
   const decide = (token: string, item: RegistryItem, decision: string, note = '') =>
-    http.post(`/api/governance/queue/${item.kind}/${item.id}/decisions`).auth(token, bearer).send({ decision, note });
+    http
+      .post(`/api/governance/queue/${item.kind}/${item.id}/decisions`)
+      .auth(token, bearer)
+      .send({ revision: item.revision, decision, note });
 
   it('publishes on the second approval from two people other than the submitter, and only then', async () => {
     const submitter = await person('submitter');
@@ -110,8 +114,11 @@ describe('/api/governance', () => {
         .send({ summary: 'Scores churn risk, with evals.' });
     await resubmit(reviewer).expect(409);
     await resubmit(submitter).expect(204);
-    // A new round: the same reviewer can decide again.
-    await decide(reviewer, item, 'approve').expect(200);
+    // A new round, on a new revision: a decision on the old one is refused, and the same reviewer can decide again.
+    await decide(reviewer, item, 'approve').expect(409);
+    const again = RegistryItem.parse((await http.get(`/api/registry/model/${item.id}`).auth(reviewer, bearer)).body);
+    expect(again.revision).toBe(item.revision + 1);
+    await decide(reviewer, again, 'approve').expect(200);
 
     const history = ReviewHistory.parse(
       (await http.get(`/api/governance/history/model/${item.id}`).auth(submitter, bearer).expect(200)).body,

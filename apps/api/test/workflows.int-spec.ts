@@ -3,7 +3,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { DB, type Db } from '../src/db/db.module.js';
-import { registryItems, registryReviews } from '../src/db/schema.js';
+import { registryItems, registryReviews, registryRevisions } from '../src/db/schema.js';
 import { REGISTRY_SEED } from '../src/registry/registry.fixture.js';
 import { createTestApp, type TestApp } from './support/test-app.js';
 
@@ -28,6 +28,9 @@ describe('workflows on the canvas', () => {
       .delete(registryReviews)
       .where(and(eq(registryReviews.kind, 'workflow'), eq(registryReviews.itemId, 'sku')));
     await db
+      .delete(registryRevisions)
+      .where(and(eq(registryRevisions.kind, 'workflow'), eq(registryRevisions.itemId, 'sku')));
+    await db
       .update(registryItems)
       .set({
         name: seed.name,
@@ -42,7 +45,8 @@ describe('workflows on the canvas', () => {
     await t.app.close();
   });
 
-  const graph = (nodes: object[], edges: [string, string][]) => ({
+  const graph = (nodes: object[], edges: [string, string][], revision = 1) => ({
+    revision,
     name: 'Invoice intake',
     sensitivity: 'Internal',
     nodes,
@@ -99,18 +103,24 @@ describe('workflows on the canvas', () => {
     const seed = REGISTRY_SEED.find((i) => i.kind === 'workflow' && i.id === 'sku')!;
     const nodes = (seed.details as { nodes: { id: string }[] }).nodes;
     const edges = (seed.details as { edges: [string, string][] }).edges;
+    const { revision } = (await http.get('/api/registry/workflow/sku').auth(editor, bearer).expect(200)).body as {
+      revision: number;
+    };
     const saved = RegistryItem.parse(
       (
         await http
           .put('/api/registry/workflow/sku/graph')
           .auth(editor, bearer)
-          .send({ name: 'SKU onboarding', sensitivity: 'Internal', nodes, edges })
+          .send({ revision, name: 'SKU onboarding', sensitivity: 'Internal', nodes, edges })
           .expect(200)
       ).body,
     );
-    expect(saved).toMatchObject({ status: 'pending', version: 'v2' });
+    expect(saved).toMatchObject({ status: 'pending', version: 'v2', revision: revision + 1 });
     const decide = (token: string) =>
-      http.post('/api/governance/queue/workflow/sku/decisions').auth(token, bearer).send({ decision: 'approve' });
+      http
+        .post('/api/governance/queue/workflow/sku/decisions')
+        .auth(token, bearer)
+        .send({ revision: saved.revision, decision: 'approve' });
     await decide(editor).expect(403);
     await decide(await person('a')).expect(200);
     expect((await decide(await person('b')).expect(200)).body.status).toBe('published');
@@ -124,6 +134,188 @@ describe('workflows on the canvas', () => {
     const [a, b] = [await make(), await make()];
     expect([a.name, b.name]).toEqual(['Untitled workflow', 'Untitled workflow 2']);
     expect(a.id).not.toBe(b.id);
+  });
+
+  /** A workflow of the person's own, saved once so it's waiting for review. */
+  const pending = async (owner: string) => {
+    const draft = RegistryItem.parse(
+      (await http.post('/api/registry/workflows').auth(owner, bearer).send({ name: 'Bound review' }).expect(201)).body,
+    );
+    return RegistryItem.parse(
+      (
+        await http
+          .put(`/api/registry/workflow/${draft.id}/graph`)
+          .auth(owner, bearer)
+          .send(graph([step('start', 'Trigger', 'Schedule')], [], draft.revision))
+          .expect(200)
+      ).body,
+    );
+  };
+
+  it("refuses approvals made on a version that's since been replaced, and records which version was approved", async () => {
+    const owner = await person('bound');
+    const [a, b] = [await person('ra'), await person('rb')];
+    const v1 = await pending(owner);
+    // Both reviewers open the queue on v1; then the owner replaces it with v2, a new round.
+    const queued = (
+      (await http.get('/api/governance/queue').auth(a, bearer).expect(200)).body as {
+        items: { item: { id: string; revision: number } }[];
+      }
+    ).items.find((q) => q.item.id === v1.id)!;
+    expect(queued.item.revision).toBe(v1.revision);
+    const v2 = RegistryItem.parse(
+      (
+        await http
+          .put(`/api/registry/workflow/${v1.id}/graph`)
+          .auth(owner, bearer)
+          .send(graph([step('start', 'Trigger', 'Webhook')], [], v1.revision))
+          .expect(200)
+      ).body,
+    );
+    expect(v2.version).toBe('v2');
+    const approve = (token: string, revision: number) =>
+      http
+        .post(`/api/governance/queue/workflow/${v1.id}/decisions`)
+        .auth(token, bearer)
+        .send({ revision, decision: 'approve' });
+
+    // The approvals from the old screen are refused, and nothing is published.
+    expect((await approve(a, v1.revision).expect(409)).body.message).toMatch(/v2 is waiting now/);
+    await approve(b, v1.revision).expect(409);
+    const still = RegistryItem.parse((await http.get(`/api/registry/workflow/${v1.id}`).auth(owner, bearer)).body);
+    expect(still).toMatchObject({ status: 'pending', version: 'v2' });
+
+    // Reloaded, they approve v2, which publishes it; the history names the version each approved.
+    await approve(a, v2.revision).expect(200);
+    expect((await approve(b, v2.revision).expect(200)).body.status).toBe('published');
+    const history = (await http.get(`/api/governance/history/workflow/${v1.id}`).auth(owner, bearer).expect(200))
+      .body as { records: { revision: number; version: string }[] };
+    expect(history.records.map((r) => [r.version, r.revision])).toEqual([
+      ['v2', v2.revision],
+      ['v2', v2.revision],
+    ]);
+    const db = t.app.get<Db>(DB);
+    const [snapshot] = await db
+      .select()
+      .from(registryRevisions)
+      .where(and(eq(registryRevisions.itemId, v1.id), eq(registryRevisions.revision, v2.revision)));
+    expect(snapshot?.details).toMatchObject({ nodes: [{ sub: 'Webhook' }] });
+  });
+
+  it('accepts one of several saves made on the same revision, and refuses the rest instead of overwriting', async () => {
+    const owner = await person('racer');
+    const v1 = await pending(owner);
+    const results = await Promise.all(
+      [1, 2, 3, 4, 5, 6].map((n) =>
+        http
+          .put(`/api/registry/workflow/${v1.id}/graph`)
+          .auth(owner, bearer)
+          .send({ ...graph([step('start', 'Trigger', `Schedule ${n}`)], [], v1.revision), name: `Edit ${n}` }),
+      ),
+    );
+    const accepted = results.filter((r) => r.status === 200);
+    expect(accepted).toHaveLength(1);
+    expect(results.filter((r) => r.status === 409)).toHaveLength(5);
+    const now = RegistryItem.parse((await http.get(`/api/registry/workflow/${v1.id}`).auth(owner, bearer)).body);
+    // The accepted edit is what's stored, as the next version.
+    expect(now).toMatchObject({ version: 'v2', revision: v1.revision + 1, name: accepted[0]!.body.name });
+  });
+
+  it('refuses a graph in which two steps share an id', async () => {
+    const owner = await person('dupe');
+    const draft = RegistryItem.parse(
+      (await http.post('/api/registry/workflows').auth(owner, bearer).send({ name: 'Dupe' }).expect(201)).body,
+    );
+    const res = await http
+      .put(`/api/registry/workflow/${draft.id}/graph`)
+      .auth(owner, bearer)
+      .send(
+        graph(
+          [
+            step('start', 'Trigger', 'Schedule'),
+            step('same', 'Tool', 'Filesystem · read_file'),
+            step('same', 'Model', 'x'),
+          ],
+          [['start', 'same']],
+          draft.revision,
+        ),
+      )
+      .expect(400);
+    expect(JSON.stringify(res.body)).toMatch(/Each step needs its own id/);
+    const still = RegistryItem.parse((await http.get(`/api/registry/workflow/${draft.id}`).auth(owner, bearer)).body);
+    expect(still).toMatchObject({ status: 'draft', details: { nodes: [] } });
+  });
+
+  it("keeps a team's workflow, sent back after someone edited it, theirs to see, revise and resubmit", async () => {
+    const db = t.app.get<Db>(DB);
+    const id = `team-flow-${randomUUID().slice(0, 8)}`;
+    const nodes = [step('start', 'Trigger', 'Schedule')];
+    await db.insert(registryItems).values({
+      kind: 'workflow',
+      id,
+      name: 'Team flow',
+      slug: `platform/${id}`,
+      version: 'v1',
+      sensitivity: 'Internal',
+      summary: 'A team workflow.',
+      ownerTeam: 'Platform',
+      ownerId: null,
+      ownerName: 'Platform',
+      status: 'published',
+      details: { state: 'Active', schedule: 'daily', nodes, edges: [] } as never,
+    });
+    try {
+      const [editor, reviewer, other] = [await person('teamedit'), await person('teamrev'), await person('teamother')];
+      const saved = RegistryItem.parse(
+        (
+          await http
+            .put(`/api/registry/workflow/${id}/graph`)
+            .auth(editor, bearer)
+            .send({ ...graph(nodes, [], 1), name: 'Team flow' })
+            .expect(200)
+        ).body,
+      );
+      await http
+        .post(`/api/governance/queue/workflow/${id}/decisions`)
+        .auth(reviewer, bearer)
+        .send({ revision: saved.revision, decision: 'changes', note: 'Name the schedule.' })
+        .expect(200);
+
+      // The editor still sees it, in Mine, with the reason and the right to resubmit; nobody else sees it.
+      const back = RegistryItem.parse(
+        (await http.get(`/api/registry/workflow/${id}`).auth(editor, bearer).expect(200)).body,
+      );
+      expect(back.status).toBe('changes-requested');
+      const mine = (await http.get('/api/registry?kind=workflow&scope=mine').auth(editor, bearer).expect(200)).body as {
+        id: string;
+      }[];
+      expect(mine.map((i) => i.id)).toContain(id);
+      const history = (await http.get(`/api/governance/history/workflow/${id}`).auth(editor, bearer).expect(200))
+        .body as { canResubmit: boolean; records: { note: string }[] };
+      expect(history).toMatchObject({ canResubmit: true, records: [{ note: 'Name the schedule.' }] });
+      await http.get(`/api/registry/workflow/${id}`).auth(other, bearer).expect(404);
+      await http.get(`/api/governance/history/workflow/${id}`).auth(other, bearer).expect(404);
+
+      // They revise it, which sends it back to review as the next version.
+      const revised = RegistryItem.parse(
+        (
+          await http
+            .put(`/api/registry/workflow/${id}/graph`)
+            .auth(editor, bearer)
+            .send({
+              ...graph([step('start', 'Trigger', 'Schedule · daily 9:00')], [], back.revision),
+              name: 'Team flow',
+            })
+            .expect(200)
+        ).body,
+      );
+      expect(revised).toMatchObject({ status: 'pending', version: 'v3' });
+      const after = (await http.get(`/api/governance/history/workflow/${id}`).auth(editor, bearer).expect(200))
+        .body as { canResubmit: boolean };
+      expect(after.canResubmit).toBe(false);
+    } finally {
+      await db.delete(registryItems).where(and(eq(registryItems.kind, 'workflow'), eq(registryItems.id, id)));
+    }
   });
 
   it("refuses to change someone else's own workflow", async () => {

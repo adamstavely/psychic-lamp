@@ -120,7 +120,10 @@ export class GovernancePage {
     this.deciding.set(key);
     try {
       const url = `/api/governance/queue/${q.item.kind}/${encodeURIComponent(q.item.id)}/decisions`;
-      const res = await firstValueFrom(this.#http.post<DecisionResult>(url, { decision, note }));
+      // The revision on screen: if it has changed since, the API refuses this and the queue reloads with the new one.
+      const res = await firstValueFrom(
+        this.#http.post<DecisionResult>(url, { revision: q.item.revision, decision, note }),
+      );
       toast.success(
         res.status === 'published'
           ? `Published ${q.item.name}`

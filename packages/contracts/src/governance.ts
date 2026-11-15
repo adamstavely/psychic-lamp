@@ -8,15 +8,20 @@ export const ReviewDecision = z.enum(['approve', 'changes', 'reject']);
 export type ReviewDecision = z.infer<typeof ReviewDecision>;
 
 export const NewDecision = z.strictObject({
+  /** The revision the reviewer looked at. If it has changed since, the decision is refused: they review the new one. */
+  revision: z.number().int().positive(),
   decision: ReviewDecision,
   /** Required when asking for changes or rejecting, so the submitter knows why. */
   note: z.string().trim().max(1000).default(''),
 });
 export type NewDecision = z.infer<typeof NewDecision>;
 
-/** One decision, kept for good: who, when, in which round of review, and why. */
+/** One decision, kept for good: who, when, in which round of review, on which version, and why. */
 export const ReviewRecord = z.object({
   round: z.number().int().positive(),
+  /** The revision and version decided on; null for decisions recorded before revisions were. */
+  revision: z.number().int().positive().nullable(),
+  version: z.string().nullable(),
   reviewer: z.string(),
   decision: ReviewDecision,
   note: z.string(),
@@ -98,6 +103,8 @@ export const ReviewHistory = z.object({
   kind: RegistryKind,
   id: z.string(),
   round: z.number().int().positive(),
+  /** Whether the person asking can resubmit it: it's sent back or rejected, and theirs or sent to review by them. */
+  canResubmit: z.boolean(),
   records: z.array(ReviewRecord),
 });
 export type ReviewHistory = z.infer<typeof ReviewHistory>;
