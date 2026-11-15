@@ -32,10 +32,12 @@ prototype and a trace of every control in the code. Each fix below is one PR; th
    description per option). Those gaps go to Trench Coat.
 7. **Missing states.** _(Done.)_ Errors for Governance's policies, a server's installs and a collection's attachments (they show
    as "loading" or "none" today); the catalog's empty state names the right scope and links to Register.
-8. **Smaller gaps from the prototype.** "Try it" and "Open" doing the same thing on a space's card; Use in chat on spaces; the catalog's scope defaulting to Team as
-   in the prototype (and Team meaning your teams once tokens carry groups); Insights' figures with their change.
-   (Tabs in the address for model and skill pages are no longer needed: the server, model and skill pages have no
-   tabs, each is one page.)
+8. **Smaller gaps from the prototype.** _(This PR.)_ A space's Try it opens it with its sample input filled in and
+   focused, ready to run, and Open opens it empty, as in the prototype; a space has Use in chat. The catalog opens on
+   Team, as in the prototype, and Team is what teams own plus your own (so a draft or a registration with no team still
+   shows); it means your teams once tokens carry groups. Insights' counted figures say how they changed on the 30 days
+   before. (Tabs in the address for model and skill pages are no longer needed: the server, model and skill pages have
+   no tabs, each is one page.)
 
 ## Not in Build's scope here
 

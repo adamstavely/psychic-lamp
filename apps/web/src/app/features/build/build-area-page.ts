@@ -55,7 +55,7 @@ export default class BuildAreaPage {
   protected readonly buildArea = computed(() => BUILD_AREAS.find((a) => a.id === this.area()));
   protected readonly scopeValue = computed<RegistryScope>(() => {
     const s = this.scope();
-    return s === 'mine' || s === 'team' ? s : 'all';
+    return s === 'mine' || s === 'all' ? s : 'team';
   });
   protected readonly viewValue = computed<CatalogView>(() => (this.view() === 'list' ? 'list' : 'cards'));
 }

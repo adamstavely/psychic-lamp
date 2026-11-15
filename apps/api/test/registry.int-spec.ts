@@ -242,6 +242,8 @@ describe('/api/registry', () => {
         details: { verified: false, transport: 'HTTP', tools: [] },
       });
       expect((await list(token, '?scope=mine')).map((i) => [i.id, i.status])).toEqual([[made.id, 'pending']]);
+      // No team owns it, but Team includes the person's own.
+      expect((await list(token, '?scope=team&kind=server')).map((i) => i.id)).toContain(made.id);
       await http.post('/api/registry').auth(token, bearer).send(server(name)).expect(409);
       await http
         .post('/api/registry')

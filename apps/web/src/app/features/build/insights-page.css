@@ -24,6 +24,13 @@
   margin: 0;
 }
 
+/* Up or down isn't good or bad by itself (more approvals waiting, say), so the change is words in one ink. */
+.change {
+  color: var(--tc-text-primary);
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-semibold);
+}
+
 .value {
   font-size: var(--tc-font-size-2xl);
   font-weight: var(--tc-font-weight-semibold);

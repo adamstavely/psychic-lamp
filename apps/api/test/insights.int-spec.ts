@@ -39,4 +39,13 @@ describe('/api/insights', () => {
     expect(server(after, 'Calendar') - server(before, 'Calendar')).toBeGreaterThanOrEqual(1);
     expect(after.byModel.reduce((n, m) => n + m.share, 0)).toBeCloseTo(1, 5);
   });
+
+  it('gives each counted figure its count for the 30 days before, and none for a running total', async () => {
+    const token = await t.token({ sub: `insights-${randomUUID()}` });
+    const i = Insights.parse((await http.get('/api/insights').auth(token, bearer).expect(200)).body);
+    for (const k of i.kpis) {
+      if (k.label === 'In the registry') expect(k.previous).toBeNull();
+      else expect(k.previous).toEqual(expect.any(Number));
+    }
+  });
 });

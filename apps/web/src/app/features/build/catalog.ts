@@ -29,7 +29,7 @@ const PRIMARY: Record<RegistryKind, string> = {
 };
 
 /**
- * One Build area's catalog: Mine, Team or All, as cards or a list, each item with its state, sensitivity, figures, its
+ * One Build area's catalog: Mine, Team (the default: yours and your teams') or All, as cards or a list, each item with its state, sensitivity, figures, its
  * leading action and Open. Scope, view and (for models) task are in the address, so a view can be linked to.
  */
 @Component({
@@ -41,7 +41,7 @@ const PRIMARY: Record<RegistryKind, string> = {
 })
 export class Catalog {
   readonly area = input.required<BuildArea>();
-  readonly scope = input<RegistryScope>('all');
+  readonly scope = input<RegistryScope>('team');
   readonly view = input<CatalogView>('cards');
   readonly task = input<string | null>(null);
 
@@ -91,7 +91,7 @@ export class Catalog {
       case 'mine':
         return `You haven't ${made} any ${this.noun()} yet.`;
       case 'team':
-        return `No team has any ${this.noun()} yet.`;
+        return `Neither you nor your teams have any ${this.noun()} yet.`;
       default:
         return `There are no ${this.noun()} yet.`;
     }
@@ -107,7 +107,7 @@ export class Catalog {
 
   protected onScope(event: CustomEvent<SegmentValueChange>): void {
     event.preventDefault();
-    this.#query({ scope: event.detail.value === 'all' ? null : event.detail.value });
+    this.#query({ scope: event.detail.value === 'team' ? null : event.detail.value });
   }
 
   protected onView(event: CustomEvent<SegmentValueChange>): void {
@@ -121,11 +121,15 @@ export class Catalog {
 
   /**
    * The leading action. Using something in chat opens a new chat that names it (and picks the model, for a model the
-   * composer offers); the others open the item.
+   * composer offers); Try it opens a space with its sample input filled in, ready to run; the others open the item.
    */
   protected primary(item: RegistrySummary): void {
     const action = PRIMARY[item.kind];
-    if (action === 'Open' || action === 'Try it') {
+    if (action === 'Try it') {
+      void this.#router.navigate(this.link(item), { queryParams: { try: 'sample' } });
+      return;
+    }
+    if (action === 'Open') {
       void this.#router.navigate(this.link(item));
       return;
     }

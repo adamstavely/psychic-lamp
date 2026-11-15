@@ -13,6 +13,9 @@
         <dt>{{ k.label }}</dt>
         <dd>
           <span class="value">{{ count(k.value) }}</span>
+          @if (change(k); as c) {
+            <span class="change" [attr.data-trend]="c.trend">{{ c.text }}</span>
+          }
           <span class="small">{{ k.detail }}</span>
         </dd>
       </div>
