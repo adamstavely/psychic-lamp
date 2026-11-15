@@ -33,7 +33,7 @@ const messages: Message[] = [
 
 describe('contextFor', () => {
   it('estimates each part of the latest answer and names its model', () => {
-    const c = contextFor({ calibrated: true, project: 'Supplier risk' }, messages);
+    const c = contextFor({ calibrated: true, project: 'Supplier risk', persona: 'balanced' }, messages);
     expect(c.model).toBe('claude-opus-4.1');
     expect(c.parts).toEqual([
       { label: 'System prompt · Calibrated analyst', tokens: 312 },
@@ -45,9 +45,8 @@ describe('contextFor', () => {
   });
 
   it('copes with a chat that has no answer yet', () => {
-    expect(contextFor({ calibrated: false, project: null }, []).parts.map((p) => p.label)).toEqual([
-      'System prompt',
-      'Prior exchanges · 0',
-    ]);
+    expect(contextFor({ calibrated: false, project: null, persona: 'balanced' }, []).parts.map((p) => p.label)).toEqual(
+      ['System prompt', 'Prior exchanges · 0'],
+    );
   });
 });

@@ -21,3 +21,18 @@ export const REQUEST_BODY_LIMIT_BYTES = 4 * 1024 * 1024;
 
 /** The length of a text in bytes of UTF-8. */
 export const utf8Bytes = (text: string): number => new TextEncoder().encode(text).length;
+
+/** The chat personas (chat.ts Persona), as people see them, and what each does. */
+export const PERSONAS = [
+  { id: 'balanced', label: 'Balanced', description: 'Even-handed: the default' },
+  { id: 'red-cell', label: 'Red Cell', description: 'Argues against the obvious reading' },
+  { id: 'historian', label: 'Historian', description: 'Sets the question against what came before' },
+  { id: 'collection', label: 'Collection', description: 'Gathers what is known before judging it' },
+] as const;
+
+/** What answers may draw on (chat.ts Knowledge), as people see it. */
+export const KNOWLEDGE_SOURCES = [
+  { id: 'workspace', label: 'Workspace docs', description: "The workspace's tools and documents" },
+  { id: 'training', label: 'Training only', description: 'What the model knows; no tools or documents' },
+  { id: 'live', label: 'Live', description: 'The workspace, plus a live web search' },
+] as const;

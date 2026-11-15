@@ -87,6 +87,12 @@ export const chats = pgTable(
     pinned: boolean().notNull().default(false),
     calibrated: boolean().notNull().default(false),
     intent: jsonb().$type<SessionIntent>(),
+    persona: text({ enum: ['balanced', 'red-cell', 'historian', 'collection'] })
+      .notNull()
+      .default('balanced'),
+    knowledge: text({ enum: ['workspace', 'training', 'live'] })
+      .notNull()
+      .default('workspace'),
     /** Write tools the owner chose to always allow in this chat. */
     allowedTools: jsonb().$type<string[]>().notNull().default([]),
     /** Deleted from the list; kept so Undo can bring it back. */

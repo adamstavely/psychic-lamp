@@ -2,13 +2,26 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input, si
 import { Title } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
 import { ChatComposer } from '@adamstavely/trenchcoat/angular/chat-composer';
+import { ContextWindow } from '@adamstavely/trenchcoat/angular/context-window';
+import { Select } from '@adamstavely/trenchcoat/angular/select';
 import { ReflectionGate } from '@adamstavely/trenchcoat/angular/reflection-gate';
 import { MessageActions } from '@adamstavely/trenchcoat/angular/message-actions';
 import type { ChatSendDetails } from '@adamstavely/trenchcoat/chat-composer';
+import type { ContextPart } from '@adamstavely/trenchcoat/context-window';
 import type { ReflectionGateSubmission } from '@adamstavely/trenchcoat/reflection-gate';
+import type { SelectOption } from '@adamstavely/trenchcoat/select';
 import type { ThreadHeaderToggle } from '@adamstavely/trenchcoat/thread-header';
 import { ThreadHeader } from '@adamstavely/trenchcoat/angular/thread-header';
-import type { AssistantMessage, Message, ModelChoice, Route, ToolDecision } from '@donovan/contracts';
+import type {
+  AssistantMessage,
+  Knowledge,
+  Message,
+  ModelChoice,
+  Persona,
+  Route,
+  ToolDecision,
+} from '@donovan/contracts';
+import { KNOWLEDGE_SOURCES, PERSONAS } from '@donovan/contracts/defaults';
 import { ChatsStore } from '../../core/chats-store';
 import { dictate } from '../../core/dictation';
 import { ArtifactPane } from '../artifacts/artifact-pane';
@@ -34,9 +47,11 @@ const ROUTE_KIND: Record<Route['kind'], string> = {
     ArtifactPane,
     BlockView,
     ChatComposer,
+    ContextWindow,
     MessageActions,
     ReflectionGate,
     RouterLink,
+    Select,
     SessionPanel,
     ThreadHeader,
   ],
@@ -140,6 +155,52 @@ export default class ChatPage {
     if (!claim || !method) return;
     void this.thread.addCheckpoint({ claimId: claim, method });
   }
+
+  protected readonly personas: SelectOption[] = PERSONAS.map((p) => ({
+    value: p.id,
+    label: p.label,
+    description: p.description,
+  }));
+  protected readonly knowledgeSources: SelectOption[] = KNOWLEDGE_SOURCES.map((k) => ({
+    value: k.id,
+    label: k.label,
+    description: k.description,
+  }));
+
+  protected onPersona(event: CustomEvent<{ value: unknown }>): void {
+    const persona = String(event.detail.value) as Persona;
+    const label = PERSONAS.find((p) => p.id === persona)?.label;
+    void this.thread
+      .update({ persona })
+      .then(() => this.thread.status.set(`Persona: ${label}. It applies to answers from now on.`))
+      .catch(() => undefined);
+  }
+
+  protected onKnowledge(event: CustomEvent<{ value: unknown }>): void {
+    const knowledge = String(event.detail.value) as Knowledge;
+    const label = KNOWLEDGE_SOURCES.find((k) => k.id === knowledge)?.label;
+    void this.thread
+      .update({ knowledge })
+      .then(() => this.thread.status.set(`Knowledge: ${label}. It applies to answers from now on.`))
+      .catch(() => undefined);
+  }
+
+  /** The token meter: how much of the context window the latest answer was given. */
+  protected readonly contextParts = computed<ContextPart[]>(() =>
+    this.chat.hasValue()
+      ? this.chat.value().context.parts.map((p, i) => ({ id: `p${i}`, label: p.label, tokens: p.tokens, locked: true }))
+      : [],
+  );
+  protected readonly meter = computed(() => {
+    if (!this.chat.hasValue()) return { short: '', long: '' };
+    const { limit, parts } = this.chat.value().context;
+    const used = parts.reduce((n, p) => n + p.tokens, 0);
+    const k = (n: number) => (n >= 1000 ? `${Math.round(n / 100) / 10}k` : String(n));
+    return {
+      short: `${k(used)} / ${k(limit)}`,
+      long: `Context window: ${used.toLocaleString()} of ${limit.toLocaleString()} tokens`,
+    };
+  });
 
   protected readonly send = async (message: string, details: ChatSendDetails): Promise<void> => {
     const model = details.model as ModelChoice;

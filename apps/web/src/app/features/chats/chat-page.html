@@ -107,6 +107,33 @@
 
       <!-- The composer's tray of attached files says when one is removed (or brought back); it bubbles up to here. -->
       <div class="composer" (tc-items-change)="files.onChange($event)">
+        <div class="composer-tools dn-select-up" role="group" aria-label="Answer settings">
+          <tc-select
+            label="Persona"
+            label-placement="start"
+            [options]="personas"
+            [value]="c.persona"
+            (tc-value-change)="onPersona($event)"
+          />
+          <tc-select
+            label="Knowledge"
+            label-placement="start"
+            [options]="knowledgeSources"
+            [value]="c.knowledge"
+            (tc-value-change)="onKnowledge($event)"
+          />
+          <button type="button" class="meter" popovertarget="context-pop" [title]="meter().long">
+            <span class="sr-only">Context window: </span>{{ meter().short }} tokens
+          </button>
+          <div id="context-pop" class="context-pop" popover>
+            <tc-context-window
+              heading="Context window · last answer"
+              [model]="c.context.model"
+              [limit]="c.context.limit"
+              [parts]="contextParts()"
+            />
+          </div>
+        </div>
         <tc-chat-composer
           placeholder="Reply…"
           [models]="models"

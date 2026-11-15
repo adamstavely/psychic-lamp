@@ -1,4 +1,4 @@
-import type { Attachment, Block, ModelChoice, Route } from '@donovan/contracts';
+import type { Attachment, Block, Knowledge, ModelChoice, Persona, Route } from '@donovan/contracts';
 
 // Canned answers: Donovan doesn't call a model yet. Each reply says honestly what was "routed", and is streamed as if
 // it were being written (see stream.ts).
@@ -31,6 +31,62 @@ export function pickReply(text: string, model: ModelChoice, variant = 0): Reply 
       return b;
     }),
   };
+}
+
+const PERSONA_LEAD: Record<Exclude<Persona, 'balanced'>, string> = {
+  'red-cell': 'Red Cell: arguing against the obvious reading.',
+  historian: 'Historian: setting this against what came before.',
+  collection: 'Collection: gathering what is known before judging it.',
+};
+
+const PERSONA_CLOSE: Partial<Record<Persona, string>> = {
+  'red-cell':
+    'Strongest objection: everything above rests on what was retrieved for this one question. Look for what would contradict it before acting.',
+};
+
+/**
+ * An answer shaped by the chat's settings. Training only: no tools, servers or datasets, and it says so. Live: a web
+ * search runs alongside the workspace's tools. A persona other than Balanced says how it's approaching the question.
+ */
+export function shapeReply(reply: Reply, persona: Persona, knowledge: Knowledge): Reply {
+  let { routing, blocks } = reply;
+  if (knowledge === 'training') {
+    routing = routing.filter((r) => r.kind === 'model' || r.kind === 'skill');
+    blocks = [
+      {
+        type: 'text',
+        text: 'Training only: answered from what the model knows, without tools or workspace documents.',
+      },
+      ...blocks.filter((b) => b.type !== 'tool' && b.type !== 'artifact' && b.type !== 'workflow'),
+    ];
+  } else if (knowledge === 'live') {
+    routing = [...routing, { kind: 'server', name: 'Web search' }];
+    blocks = [
+      {
+        type: 'tool',
+        id: 'web',
+        name: 'web_search',
+        server: 'Web search',
+        summary: 'Live web · 6 results',
+        sensitivity: 'Public',
+        status: 'done',
+        write: false,
+        durationMs: 900,
+        args: { query: 'latest on this question' },
+        result: '6 results from the last 7 days',
+      },
+      ...blocks,
+    ];
+  }
+  if (persona !== 'balanced') {
+    const close = PERSONA_CLOSE[persona];
+    blocks = [
+      { type: 'text', text: PERSONA_LEAD[persona] },
+      ...blocks,
+      ...(close ? [{ type: 'text' as const, text: close }] : []),
+    ];
+  }
+  return { routing, blocks };
 }
 
 /** An answer to a message with files: it says which it read first, so the person can tell they arrived. */

@@ -17,6 +17,7 @@ import type {
   UserMessage,
   Vote,
 } from '@donovan/contracts';
+import { KNOWLEDGE_SOURCES, PERSONAS } from '@donovan/contracts/defaults';
 import { createHash, randomBytes } from 'node:crypto';
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
@@ -26,7 +27,7 @@ import { SeedService } from '../seed/seed.service.js';
 import { ChatSearch, chatText } from '../search/chat-search.js';
 import { calibrateReply } from './claims.js';
 import { contextFor } from './context.js';
-import { decisionReply, pickReply, withFiles, type Reply } from './replies.js';
+import { decisionReply, pickReply, shapeReply, withFiles, type Reply } from './replies.js';
 
 type ChatRow = typeof chats.$inferSelect;
 type MessageRow = typeof messages.$inferSelect;
@@ -98,8 +99,10 @@ export class ChatsService {
     return {
       ...toSummary(row),
       intent: row.intent ?? null,
+      persona: row.persona,
+      knowledge: row.knowledge,
       messages: thread,
-      context: contextFor({ calibrated: row.calibrated, project: row.project }, thread),
+      context: contextFor({ calibrated: row.calibrated, project: row.project, persona: row.persona }, thread),
       checkpoints: checks.map((c) => ({ claimId: c.claimId, method: c.method, at: c.at.toISOString() })),
     };
   }
@@ -144,7 +147,14 @@ export class ChatsService {
         c.source ? [{ id: `source:${c.id}`, label: c.source.title, detail: c.source.publisher }] : [],
       ),
     ];
-    const { context: _context, messages: turns, checkpoints: checks, ...summary } = chat;
+    const {
+      context: _context,
+      messages: turns,
+      checkpoints: checks,
+      persona: _persona,
+      knowledge: _knowledge,
+      ...summary
+    } = chat;
     return {
       format: 'donovan.provenance/v1',
       exportedAt: new Date().toISOString(),
@@ -153,6 +163,8 @@ export class ChatsService {
       settings: [
         { label: 'Model', value: chat.context.model },
         { label: 'Mode', value: chat.calibrated ? 'Calibrated' : 'Standard' },
+        { label: 'Persona', value: PERSONAS.find((p) => p.id === chat.persona)!.label },
+        { label: 'Knowledge', value: KNOWLEDGE_SOURCES.find((k) => k.id === chat.knowledge)!.label },
         { label: 'Sensitivity', value: chat.sensitivity },
         {
           label: 'Context window',
@@ -229,7 +241,7 @@ export class ChatsService {
   ): Promise<{ user: UserMessage; answer: AssistantMessage }> {
     const chat = await this.get(userId, chatId);
     const files = await this.attachments(userId, body.attachments);
-    const answered = withFiles(pickReply(body.text, body.model), files);
+    const answered = withFiles(shapeReply(pickReply(body.text, body.model), chat.persona, chat.knowledge), files);
     const reply = chat.calibrated ? calibrateReply(answered, files) : answered;
     const sent = await this.db.transaction(async (tx) => {
       await lockChat(tx, userId, chatId);
@@ -393,7 +405,10 @@ export class ChatsService {
       const asked = question && 'text' in question.body ? question.body : { text: '' };
       const versions = versionsOf(row.body);
       const files = asked.attachments ?? [];
-      const answered = withFiles(pickReply(asked.text, model, versions.length), files);
+      const answered = withFiles(
+        shapeReply(pickReply(asked.text, model, versions.length), chat.persona, chat.knowledge),
+        files,
+      );
       const next = answerBody(chat.calibrated ? calibrateReply(answered, files) : answered);
       const [saved] = await tx
         .update(messages)

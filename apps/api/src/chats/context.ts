@@ -1,4 +1,5 @@
 import type { Chat, Message } from '@donovan/contracts';
+import { PERSONAS } from '@donovan/contracts/defaults';
 
 /** The context-window limit Donovan assumes for its models. */
 export const CONTEXT_LIMIT = 200_000;
@@ -10,7 +11,11 @@ const tokens = (chars: number) => Math.round(chars / 4);
  * What the latest answer was given to read, estimated from the thread: the system prompt, the project's instructions,
  * the turns before it, files sent with them, documents its tools retrieved and the tool results.
  */
-export function contextFor(chat: Pick<Chat, 'calibrated' | 'project'>, messages: Message[]): Chat['context'] {
+export function contextFor(
+  chat: Pick<Chat, 'calibrated' | 'project' | 'persona'>,
+  messages: Message[],
+): Chat['context'] {
+  const persona = chat.persona === 'balanced' ? '' : ` · ${PERSONAS.find((p) => p.id === chat.persona)!.label}`;
   const lastAnswer = messages.findLastIndex((m) => m.role === 'assistant');
   const before = lastAnswer < 0 ? messages : messages.slice(0, lastAnswer);
   const answer = lastAnswer < 0 ? null : messages[lastAnswer];
@@ -20,8 +25,8 @@ export function contextFor(chat: Pick<Chat, 'calibrated' | 'project'>, messages:
 
   const parts = [
     {
-      label: chat.calibrated ? 'System prompt · Calibrated analyst' : 'System prompt',
-      tokens: chat.calibrated ? 312 : 240,
+      label: `${chat.calibrated ? 'System prompt · Calibrated analyst' : 'System prompt'}${persona}`,
+      tokens: (chat.calibrated ? 312 : 240) + (persona ? 90 : 0),
     },
     ...(chat.project ? [{ label: `Project instructions · ${chat.project}`, tokens: 140 }] : []),
     {

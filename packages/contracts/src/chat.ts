@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import { KNOWLEDGE_SOURCES, PERSONAS } from './defaults.js';
+
+type PersonaId = (typeof PERSONAS)[number]['id'];
+type KnowledgeId = (typeof KNOWLEDGE_SOURCES)[number]['id'];
 
 const Iso = z.iso.datetime({ offset: true });
 
@@ -188,7 +192,17 @@ export type ContextPart = z.infer<typeof ContextPart>;
 export const Checkpoint = z.object({ claimId: z.string(), method: z.string(), at: Iso });
 export type Checkpoint = z.infer<typeof Checkpoint>;
 
+/** How Donovan approaches a chat: even-handed, arguing the other side, setting it against the past, or gathering first. */
+export const Persona = z.enum(PERSONAS.map((p) => p.id) as [PersonaId, ...PersonaId[]]);
+export type Persona = z.infer<typeof Persona>;
+
+/** What answers may draw on: the workspace's tools and documents, the model's training alone, or the live web too. */
+export const Knowledge = z.enum(KNOWLEDGE_SOURCES.map((k) => k.id) as [KnowledgeId, ...KnowledgeId[]]);
+export type Knowledge = z.infer<typeof Knowledge>;
+
 export const Chat = ChatSummary.extend({
+  persona: Persona,
+  knowledge: Knowledge,
   intent: SessionIntent.nullable(),
   messages: z.array(Message),
   /** The context window behind the latest answer. */
@@ -215,6 +229,9 @@ export const ChatPatch = z.strictObject({
   intent: SessionIntentInput.nullable().optional(),
   /** Files the chat under one of the person's projects (by id), or takes it out (null). */
   projectId: z.string().min(1).max(64).nullable().optional(),
+  /** Both apply to answers from then on. */
+  persona: Persona.optional(),
+  knowledge: Knowledge.optional(),
 });
 export type ChatPatch = z.infer<typeof ChatPatch>;
 

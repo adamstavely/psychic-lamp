@@ -189,6 +189,43 @@ describe('sending, approving and voting', () => {
     await http.patch(`/api/chats/${theirs.id}`).auth(other, bearer).send({ projectId: project.id }).expect(400);
   });
 
+  it('keeps a persona and knowledge per chat, shapes answers by them, and exports them', async () => {
+    const token = await t.token({ sub: 'persona-chat' });
+    const created = ChatSummary.parse(
+      (await http.post('/api/chats').auth(token, bearer).send({ text: 'Prep' }).expect(201)).body,
+    );
+    const fresh = Chat.parse((await http.get(`/api/chats/${created.id}`).auth(token, bearer)).body);
+    expect(fresh).toMatchObject({ persona: 'balanced', knowledge: 'workspace' });
+
+    await http
+      .patch(`/api/chats/${created.id}`)
+      .auth(token, bearer)
+      .send({ persona: 'red-cell', knowledge: 'training' })
+      .expect(200);
+    await http.patch(`/api/chats/${created.id}`).auth(token, bearer).send({ persona: 'skeptic' }).expect(400);
+    const res = await http
+      .post(`/api/chats/${created.id}/messages`)
+      .auth(token, bearer)
+      .send({ text: 'What should I prep for the meeting?' })
+      .expect(200);
+    const done = events(res.text).at(-1);
+    const blocks = done?.type === 'done' ? done.message.blocks : [];
+    expect(blocks[0]).toMatchObject({ text: 'Red Cell: arguing against the obvious reading.' });
+    expect(blocks.some((b) => b.type === 'tool')).toBe(false);
+
+    const chat = Chat.parse((await http.get(`/api/chats/${created.id}`).auth(token, bearer)).body);
+    expect(chat.context.parts[0]?.label).toBe('System prompt · Red Cell');
+    const manifest = (await http.get(`/api/chats/${created.id}/export`).auth(token, bearer).expect(200)).body as {
+      settings: { label: string; value: string }[];
+    };
+    expect(manifest.settings).toEqual(
+      expect.arrayContaining([
+        { label: 'Persona', value: 'Red Cell' },
+        { label: 'Knowledge', value: 'Training only' },
+      ]),
+    );
+  });
+
   it('starts a chat Calibrated, labels its answers, takes an intent, and turns it off for later answers', async () => {
     const token = await t.token({ sub: 'calibrated-chat' });
     const ask = async (id: string) =>
