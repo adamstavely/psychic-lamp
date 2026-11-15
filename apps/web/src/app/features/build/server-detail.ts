@@ -11,9 +11,11 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
+import { Dialog } from '@adamstavely/trenchcoat/angular/dialog';
+import { RadioGroup } from '@adamstavely/trenchcoat/angular/radio-group';
+import type { SettingsRadioOption } from '@adamstavely/trenchcoat/radio-group';
 import { CodeBlock } from '@adamstavely/trenchcoat/angular/code-block';
 import { SegmentedControl } from '@adamstavely/trenchcoat/angular/segmented-control';
 import type { SegmentOption } from '@adamstavely/trenchcoat/segmented-control';
@@ -21,6 +23,7 @@ import { toast } from '@adamstavely/trenchcoat/toaster';
 import type { InstallClient, RegistryInstall, RegistryItem, TryResult } from '@donovan/contracts';
 import { INSTALL_CLIENTS } from '@donovan/contracts/defaults';
 import { firstValueFrom } from 'rxjs';
+import { ownOpenChange } from './dialog-events';
 import { chatStart } from './use-in-chat';
 
 type Server = Extract<RegistryItem, { kind: 'server' }>;
@@ -30,7 +33,7 @@ type Tab = 'tools' | 'overview' | 'install';
 /** An MCP server: its tools (each can be tried in a sandbox), what it is, and where you've installed it. */
 @Component({
   selector: 'dn-server-detail',
-  imports: [FormsModule, Button, CodeBlock, SegmentedControl],
+  imports: [Button, CodeBlock, Dialog, RadioGroup, SegmentedControl],
   templateUrl: './server-detail.html',
   styleUrls: ['./detail.css', './server-detail.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -62,8 +65,16 @@ export class ServerDetail {
   );
 
   // Try a tool: a sandbox run against a mock.
-  private readonly tryDialog = viewChild.required<ElementRef<HTMLDialogElement>>('tryDialog');
+  private readonly tryBody = viewChild.required<ElementRef<HTMLElement>>('tryBody');
+  protected readonly own = ownOpenChange;
   protected readonly trying = signal<Tool | null>(null);
+  protected readonly tryNote = computed(() => {
+    const t = this.trying();
+    const s = this.item();
+    return t
+      ? `${s.name} · ${s.details.transport}. A sandbox run: it answers like the real tool, but nothing is called and nothing changes${t.write ? ', even though this is a write tool' : ''}.`
+      : '';
+  });
   protected args: Record<string, string> = {};
   protected readonly running = signal(false);
   protected readonly result = signal<TryResult | null>(null);
@@ -74,19 +85,10 @@ export class ServerDetail {
     this.args = Object.fromEntries(tool.params.map((p) => [p.name, '']));
     this.result.set(null);
     this.tryError.set('');
-    // The form renders with the tool; open it then, so focus lands on the first field (or Run, with none).
-    afterNextRender(
-      () => {
-        const dialog = this.tryDialog().nativeElement;
-        dialog.showModal();
-        dialog.querySelector<HTMLInputElement>('input')?.focus();
-      },
-      { injector: this.#injector },
-    );
-  }
-
-  protected closeTry(): void {
-    this.tryDialog().nativeElement.close();
+    // The fields render with the tool and the dialog opens with them: focus goes to the first one.
+    afterNextRender(() => this.tryBody().nativeElement.querySelector<HTMLInputElement>('input')?.focus(), {
+      injector: this.#injector,
+    });
   }
 
   protected async runTry(): Promise<void> {
@@ -108,7 +110,6 @@ export class ServerDetail {
   }
 
   // Install in a client: recorded per person.
-  protected readonly clients = INSTALL_CLIENTS;
   protected readonly installs = httpResource<RegistryInstall[]>(
     () => `/api/registry/server/${encodeURIComponent(this.item().id)}/installs`,
   );
@@ -119,18 +120,18 @@ export class ServerDetail {
     return INSTALL_CLIENTS.find((c) => c.id === client)!.label;
   }
 
-  private readonly installDialog = viewChild.required<ElementRef<HTMLDialogElement>>('installDialog');
-  protected client: InstallClient = 'donovan-chat';
+  protected readonly clientOptions: SettingsRadioOption[] = INSTALL_CLIENTS.map((c) => ({
+    value: c.id,
+    label: c.label,
+  }));
+  protected readonly installOpen = signal(false);
+  protected readonly client = signal<InstallClient>('donovan-chat');
   protected readonly installing = signal(false);
   protected readonly snippet = signal('');
 
   protected openInstall(): void {
     this.updateSnippet();
-    this.installDialog().nativeElement.showModal();
-  }
-
-  protected closeInstall(): void {
-    this.installDialog().nativeElement.close();
+    this.installOpen.set(true);
   }
 
   protected updateSnippet(): void {
@@ -147,9 +148,9 @@ export class ServerDetail {
     this.installing.set(true);
     try {
       const url = `/api/registry/server/${encodeURIComponent(this.item().id)}/installs`;
-      this.installs.set(await firstValueFrom(this.#http.post<RegistryInstall[]>(url, { client: this.client })));
-      toast.success(`Installed ${this.item().name}`, { description: `Added to ${this.label(this.client)}.` });
-      this.closeInstall();
+      this.installs.set(await firstValueFrom(this.#http.post<RegistryInstall[]>(url, { client: this.client() })));
+      toast.success(`Installed ${this.item().name}`, { description: `Added to ${this.label(this.client())}.` });
+      this.installOpen.set(false);
     } catch (err) {
       toast.error(`Couldn't install ${this.item().name}`, {
         description: (err as { error?: { message?: string } }).error?.message ?? 'Try again in a moment.',

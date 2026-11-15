@@ -23,12 +23,13 @@ prototype and a trace of every control in the code. Each fix below is one PR; th
 4. **Actions match what's allowed.** _(Done.)_ Pending items don't offer Install, Attach or Use in chat (the API refuses them).
    The wizard's step list can't skip validation, and an agent needs at least one server or skill. Register opens on the
    right kind from Workflows, Prompts, Governance and Insights. Rail counts refresh after registering or a decision.
-5. **Links by id, not by name.** _(This PR.)_ Agents' servers and skills, datasets' models and collections' members are
+5. **Links by id, not by name.** _(Done.)_ Agents' servers and skills, datasets' models and collections' members are
    stored by id, so links and tiers can't break or be ambiguous ("Churn Propensity" and "Price Elasticity" are named
    but don't exist: Churn Propensity, which the seeded chats use, is added; Price Elasticity is dropped).
 6. **Trench Coat controls instead of raw HTML** where Trench Coat has them: `tc-select`, `tc-radio-group`,
-   `tc-checkbox`, `tc-sensitivity-label-picker` (the wizard's tier), `tc-dialog`. Text inputs and textareas have no
-   Trench Coat component yet; that gap goes to Trench Coat.
+   `tc-checkbox`, `tc-sensitivity-label-picker` (the wizard's tier), `tc-dialog`. _(This PR.)_ Still native, as
+   Trench Coat has nothing for them yet: text inputs and textareas, and the wizard's kind cards (a radio choice with a
+   description per option). Those gaps go to Trench Coat.
 7. **Missing states.** Errors for Governance's policies, a server's installs and a collection's attachments (they show
    as "loading" or "none" today); the catalog's empty state names the right scope and links to Register.
 8. **Smaller gaps from the prototype.** Tabs in the address on server, model and skill pages (as Governance); "Try it"

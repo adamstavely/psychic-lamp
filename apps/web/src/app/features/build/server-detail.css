@@ -67,27 +67,6 @@
   margin-block: var(--tc-space-3) var(--tc-space-5);
 }
 
-.clients {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--tc-space-2) var(--tc-space-4);
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.clients legend {
-  margin-bottom: var(--tc-space-2);
-  font-size: var(--tc-font-size-sm);
-  font-weight: var(--tc-font-weight-semibold);
-}
-
-.dialog .client {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--tc-space-1);
-}
-
 @media (max-width: 600px) {
   .params thead {
     display: none;

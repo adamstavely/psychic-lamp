@@ -9,9 +9,9 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
+import { Dialog } from '@adamstavely/trenchcoat/angular/dialog';
 import { SegmentedControl } from '@adamstavely/trenchcoat/angular/segmented-control';
 import { Switch } from '@adamstavely/trenchcoat/angular/switch';
 import type { SegmentOption } from '@adamstavely/trenchcoat/segmented-control';
@@ -25,6 +25,7 @@ import type {
   ReviewDecision,
 } from '@donovan/contracts';
 import { firstValueFrom } from 'rxjs';
+import { ownOpenChange } from './dialog-events';
 import { buildAreaFor } from '../../shell/areas';
 import { RegistryCountsStore } from '../../core/registry-counts-store';
 
@@ -49,7 +50,7 @@ const DONE: Record<ReviewDecision, string> = {
  */
 @Component({
   selector: 'dn-governance-page',
-  imports: [FormsModule, RouterLink, Button, SegmentedControl, Switch],
+  imports: [RouterLink, Button, Dialog, SegmentedControl, Switch],
   templateUrl: './governance-page.html',
   styleUrls: ['./detail.css', './governance-page.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -97,19 +98,21 @@ export class GovernancePage {
   }
 
   // Deciding: approval goes at once; a request for changes or a rejection asks why first.
-  private readonly noteDialog = viewChild.required<ElementRef<HTMLDialogElement>>('noteDialog');
+  private readonly noteField = viewChild<ElementRef<HTMLTextAreaElement>>('noteField');
+  protected readonly own = ownOpenChange;
   protected readonly asking = signal<{ q: QueueItem; decision: 'changes' | 'reject' } | null>(null);
-  protected note = '';
+  protected readonly noteTitle = computed(() => {
+    const a = this.asking();
+    return a ? `${a.decision === 'reject' ? 'Reject' : 'Request changes to'} ${a.q.item.name}` : '';
+  });
+  protected readonly note = signal('');
+  protected readonly noteError = signal(false);
   protected readonly deciding = signal<string | null>(null);
 
   protected ask(q: QueueItem, decision: 'changes' | 'reject'): void {
-    this.note = '';
+    this.note.set('');
+    this.noteError.set(false);
     this.asking.set({ q, decision });
-    this.noteDialog().nativeElement.showModal();
-  }
-
-  protected closeNote(): void {
-    this.noteDialog().nativeElement.close();
   }
 
   protected async decide(q: QueueItem, decision: ReviewDecision, note = ''): Promise<void> {
@@ -127,7 +130,7 @@ export class GovernancePage {
               ? `Rejected ${q.item.name}`
               : `Sent ${q.item.name} back for changes`,
       );
-      if (decision !== 'approve') this.closeNote();
+      if (decision !== 'approve') this.asking.set(null);
     } catch (err) {
       toast.error("Couldn't record that", {
         description: (err as { error?: { message?: string } }).error?.message ?? 'Try again in a moment.',
@@ -141,8 +144,13 @@ export class GovernancePage {
 
   protected async sendNote(): Promise<void> {
     const a = this.asking();
-    if (!a || !this.note.trim()) return;
-    await this.decide(a.q, a.decision, this.note.trim());
+    if (!a) return;
+    if (!this.note().trim()) {
+      this.noteError.set(true);
+      this.noteField()?.nativeElement.focus();
+      return;
+    }
+    await this.decide(a.q, a.decision, this.note().trim());
   }
 
   protected async setPolicy(p: Policy, event: CustomEvent<{ value: unknown }>): Promise<void> {

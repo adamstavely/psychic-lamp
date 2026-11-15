@@ -1,20 +1,14 @@
 import { HttpClient, httpResource } from '@angular/common/http';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  type ElementRef,
-  inject,
-  input,
-  signal,
-  viewChild,
-} from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
+import { Dialog } from '@adamstavely/trenchcoat/angular/dialog';
+import { Select } from '@adamstavely/trenchcoat/angular/select';
+import type { SelectOption } from '@adamstavely/trenchcoat/select';
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import type { AttachResult, CollectionAttachment, RegistryItem, RegistrySummary } from '@donovan/contracts';
 import { firstValueFrom } from 'rxjs';
+import { ownOpenChange } from './dialog-events';
 import { ProjectsStore } from '../../core/projects-store';
 import { linked } from './registry-links';
 
@@ -35,7 +29,7 @@ const KIND_LABEL: Record<string, string> = {
 /** A collection: a bundle of registry items, as sensitive as its most sensitive member, attached to projects whole. */
 @Component({
   selector: 'dn-collection-detail',
-  imports: [FormsModule, RouterLink, Button],
+  imports: [RouterLink, Button, Dialog, Select],
   templateUrl: './collection-detail.html',
   styleUrl: './detail.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -58,27 +52,28 @@ export class CollectionDetail {
   );
   protected readonly myProjects = this.#projects.mine;
 
-  private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('attachDialog');
-  protected projectId = '';
+  protected readonly projectOptions = computed<SelectOption[]>(() =>
+    this.myProjects().map((p) => ({ value: p.id, label: `${p.name} · ${p.sensitivity}` })),
+  );
+  protected readonly own = ownOpenChange;
+  protected readonly attachOpen = signal(false);
+  protected readonly projectId = signal('');
   protected readonly attaching = signal(false);
 
   protected openAttach(): void {
-    this.projectId = this.myProjects()[0]?.id ?? '';
-    this.dialog().nativeElement.showModal();
-  }
-
-  protected closeAttach(): void {
-    this.dialog().nativeElement.close();
+    this.projectId.set(this.myProjects()[0]?.id ?? '');
+    this.attachOpen.set(true);
   }
 
   protected async attach(): Promise<void> {
-    if (!this.projectId) return;
+    const projectId = this.projectId();
+    if (!projectId) return;
     this.attaching.set(true);
     try {
       const url = `/api/registry/collection/${encodeURIComponent(this.item().id)}/projects`;
-      const res = await firstValueFrom(this.#http.post<AttachResult>(url, { projectId: this.projectId }));
+      const res = await firstValueFrom(this.#http.post<AttachResult>(url, { projectId }));
       this.attached.set(res.attachments);
-      const name = res.attachments.find((a) => a.projectId === this.projectId)?.project ?? 'the project';
+      const name = res.attachments.find((a) => a.projectId === projectId)?.project ?? 'the project';
       toast.success(`Attached ${this.item().name} to ${name}`, {
         description: res.raised
           ? `${name} is now ${res.raised.to}, up from ${res.raised.from}, to match the collection.`
@@ -86,7 +81,7 @@ export class CollectionDetail {
       });
       // A raised tier shows on the project everywhere it's listed.
       if (res.raised) this.#projects.overview.reload();
-      this.closeAttach();
+      this.attachOpen.set(false);
     } catch (err) {
       toast.error("Couldn't attach it", {
         description: (err as { error?: { message?: string } }).error?.message ?? 'Try again in a moment.',

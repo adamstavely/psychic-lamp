@@ -195,7 +195,8 @@ test.describe('model, dataset, space and collection pages', () => {
 
       await page.getByRole('button', { name: 'Attach to a project' }).click();
       const dialog = page.getByRole('dialog', { name: 'Attach Risk & fraud' });
-      await dialog.getByRole('combobox', { name: 'Project' }).selectOption(project.id);
+      // The newest project comes first, picked.
+      await expect(dialog.getByRole('button', { name: /^Project/ })).toHaveText(`${project.name} · Internal`);
       await dialog.getByRole('button', { name: 'Attach' }).click();
       await expect(page.getByText(`${project.name} is now Restricted, up from Internal`).first()).toBeVisible();
       const aside = page.getByRole('complementary', { name: 'About this collection' });
@@ -321,7 +322,8 @@ test.describe('registering', () => {
     await page.getByRole('textbox', { name: 'Name' }).fill(name);
     await steps.getByRole('button', { name: /Governance/ }).click();
 
-    await page.getByRole('radio', { name: /^Confidential/ }).check();
+    await page.getByRole('button', { name: /^Internal ?, this mcp server/i }).click();
+    await page.getByRole('option', { name: /^Confidential/ }).click();
     await expectNoAxeViolations(page);
     await page.getByRole('button', { name: 'Continue' }).click();
 
