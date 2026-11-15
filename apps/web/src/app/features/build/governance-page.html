@@ -1,0 +1,174 @@
+<p class="eyebrow">Governance</p>
+<h1>Review, policies and tiers.</h1>
+<p class="meta">Review what people want to add, and the rules that apply to every chat, workflow and server.</p>
+
+<tc-segmented-control
+  class="tabs"
+  kind="tabs"
+  variant="underline"
+  [options]="tabs()"
+  [value]="current()"
+  (tc-value-change)="pick($event)"
+/>
+
+<div id="governance-panel" role="tabpanel" [attr.aria-label]="tabLabel()">
+  @switch (current()) {
+    @case ('queue') {
+      @if (queue.hasValue()) {
+        @let gq = queue.value();
+        <dl class="figures">
+          <div>
+            <dt>Waiting for review</dt>
+            <dd>{{ gq.waiting }}</dd>
+          </div>
+          <div>
+            <dt>Published this week</dt>
+            <dd>{{ gq.publishedThisWeek }}</dd>
+          </div>
+          <div>
+            <dt>Decisions today</dt>
+            <dd>{{ gq.decisionsToday }}</dd>
+          </div>
+        </dl>
+        <p class="note">
+          Two approvals from people other than the submitter publish a submission. One request for changes or one
+          rejection stops it; the submitter can change it and resubmit.
+        </p>
+        <ul class="queue">
+          @for (q of gq.items; track q.item.kind + q.item.id) {
+            <li>
+              <div class="q-main">
+                <h2>
+                  <a [routerLink]="link(q)">{{ q.item.name }}</a>
+                </h2>
+                <span class="tags">
+                  <span class="tag">{{ q.item.kind }}</span>
+                  <span class="tag" [attr.data-risk]="q.risk">{{ q.risk }} risk</span>
+                </span>
+                <p class="small">{{ q.why }} {{ q.item.summary }}</p>
+                <p class="small">
+                  {{ q.item.owner.name }} · {{ when(q.submittedAt) }}
+                  @if (q.round > 1) {
+                    · round {{ q.round }}
+                  }
+                  · {{ q.approvals }} of 2 approvals
+                </p>
+              </div>
+              <div class="q-actions" role="group" [attr.aria-label]="'Review ' + q.item.name">
+                @if (q.mine) {
+                  <p class="small">Your submission: other people review it.</p>
+                } @else if (q.myDecision; as d) {
+                  <p class="small">{{ done[d] }}.</p>
+                } @else {
+                  <tc-button
+                    size="sm"
+                    variant="ghost"
+                    label="Reject"
+                    [disabled]="deciding() !== null"
+                    (click)="ask(q, 'reject')"
+                  />
+                  <tc-button
+                    size="sm"
+                    variant="secondary"
+                    label="Request changes"
+                    [disabled]="deciding() !== null"
+                    (click)="ask(q, 'changes')"
+                  />
+                  <tc-button
+                    size="sm"
+                    variant="primary"
+                    label="Approve"
+                    [loading]="deciding() === q.item.kind + ':' + q.item.id"
+                    (click)="decide(q, 'approve')"
+                  />
+                }
+              </div>
+            </li>
+          } @empty {
+            <li class="small">Nothing is waiting for review.</li>
+          }
+        </ul>
+      } @else if (queue.error()) {
+        <p role="alert">The queue didn't load. Try again in a moment.</p>
+      } @else {
+        <p role="status">Loading the queue…</p>
+      }
+    }
+    @case ('policies') {
+      @if (policyList.hasValue()) {
+        @let pl = policyList.value();
+        @if (!pl.canChange) {
+          <p class="note">Only a Donovan admin can change these.</p>
+        }
+        <ul class="policies">
+          @for (p of pl.policies; track p.id) {
+            <li>
+              <tc-switch
+                [label]="p.name"
+                [description]="p.description"
+                [value]="p.enabled"
+                [disabled]="!pl.canChange"
+                (tc-value-change)="setPolicy(p, $event)"
+              />
+              <p class="small">
+                {{ p.enforced }}
+                @if (p.updatedBy) {
+                  Changed by {{ p.updatedBy }}, {{ when(p.updatedAt!) }}.
+                }
+              </p>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p role="status">Loading the policies…</p>
+      }
+    }
+    @case ('tiers') {
+      <table class="grid">
+        <caption class="sr-only">
+          Sensitivity tiers
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Tier</th>
+            <th scope="col">Who</th>
+            <th scope="col">Rule</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (t of tiers; track t.name) {
+            <tr>
+              <th scope="row">
+                <span class="dn-sens" [attr.data-level]="t.name">{{ t.name }}</span>
+              </th>
+              <td>{{ t.who }}</td>
+              <td>{{ t.rule }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  }
+</div>
+
+<dialog #noteDialog class="dialog" aria-labelledby="note-h">
+  @if (asking(); as a) {
+    <form (submit)="$event.preventDefault(); sendNote()">
+      <h2 id="note-h">{{ a.decision === 'reject' ? 'Reject' : 'Request changes to' }} {{ a.q.item.name }}</h2>
+      <label>
+        Why
+        <textarea name="note" rows="4" required [(ngModel)]="note"></textarea>
+      </label>
+      <p class="small">{{ a.q.item.owner.name }} sees this, so say what would change your mind.</p>
+      <div class="dialog-actions">
+        <tc-button variant="ghost" label="Cancel" (click)="closeNote()" />
+        <tc-button
+          type="submit"
+          [variant]="a.decision === 'reject' ? 'destructive' : 'primary'"
+          [label]="a.decision === 'reject' ? 'Reject' : 'Send back'"
+          [loading]="deciding() !== null"
+        />
+      </div>
+    </form>
+  }
+</dialog>

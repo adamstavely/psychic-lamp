@@ -5,16 +5,19 @@ import type { RegistryScope } from '@donovan/contracts';
 import { IconDirective } from '../../core/icon.directive';
 import { BUILD_AREAS } from '../../shell/areas';
 import { Catalog, type CatalogView } from './catalog';
+import { GovernancePage } from './governance-page';
 
-/** A Build area: the catalog for a registry area. The Insights and Governance pages arrive in later steps of slice 2. */
+/** A Build area: the catalog for a registry area, or Governance. Insights arrives in step 9 of slice 2. */
 @Component({
   selector: 'dn-build-area-page',
-  imports: [RouterLink, IconDirective, Catalog],
+  imports: [RouterLink, IconDirective, Catalog, GovernancePage],
   template: `
     <section class="page">
       @if (buildArea(); as a) {
         @if (a.kind) {
           <dn-catalog [area]="a" [scope]="scopeValue()" [view]="viewValue()" [task]="task() ?? null" />
+        } @else if (a.id === 'governance') {
+          <dn-governance-page [tab]="tab()" />
         } @else {
           <h1><span [dnIcon]="a.icon"></span>{{ a.label }}</h1>
           <p class="blurb">{{ a.description }}</p>
@@ -61,6 +64,8 @@ export default class BuildAreaPage {
   readonly scope = input<string>();
   readonly view = input<string>();
   readonly task = input<string>();
+  /** Governance's tab, from the URL. */
+  readonly tab = input<string>();
 
   protected readonly buildArea = computed(() => BUILD_AREAS.find((a) => a.id === this.area()));
   protected readonly scopeValue = computed<RegistryScope>(() => {

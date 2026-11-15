@@ -10,6 +10,7 @@ import { HealthController } from './health/health.controller.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { ObservabilityModule } from './observability/observability.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
+import { GovernanceModule } from './governance/governance.module.js';
 import { RegistryModule } from './registry/registry.module.js';
 import { SearchApiModule } from './search-api/search-api.module.js';
 import { SearchModule } from './search/search.module.js';
@@ -31,6 +32,7 @@ import { UsersModule } from './users/users.module.js';
     SearchApiModule,
     NotificationsModule,
     RegistryModule,
+    GovernanceModule,
   ],
   controllers: [HealthController],
 })
