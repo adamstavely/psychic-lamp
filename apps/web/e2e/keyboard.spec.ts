@@ -52,6 +52,13 @@ for (const path of [
   '/artifacts/approval-tiers-rfc-md',
   '/projects',
   '/projects/fraud-rollout',
+  '/build/servers',
+  '/build/servers/filesystem',
+  '/build/agents/release',
+  '/build/prompts/status',
+  '/build/register',
+  '/build/governance',
+  '/build/insights',
 ]) {
   test(`every Tab stop on ${path} shows where focus is`, async ({ page }) => {
     test.skip(test.info().project.name !== 'light', 'one theme is enough for focus order');
@@ -66,5 +73,36 @@ for (const path of [
       if (f.obscured) problems.push(`focus on ${f.tag} "${f.label}" is under ${f.by}`);
     }
     expect([...new Set(problems)], [...new Set(problems)].join('\n')).toEqual([]);
+  });
+}
+
+/** Every Build page has one h1, and its headings never skip a level (1.3.1, 2.4.6). */
+for (const path of [
+  '/build/skills',
+  '/build/servers/filesystem',
+  '/build/agents/release',
+  '/build/models/sonnet',
+  '/build/datasets/txn-graph',
+  '/build/spaces/fraud-explainer',
+  '/build/collections/risk-fraud',
+  '/build/skills/rollout',
+  '/build/prompts/status',
+  '/build/workflows/sku',
+  '/build/register',
+  '/build/governance',
+  '/build/insights',
+]) {
+  test(`${path} has one h1 and no skipped heading levels`, async ({ page }) => {
+    test.skip(test.info().project.name !== 'light', 'structure, not colour');
+    await signIn(page, 'alex', path);
+    await page.waitForLoadState('networkidle');
+    const levels = await page.evaluate(() =>
+      [...document.querySelectorAll('main h1, main h2, main h3, main h4, main h5, main h6')]
+        .filter((h) => (h as HTMLElement).offsetParent !== null || h.closest('.sr-only'))
+        .map((h) => Number(h.tagName[1])),
+    );
+    expect(levels.filter((l) => l === 1)).toHaveLength(1);
+    const skips = levels.flatMap((l, i) => (i > 0 && l > levels[i - 1]! + 1 ? [`h${levels[i - 1]} → h${l}`] : []));
+    expect(skips, skips.join(', ')).toEqual([]);
   });
 }
