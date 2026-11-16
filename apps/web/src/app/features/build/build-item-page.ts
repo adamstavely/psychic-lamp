@@ -39,9 +39,17 @@ import { ServerDetail } from './server-detail';
         @if (item.hasValue() && item.value().kind === 'workflow') {
           @let wf = item.value();
           @if (wf.kind === 'workflow') {
-            <dn-workflow-detail [item]="wf" [area]="a" [edit]="mode() === 'edit'" (saved)="item.reload()">
-              @if (wf.status !== 'published') {
-                <div class="review"><dn-review-status [item]="wf" (changed)="item.reload()" /></div>
+            <dn-workflow-detail
+              [item]="wf"
+              [area]="a"
+              [edit]="mode() === 'edit'"
+              [readonly]="!!proposed()"
+              (saved)="item.reload()"
+            >
+              @if (wf.status !== 'published' || wf.editInReview) {
+                <div class="review">
+                  <dn-review-status [item]="wf" [proposedView]="!!proposed()" (changed)="item.reload()" />
+                </div>
               }
             </dn-workflow-detail>
           }
@@ -51,8 +59,8 @@ import { ServerDetail } from './server-detail';
           >
           @if (item.hasValue()) {
             @let i = item.value();
-            @if (i.status !== 'published') {
-              <dn-review-status [item]="i" (changed)="item.reload()" />
+            @if (i.status !== 'published' || i.editInReview) {
+              <dn-review-status [item]="i" [proposedView]="!!proposed()" (changed)="item.reload()" />
             }
             @switch (i.kind) {
               @case ('server') {
@@ -119,10 +127,13 @@ export default class BuildItemPage {
   readonly itemId = input<string>('');
   /** ?mode=edit, for a workflow's canvas. */
   readonly mode = input<string>();
+  /** ?proposed=1: the edit of a published item that's in review, rather than the published version. */
+  readonly proposed = input<string>();
   protected readonly buildArea = computed(() => BUILD_AREAS.find((a) => a.id === this.area() && a.kind));
   protected readonly isWorkflow = computed(() => this.item.hasValue() && this.item.value().kind === 'workflow');
   protected readonly item = httpResource<RegistryItem>(() => {
     const kind = this.buildArea()?.kind;
-    return kind && this.itemId() ? `/api/registry/${kind}/${encodeURIComponent(this.itemId())}` : undefined;
+    if (!kind || !this.itemId()) return undefined;
+    return `/api/registry/${kind}/${encodeURIComponent(this.itemId())}${this.proposed() ? '/proposed' : ''}`;
   });
 }

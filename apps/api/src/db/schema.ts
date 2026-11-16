@@ -9,6 +9,7 @@ import type {
   RegistryAccess,
   RegistryItem,
   Route,
+  Sensitivity,
   SessionIntent,
 } from '@donovan/contracts';
 import {
@@ -325,6 +326,19 @@ export const notificationState = pgTable(
  * Shared by everyone, unlike Assist's per-person tables; an item belongs to a team (the seeded catalog) or to the person
  * who registered it. What every kind has is in columns; the rest is `details`, checked against the kind's contract.
  */
+/** An edit of a published item: its content, the revision and version it's numbered as, and where it is in review. */
+export interface RegistryProposal {
+  revision: number;
+  version: string;
+  name: string;
+  summary: string;
+  sensitivity: Sensitivity;
+  details: RegistryItem['details'];
+  status: 'pending' | 'changes-requested' | 'rejected';
+  /** When it was last sent to review. */
+  at: string;
+}
+
 export const registryItems = pgTable(
   'registry_items',
   {
@@ -349,6 +363,11 @@ export const registryItems = pgTable(
     /** Its content revision: one more with every change to what's reviewed. Decisions and edits must name it. */
     revision: integer().notNull().default(1),
     details: jsonb().$type<RegistryItem['details']>().notNull(),
+    /**
+     * An edit of a published item, while it's in review or sent back. The columns above stay the published version,
+     * which everyone else sees and runs until two approvals promote this in its place; a rejection leaves it as it was.
+     */
+    proposal: jsonb().$type<RegistryProposal>(),
     /** Bumped with every change, in the same transaction; search records the version it indexed (see SearchBackfill). */
     searchVersion: integer().notNull().default(0),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),

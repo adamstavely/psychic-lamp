@@ -220,6 +220,13 @@ const Base = z.object({
    * revision they were made against, so neither lands on a version its author didn't see.
    */
   revision: z.number().int().positive(),
+  /**
+   * Set when what's shown is an edit of a published item that isn't published yet (to its submitter, and in the review
+   * queue): the version everyone else still sees and runs.
+   */
+  liveVersion: Short.nullable(),
+  /** Set when what's shown is the published version and someone's edit of it is waiting for review: that edit's version. */
+  editInReview: Short.nullable(),
   updatedAt: z.iso.datetime({ offset: true }),
 });
 

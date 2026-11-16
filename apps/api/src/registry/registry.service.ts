@@ -33,7 +33,7 @@ import { DB, type Db } from '../db/db.module.js';
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 import { GovernanceService } from '../governance/governance.service.js';
 import { projectCollections, projects, registryInstalls, registryItems } from '../db/schema.js';
-import { toSummary } from './registry-row.js';
+import { authorOf, proposed, seenBy, toSummary, type Viewer } from './registry-row.js';
 import { REGISTRY_SEED } from './registry.fixture.js';
 import { detailsFor, slugify } from './registration.js';
 import { checkWorkflow } from '@donovan/contracts/defaults';
@@ -222,7 +222,7 @@ export class RegistryService implements OnApplicationBootstrap {
       )
       .orderBy(asc(registryItems.name));
     const out: WorkflowBindings = { Tool: [], Model: [], Skill: [] };
-    for (const r of rows.map(toItem)) {
+    for (const r of rows.map((row) => toItem(row, null))) {
       if (r.kind === 'server')
         out.Tool.push(...r.details.tools.map((t) => `${r.name} · ${t.name}${t.write ? ' (write)' : ''}`));
       else if (r.kind === 'model') out.Model.push(`${r.name} ${r.version}`);
@@ -239,7 +239,7 @@ export class RegistryService implements OnApplicationBootstrap {
     );
     if (!query.q) {
       const rows = await this.db.select().from(registryItems).where(where).orderBy(asc(registryItems.name));
-      return rows.map(toSummary);
+      return rows.map((r) => toSummary(r, userId));
     }
     const ranked = await this.matching(query.q, query.kind);
     if (ranked.length === 0) return [];
@@ -250,7 +250,7 @@ export class RegistryService implements OnApplicationBootstrap {
     const rank = new Map(ranked.map((key, i) => [key, i]));
     return rows
       .sort((a, b) => rank.get(registryDocId(a.kind, a.id))! - rank.get(registryDocId(b.kind, b.id))!)
-      .map(toSummary);
+      .map((r) => toSummary(r, userId));
   }
 
   async get(userId: string, kind: RegistryKind, id: string): Promise<RegistryItem> {
@@ -260,7 +260,22 @@ export class RegistryService implements OnApplicationBootstrap {
       .where(and(eq(registryItems.kind, kind), eq(registryItems.id, id), this.visibleTo(userId)));
     // Something the person can't see answers like something that doesn't exist.
     if (!row) throw new NotFoundException(`No ${kind} with that id`);
-    return toItem(row);
+    return toItem(row, userId);
+  }
+
+  /**
+   * An edit of a published item, as reviewers judge it. Anyone may see it while it's waiting for review (as they may any
+   * submission); its author may whatever its state. The item's own page shows everyone else the published version.
+   */
+  async proposed(userId: string, kind: RegistryKind, id: string): Promise<RegistryItem> {
+    const [row] = await this.db
+      .select()
+      .from(registryItems)
+      .where(and(eq(registryItems.kind, kind), eq(registryItems.id, id), this.visibleTo(userId)));
+    const p = row?.proposal;
+    if (!row || !p || !(p.status === 'pending' || authorOf(row, userId)))
+      throw new NotFoundException(`No edit of that ${kind} is waiting for review`);
+    return toItem(row, 'review');
   }
 
   /** Runs one of a server's tools in the sandbox: a mock response, nothing called. */
@@ -334,7 +349,7 @@ export class RegistryService implements OnApplicationBootstrap {
       return inserted!;
     });
     await this.indexQuietly([row]);
-    return toItem(row);
+    return toItem(row, userId);
   }
 
   /**
@@ -382,7 +397,7 @@ export class RegistryService implements OnApplicationBootstrap {
         .returning();
       return inserted!;
     });
-    return toItem(row);
+    return toItem(row, userId);
   }
 
   /**
@@ -390,51 +405,91 @@ export class RegistryService implements OnApplicationBootstrap {
    * workflow can be edited by anyone, who becomes its submitter (and so can't review it). Blocking checks refuse it.
    * The save names the revision the editor started from and takes the row's lock: if someone saved since, it's refused
    * (409) rather than written over theirs, so each accepted save gets its own version.
+   *
+   * An edit of a published workflow doesn't replace it: it's kept as the workflow's proposal, and the published version
+   * stays what everyone else sees and runs until two approvals promote the edit. One edit at a time: while someone's is
+   * in review or sent back to them, nobody else can start another (a rejected one can be replaced).
    */
   async saveWorkflow(userId: string, id: string, body: WorkflowGraph): Promise<RegistryItem> {
     await this.get(userId, 'workflow', id);
     const blocking = checkWorkflow(body).filter((c) => c.level === 'block');
     if (blocking.length) throw new BadRequestException(blocking.map((c) => c.message).join(' '));
-    const row = await this.db.transaction(async (tx) => {
+    const result = await this.db.transaction(async (tx) => {
       const [current] = await tx
         .select()
         .from(registryItems)
         .where(and(eq(registryItems.kind, 'workflow'), eq(registryItems.id, id)))
         .for('update');
-      const item = toItem(current!);
-      if (item.owner.personId && item.owner.personId !== userId)
+      const row = current!;
+      if (row.ownerId && row.ownerId !== userId)
         throw new ForbiddenException("Only its owner can change someone's own workflow");
-      if (item.revision !== body.revision)
+      const p = row.proposal;
+      const theirs = !!p && authorOf(row, userId);
+      if (p && !theirs && p.status !== 'rejected')
         throw new ConflictException(
-          `Someone saved ${item.version} while you were editing, so yours wasn't saved. Reload to see theirs.`,
+          p.status === 'pending'
+            ? `${p.version} is in review: edit it once it's been decided.`
+            : `${p.version} was sent back to its editor for changes: edit it once they've resubmitted it.`,
         );
-      const next = item.status === 'draft' ? item.version : `v${(Number(item.version.replace(/^v/, '')) || 1) + 1}`;
+      // What the editor had on screen: their own edit, or the published version.
+      const base = theirs ? proposed(row) : row;
+      if (base.revision !== body.revision)
+        throw new ConflictException(
+          `Someone saved ${base.version} while you were editing, so yours wasn't saved. Reload to see theirs.`,
+        );
+      const vn = (v: string) => Number(v.replace(/^v/, '')) || 1;
+      const details = {
+        ...(base.details as RegistryItem['details'] & object),
+        state: row.status === 'draft' ? 'Active' : (base.details as { state: string }).state,
+        nodes: body.nodes,
+        edges: body.edges,
+      } as RegistryItem['details'];
+
+      if (row.status === 'published') {
+        const [saved] = await tx
+          .update(registryItems)
+          .set({
+            proposal: {
+              // Revisions and versions are never reused, so a replaced rejected edit's snapshot keeps its own.
+              revision: Math.max(row.revision, p?.revision ?? 0) + 1,
+              version: `v${Math.max(vn(row.version), p ? vn(p.version) : 0) + 1}`,
+              name: body.name,
+              summary: base.summary,
+              sensitivity: body.sensitivity,
+              details,
+              status: 'pending',
+              at: new Date().toISOString(),
+            },
+            submittedBy: userId,
+            reviewRound: sql`${registryItems.reviewRound} + 1`,
+          })
+          .where(and(eq(registryItems.kind, 'workflow'), eq(registryItems.id, id)))
+          .returning();
+        // The published version is unchanged, so search has nothing new to index.
+        return { saved: saved!, index: false };
+      }
+
       const [saved] = await tx
         .update(registryItems)
         .set({
           name: body.name,
           sensitivity: body.sensitivity,
-          version: next,
+          version: row.status === 'draft' ? row.version : `v${vn(row.version) + 1}`,
           status: 'pending',
           submittedBy: userId,
           reviewRound:
-            item.status === 'draft' ? sql`${registryItems.reviewRound}` : sql`${registryItems.reviewRound} + 1`,
+            row.status === 'draft' ? sql`${registryItems.reviewRound}` : sql`${registryItems.reviewRound} + 1`,
           revision: sql`${registryItems.revision} + 1`,
-          details: {
-            ...(item.details as RegistryItem['details'] & object),
-            state: item.status === 'draft' ? 'Active' : (item.details as { state: string }).state,
-            nodes: body.nodes,
-            edges: body.edges,
-          } as RegistryItem['details'],
+          details,
           updatedAt: new Date(),
           searchVersion: sql`${registryItems.searchVersion} + 1`,
         })
         .where(and(eq(registryItems.kind, 'workflow'), eq(registryItems.id, id)))
         .returning();
-      return saved!;
+      return { saved: saved!, index: true };
     });
-    await this.indexQuietly([row]);
-    return toItem(row);
+    if (result.index) await this.indexQuietly([result.saved]);
+    return toItem(result.saved, userId);
   }
 
   /** The linked items, which must all be in the registry and visible to the person: in the order given, each once. */
@@ -578,7 +633,8 @@ export class RegistryService implements OnApplicationBootstrap {
 
   /**
    * What the person can see: anything published or in review, and, whatever its state, what they own or last sent to
-   * review (a team's item they edited, sent back to them). Other people's drafts and returned submissions stay hidden.
+   * review (a team's item they edited, sent back to them). Other people's drafts and returned submissions stay hidden;
+   * so does someone else's edit of a published item, whose published version they see instead (see seenBy).
    */
   private visibleTo(userId: string): SQL {
     return or(
@@ -652,9 +708,12 @@ function scopeOf(userId: string, scope: RegistryQuery['scope']): SQL | undefined
   return undefined;
 }
 
-/** The row as the contract has it; a row whose details don't fit its kind is a bug, so it fails loudly here. */
-function toItem(r: Row): RegistryItem {
-  return RegistryItem.parse({ ...toSummary(r), details: r.details });
+/**
+ * The row as the contract has it, as the viewer sees it; a row whose details don't fit its kind is a bug, so it fails
+ * loudly here.
+ */
+function toItem(r: Row, viewer: Viewer): RegistryItem {
+  return RegistryItem.parse({ ...toSummary(r, viewer), details: seenBy(r, viewer).shown.details });
 }
 
 /** The words in an item's details, for search: every string in them, joined. */

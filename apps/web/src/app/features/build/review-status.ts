@@ -10,6 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import type { RegistryItem, ReviewDecision, ReviewHistory } from '@donovan/contracts';
@@ -30,18 +31,37 @@ const DECISION: Record<ReviewDecision, string> = {
 
 /**
  * Where an item that isn't published yet is in review: its status, every decision so far, and, for its owner when it
- * was sent back or rejected, resubmitting it (with a revised summary) for a new round.
+ * was sent back or rejected, resubmitting it (with a revised summary) for a new round. For an edit of a published item,
+ * it says which version is live meanwhile; on the published version, that an edit of it is in review.
  */
 @Component({
   selector: 'dn-review-status',
-  imports: [FormsModule, Button],
+  imports: [FormsModule, RouterLink, Button],
   template: `
     @let i = item();
     <section class="review" aria-labelledby="review-h" [attr.data-status]="i.status">
       <h2 id="review-h">{{ status[i.status] }}</h2>
+      @if (i.liveVersion) {
+        <p>
+          {{ i.version }} is an edit of {{ i.liveVersion }}, which stays published, and is what everyone else sees and
+          runs, until this is approved.
+          @if (proposedView()) {
+            <a [routerLink]="[]" [queryParams]="{ proposed: null }" queryParamsHandling="merge"
+              >See the published {{ i.liveVersion }}</a
+            >
+          }
+        </p>
+      } @else if (i.editInReview) {
+        <p>
+          An edit, {{ i.editInReview }}, is waiting for review. Until two people approve it, this version ({{
+            i.version
+          }}) is what everyone sees and runs.
+          <a [routerLink]="[]" [queryParams]="{ proposed: 1 }" queryParamsHandling="merge">See {{ i.editInReview }}</a>
+        </p>
+      }
       @if (history.hasValue()) {
         @let h = history.value();
-        @if (i.status === 'pending') {
+        @if (i.status === 'pending' || i.editInReview) {
           <p>
             Two approvals from people other than its submitter publish it. Round {{ h.round }}: {{ approvals() }} of 2.
           </p>
@@ -129,6 +149,8 @@ const DECISION: Record<ReviewDecision, string> = {
 })
 export class ReviewStatus implements OnInit {
   readonly item = input.required<RegistryItem>();
+  /** Showing the edit in review (?proposed=1) rather than the item's own page. */
+  readonly proposedView = input(false);
   /** Resubmitted: the page reloads the item. */
   readonly changed = output<void>();
   readonly #http = inject(HttpClient);

@@ -124,6 +124,8 @@ export class WorkflowDetail {
   readonly area = input.required<BuildArea>();
   /** From the address: ?mode=edit. */
   readonly edit = input(false);
+  /** Shown for review, not to change: the edit of a published workflow, opened from the queue. */
+  readonly readonly = input(false);
   /** Saved as its next version: the page reloads it. */
   readonly saved = output<void>();
 
@@ -145,10 +147,14 @@ export class WorkflowDetail {
   protected readonly failures: SegmentOption[] = FAILURES;
   protected readonly tiers: SelectOption[] = TIERS.map((t) => ({ value: t, label: t }));
 
-  /** Someone's own workflow is theirs to edit; a team's is anyone's (it goes to review either way). */
+  /**
+   * Someone's own workflow is theirs to edit; a team's is anyone's (it goes to review either way). One edit at a time:
+   * not while someone else's is in review.
+   */
   protected readonly canEdit = computed(() => {
-    const owner = this.item().owner.personId;
-    return owner === null || (this.#me.hasValue() && this.#me.value().id === owner);
+    const w = this.item();
+    if (this.readonly() || w.editInReview) return false;
+    return w.owner.personId === null || (this.#me.hasValue() && this.#me.value().id === w.owner.personId);
   });
   protected readonly editing = computed(() => this.edit() && this.canEdit());
 

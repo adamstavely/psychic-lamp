@@ -6,7 +6,14 @@ describe('the starting registry', () => {
 
   it('fits the contract, item by item', () => {
     for (const item of REGISTRY_SEED) {
-      const parsed = RegistryItem.safeParse({ ...item, access: null, revision: 1, updatedAt: at });
+      const parsed = RegistryItem.safeParse({
+        ...item,
+        access: null,
+        revision: 1,
+        liveVersion: null,
+        editInReview: null,
+        updatedAt: at,
+      });
       expect(parsed.success, `${item.kind}:${item.id} ${JSON.stringify(parsed.error?.issues[0])}`).toBe(true);
     }
   });

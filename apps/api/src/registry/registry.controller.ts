@@ -143,6 +143,16 @@ export class RegistryController {
     return this.registry.detach(await this.users.idFor(claims), id, projectId);
   }
 
+  @Get(':kind/:id/proposed')
+  @ApiOkResponse({ standardSchema: RegistryItem })
+  async proposed(
+    @Claims() claims: TokenClaims,
+    @Param('kind', { schema: RegistryKind }) kind: RegistryKind,
+    @Param('id', { schema: RegistryId }) id: string,
+  ): Promise<RegistryItem> {
+    return this.registry.proposed(await this.users.idFor(claims), kind, id);
+  }
+
   @Get(':kind/:id/installs')
   @ApiOkResponse({ standardSchema: z.array(RegistryInstall) })
   async installs(
