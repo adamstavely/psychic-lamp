@@ -225,6 +225,47 @@ describe('/api/registry', () => {
       endpoint: 'https://mcp.example.com/sse',
     });
 
+    it('gives the same name, registered at once by different people, its own id each: no errors', async () => {
+      const name = `Same name ${randomUUID().slice(0, 8)}`;
+      const people = await Promise.all(
+        [1, 2, 3, 4, 5, 6].map((n) =>
+          t.token({ sub: `registrar-same-${n}-${randomUUID()}`, name: `Person ${n} ${name}` }),
+        ),
+      );
+      const results = await Promise.all(
+        people.map((token) => http.post('/api/registry').auth(token, bearer).send(server(name))),
+      );
+      expect(results.map((r) => r.status)).toEqual([201, 201, 201, 201, 201, 201]);
+      const ids = results.map((r) => (r.body as { id: string }).id);
+      expect(new Set(ids).size).toBe(6);
+      expect(new Set(results.map((r) => (r.body as { slug: string }).slug)).size).toBe(6);
+    });
+
+    it('still refuses, with 409, the same person registering the same name twice at once', async () => {
+      const token = await t.token({ sub: `registrar-twice-${randomUUID()}`, name: 'Twice Over' });
+      const name = `Twice ${randomUUID().slice(0, 8)}`;
+      const results = await Promise.all(
+        [1, 2, 3].map(() => http.post('/api/registry').auth(token, bearer).send(server(name))),
+      );
+      expect(results.map((r) => r.status).sort()).toEqual([201, 409, 409]);
+    });
+
+    it('makes same-named workflow drafts at once, numbered for one person and their own for others', async () => {
+      const name = `Concurrent flow ${randomUUID().slice(0, 8)}`;
+      const one = await t.token({ sub: `registrar-flows-one-${randomUUID()}`, name: 'Flow One' });
+      const others = await Promise.all(
+        [1, 2, 3].map((n) => t.token({ sub: `registrar-flows-${n}-${randomUUID()}`, name: `Flow Person ${n}` })),
+      );
+      const make = (token: string) => http.post('/api/registry/workflows').auth(token, bearer).send({ name });
+      const mine = await Promise.all([make(one), make(one), make(one)]);
+      expect(mine.map((r) => r.status)).toEqual([201, 201, 201]);
+      expect(mine.map((r) => (r.body as { name: string }).name).sort()).toEqual([name, `${name} 2`, `${name} 3`]);
+      const theirs = await Promise.all(others.map(make));
+      expect(theirs.map((r) => r.status)).toEqual([201, 201, 201]);
+      const ids = [...mine, ...theirs].map((r) => (r.body as { id: string }).id);
+      expect(new Set(ids).size).toBe(6);
+    });
+
     it("saves a submission as pending, the person's own, and lists it in their Mine", async () => {
       const sub = `registrar-${randomUUID()}`;
       const token = await t.token({ sub, name: 'Robin Reyes' });
