@@ -121,6 +121,7 @@ test.describe('Governance', () => {
       page,
       browser,
     }) => {
+      test.slow(); // Four people sign in.
       await signIn(page, 'devon', '/build/workflows');
       await resetUser(page);
       const graph = (revision: number, sub: string) => ({
@@ -156,13 +157,16 @@ test.describe('Governance', () => {
       await expect(page.getByRole('region', { name: 'Waiting for review' })).toContainText(
         'v2 is an edit of v1, which stays published',
       );
+      // The workflow's own View | Edit control (the shell's top bar has a mode control of its own).
+      const modeControl = (p: typeof page) => p.locator('.bar tc-segmented-control');
+      await expect(modeControl(page)).toHaveCount(1);
 
       // Someone else sees v1, which they can't edit while v2 is in review, and can open v2 from there.
       const other = await as(browser, 'mara', `/build/workflows/${draft.id}`);
       const review = other.getByRole('region', { name: 'Published' });
       await expect(review).toContainText('An edit, v2, is waiting for review');
       await expect(other.getByText(/^v1 ·/)).toBeVisible();
-      await expect(other.locator('tc-segmented-control')).toHaveCount(0);
+      await expect(modeControl(other)).toHaveCount(0);
       await expectNoAxeViolations(other);
       await review.getByRole('link', { name: 'See v2' }).click();
       await expect(other).toHaveURL(/proposed=1/);
